@@ -1,0 +1,9 @@
+# Smithery.ai MCP Server Configuration
+# https://smithery.ai/docs/config
+
+startCommand:
+  type: stdio
+  config:
+    command: node
+    args:
+      - mcp-server/build/index.js

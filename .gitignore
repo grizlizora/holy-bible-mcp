@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+venv/
+.venv/
+
+# Database raw files & temporary extraction
+data/raw/
+*.zip
+*.tar.gz
+*.tmp
+
+# SQLite Database (Too large for direct git tracking; hosted on HuggingFace/Releases)
+data/processed/*.sqlite
+data/processed/*.sqlite-wal
+data/processed/*.sqlite-shm
+
+# Build output & logs
+mcp-server/build/
+*.log
+.DS_Store
