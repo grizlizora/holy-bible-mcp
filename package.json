@@ -1,0 +1,17 @@
+{
+  "name": "holy-bible-mcp",
+  "version": "1.0.0",
+  "description": "Universal Multilingual Bible MCP Server (800+ languages, 11.9M verses, 100% offline, zero-latency FTS5)",
+  "main": "mcp-server/build/index.js",
+  "type": "module",
+  "bin": {
+    "holy-bible-mcp": "mcp-server/build/index.js"
+  },
+  "scripts": {
+    "start": "node mcp-server/build/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.1",
+    "sqlite3": "^5.1.7"
+  }
+}
