@@ -180,9 +180,31 @@ server.setRequestHandler(GetPromptRequestSchema, async (request) => {
         ]
     };
 });
+let currentModeKey = "medium";
+function formatToolResponse(data) {
+    return JSON.stringify({
+        results: data,
+        _REQUIRED_FORMATTING_RULES_FOR_AI_: PROMPT_TEMPLATES[currentModeKey] || PROMPT_TEMPLATES["medium"]
+    }, null, 2);
+}
 server.setRequestHandler(ListToolsRequestSchema, async () => {
     return {
         tools: [
+            {
+                name: "set_response_mode",
+                description: "Switch the response formatting mode for the AI (works in TypingMind, Claude, Antigravity, Telegram, etc.). Modes: 'minimal', 'short', 'medium', 'detailed', 'deep', 'verses_only'.",
+                inputSchema: {
+                    type: "object",
+                    properties: {
+                        mode: {
+                            type: "string",
+                            enum: ["minimal", "short", "medium", "detailed", "deep", "verses_only"],
+                            description: "Desired response mode"
+                        }
+                    },
+                    required: ["mode"]
+                }
+            },
             {
                 name: "search_keyword",
                 description: `Search for verses using SQLite FTS5 Full-Text Search. 
@@ -196,7 +218,8 @@ CRITICAL RULES FOR AI:
                     type: "object",
                     properties: {
                         query: { type: "string", description: "The FTS5 query (e.g. 'love AND enemies', or 'faith*')" },
-                        language: { type: "string", description: "3-letter language code (e.g., 'eng', 'ukr', 'spa'). Leave empty to search all languages." }
+                        language: { type: "string", description: "3-letter language code (e.g., 'eng', 'ukr', 'spa'). Leave empty to search all languages." },
+                        response_mode: { type: "string", enum: ["minimal", "short", "medium", "detailed", "deep", "verses_only"], description: "Optional: set response mode for this query." }
                     },
                     required: ["query"]
                 }
@@ -210,7 +233,8 @@ CRITICAL RULES FOR AI:
                         book: { type: "string", description: "Book abbreviation (e.g. 'gn', 'ps', 'mt')" },
                         chapter: { type: "number", description: "Chapter number" },
                         verse: { type: "number", description: "Verse number" },
-                        language: { type: "string", description: "Language code (e.g. 'eng', 'ukr')" }
+                        language: { type: "string", description: "Language code (e.g. 'eng', 'ukr')" },
+                        response_mode: { type: "string", enum: ["minimal", "short", "medium", "detailed", "deep", "verses_only"] }
                     },
                     required: ["book", "chapter", "verse"]
                 }
@@ -223,7 +247,8 @@ CRITICAL RULES FOR AI:
                     properties: {
                         book: { type: "string", description: "Book abbreviation (e.g. 'gn', 'ps')" },
                         chapter: { type: "number", description: "Chapter number" },
-                        language: { type: "string", description: "Language code (e.g. 'eng', 'ukr')" }
+                        language: { type: "string", description: "Language code (e.g. 'eng', 'ukr')" },
+                        response_mode: { type: "string", enum: ["minimal", "short", "medium", "detailed", "deep", "verses_only"] }
                     },
                     required: ["book", "chapter"]
                 }
@@ -257,7 +282,24 @@ CRITICAL RULES FOR AI:
 });
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
+    if (args?.response_mode) {
+        currentModeKey = args.response_mode;
+    }
     try {
+        if (name === "set_response_mode") {
+            const mode = args?.mode;
+            currentModeKey = mode;
+            return {
+                content: [{
+                        type: "text",
+                        text: JSON.stringify({
+                            status: "success",
+                            message: `Response mode updated to: ${mode}`,
+                            formatting_rules: PROMPT_TEMPLATES[mode] || PROMPT_TEMPLATES["medium"]
+                        }, null, 2)
+                    }]
+            };
+        }
         if (name === "search_keyword") {
             const query = args?.query;
             const langCondition = args?.language ? `AND v.language = ?` : "";
@@ -271,7 +313,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             `;
             const results = await queryDb(sql, params);
             return {
-                content: [{ type: "text", text: JSON.stringify(results, null, 2) }]
+                content: [{ type: "text", text: formatToolResponse(results) }]
             };
         }
         if (name === "get_verse") {
@@ -288,7 +330,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             sql += ` LIMIT 5`;
             const results = await queryDb(sql, params);
             return {
-                content: [{ type: "text", text: JSON.stringify(results.length > 0 ? results : { error: "Verse not found" }, null, 2) }]
+                content: [{ type: "text", text: formatToolResponse(results.length > 0 ? results : { error: "Verse not found" }) }]
             };
         }
         if (name === "get_chapter_context") {
@@ -304,7 +346,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             sql += ` ORDER BY verse ASC LIMIT 200`;
             const results = await queryDb(sql, params);
             return {
-                content: [{ type: "text", text: JSON.stringify(results.length > 0 ? results : { error: "Chapter context not found" }, null, 2) }]
+                content: [{ type: "text", text: formatToolResponse(results.length > 0 ? results : { error: "Chapter context not found" }) }]
             };
         }
         if (name === "get_strongs_definition") {
