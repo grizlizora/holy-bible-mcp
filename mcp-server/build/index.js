@@ -119,7 +119,12 @@ STRICT STYLISTIC & FORMATTING RULES FOR TELEGRAM (HTML PARSE MODE):
    <b>💡 Підсумок</b>
    (1-2 clear, impactful sentences summarizing the biblical truth)
 5. NO REPETITION: State each verse text and reference ONCE. Do not repeat citations.
-6. LANGUAGE: Respond in the exact language used by the user.`
+6. LANGUAGE: Respond in the exact language used by the user.
+7. HIGH ADAPTABILITY TO ANY QUESTION TYPE:
+   - For life guidance ("Як правильно чинити?"): provide practical biblical wisdom, relevant 📖 Verses, and a 💡 Practical Summary.
+   - For topical questions ("Що Біблія каже про...?"): analyze 📖 Verses, 🔍 Original Language roots, and 💡 Summary.
+   - For direct verse lookups ("Знайди Івана 3:16"): render the text elegantly in <blockquote> quotes.
+   - Smoothly adapt section titles to fit any context while preserving Telegram HTML tags (<b>, <i>, <blockquote>).`
                     }
                 }
             ]
