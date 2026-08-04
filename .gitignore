@@ -14,6 +14,6 @@ data/processed/*.sqlite
 data/processed/*.sqlite-wal
 data/processed/*.sqlite-shm
 
-# Build output & logs
+# Build output & logs (keep mcp-server/build tracked for npx)
 *.log
 .DS_Store
