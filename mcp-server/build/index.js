@@ -276,16 +276,95 @@ CRITICAL RULES FOR AI:
                     },
                     required: ["book", "chapter", "verse"]
                 }
+            },
+            {
+                name: "evaluate_question",
+                description: "Evaluate question complexity (0-100 score), provide category and recommend the optimal response mode.",
+                inputSchema: {
+                    type: "object",
+                    properties: {
+                        question: { type: "string", description: "User's question" }
+                    },
+                    required: ["question"]
+                }
             }
         ]
     };
 });
+function evaluateQuestionComplexity(q) {
+    const text = (q || "").toLowerCase().trim();
+    // Direct verse lookup check
+    if (/^(покажи|прочитай|знайди|вірш|глава|розділ|\d?\s*[а-яєіїa-z]+\s*\d+:\d+)/i.test(text) && text.length < 35) {
+        return {
+            complexity_score: 15,
+            category: "Простий пошук вірша",
+            recommended_mode: "verses_only",
+            recommended_mode_label: "📜 Тільки Вірші",
+            reason: "Запит містить безпосередній пошук конкретного вірша."
+        };
+    }
+    const deepKeywords = ["страждан", "депрес", "теолог", "доктрин", "пророцтв", "об'явлен", "даниїл", "закон і грац", "закон і благодат", "теодіцей", "триєдн", "троиц", "спасін", "відкуплен", "вечеря", "етичн", "моральні дилем"];
+    const detailedKeywords = ["брехн", "обман", "люб", "ворог", "гнів", "прощен", "грош", "багатст", "податк", "шлюб", "сім'я", "розлучен"];
+    let matchesDeep = deepKeywords.filter(k => text.includes(k)).length;
+    let matchesDetailed = detailedKeywords.filter(k => text.includes(k)).length;
+    let score = 50;
+    if (matchesDeep > 0 || text.length > 100) {
+        score = Math.min(95, 75 + matchesDeep * 10 + Math.floor(text.length / 50));
+    }
+    else if (matchesDetailed > 0 || text.length > 50) {
+        score = Math.min(70, 55 + matchesDetailed * 10);
+    }
+    else if (text.length < 25) {
+        score = 30;
+    }
+    let recommended_mode = "medium";
+    let recommended_mode_label = "⚖️ Середньо";
+    let category = "Повсякденне біблійне питання";
+    if (score <= 25) {
+        recommended_mode = "minimal";
+        recommended_mode_label = "⚡ Мінімально";
+        category = "Просте питання";
+    }
+    else if (score <= 45) {
+        recommended_mode = "short";
+        recommended_mode_label = "📝 Скорочено";
+        category = "Коротке тематичне питання";
+    }
+    else if (score <= 65) {
+        recommended_mode = "medium";
+        recommended_mode_label = "⚖️ Середньо";
+        category = "Стандартне біблійне питання";
+    }
+    else if (score <= 85) {
+        recommended_mode = "detailed";
+        recommended_mode_label = "🔍 Детально";
+        category = "Поглиблене тематичне питання";
+    }
+    else {
+        recommended_mode = "deep";
+        recommended_mode_label = "🏛️ Поглиблено";
+        category = "Складне теологічне питання";
+    }
+    return {
+        complexity_score: score,
+        category,
+        recommended_mode,
+        recommended_mode_label,
+        reason: `Питання кваліфіковано як '${category}' з оцінкою складності ${score}/100.`
+    };
+}
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
     if (args?.response_mode) {
         currentModeKey = args.response_mode;
     }
     try {
+        if (name === "evaluate_question") {
+            const result = evaluateQuestionComplexity(args?.question);
+            return {
+                content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
+            };
+        }
         if (name === "set_response_mode") {
             const mode = args?.mode;
             currentModeKey = mode;
