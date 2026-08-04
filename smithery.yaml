@@ -7,3 +7,6 @@ startCommand:
     command: node
     args:
       - mcp-server/build/index.js
+
+build:
+  command: npm --prefix mcp-server install && npm --prefix mcp-server run build

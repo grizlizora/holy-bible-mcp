@@ -1,0 +1,10 @@
+{
+  "name": "holy-bible-mcp",
+  "description": "Universal Multilingual Bible MCP Server (800+ languages, 11.9M verses, 100% offline, zero-latency FTS5)",
+  "version": "1.0.0",
+  "transport": "stdio",
+  "command": "node",
+  "args": [
+    "mcp-server/build/index.js"
+  ]
+}
