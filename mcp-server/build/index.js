@@ -12,11 +12,19 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const LOCAL_DB = path.resolve(__dirname, "../../data/processed/bible_database.sqlite");
 const GLOBAL_DIR = path.join(os.homedir(), ".bible-mcp");
 const GLOBAL_DB = path.join(GLOBAL_DIR, "bible_database.sqlite");
+function isValidDb(dbPath) {
+    try {
+        return fs.existsSync(dbPath) && fs.statSync(dbPath).size > 1000000;
+    }
+    catch (e) {
+        return false;
+    }
+}
 function resolveDbPath() {
-    if (fs.existsSync(LOCAL_DB)) {
+    if (isValidDb(LOCAL_DB)) {
         return LOCAL_DB;
     }
-    if (fs.existsSync(GLOBAL_DB)) {
+    if (isValidDb(GLOBAL_DB)) {
         return GLOBAL_DB;
     }
     // Ensure ~/.bible-mcp directory exists for new users
@@ -25,7 +33,7 @@ function resolveDbPath() {
     }
     console.error(`[INFO] Bible Database not found at ${LOCAL_DB} or ${GLOBAL_DB}.`);
     console.error(`[INFO] Please place 'bible_database.sqlite' into ${GLOBAL_DB} or download it from HuggingFace: https://huggingface.co/datasets/grizlizora/holy-bible-mcp`);
-    return LOCAL_DB; // fallback attempt
+    return GLOBAL_DB;
 }
 const DB_PATH = resolveDbPath();
 // Connect to SQLite Database

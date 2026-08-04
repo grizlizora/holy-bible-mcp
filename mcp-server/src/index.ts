@@ -10,20 +10,42 @@ import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Support decentralized DB paths
+// Support decentralized DB paths (Local Project vs Global User Directory)
 const LOCAL_DB = path.resolve(__dirname, "../../data/processed/bible_database.sqlite");
-const GLOBAL_DB = path.join(os.homedir(), ".bible-mcp", "bible_database.sqlite");
+const GLOBAL_DIR = path.join(os.homedir(), ".bible-mcp");
+const GLOBAL_DB = path.join(GLOBAL_DIR, "bible_database.sqlite");
 
-const DB_PATH = fs.existsSync(LOCAL_DB) ? LOCAL_DB : GLOBAL_DB;
-
-if (!fs.existsSync(DB_PATH)) {
-    console.error(`[ERROR] Bible Database not found at ${LOCAL_DB} or ${GLOBAL_DB}.`);
-    console.error(`Please download the global database from HuggingFace/GitHub and place it in ~/.bible-mcp/bible_database.sqlite`);
-    process.exit(1);
+function isValidDb(dbPath: string): boolean {
+    try {
+        return fs.existsSync(dbPath) && fs.statSync(dbPath).size > 1000000;
+    } catch (e) {
+        return false;
+    }
 }
 
+function resolveDbPath(): string {
+    if (isValidDb(LOCAL_DB)) {
+        return LOCAL_DB;
+    }
+    if (isValidDb(GLOBAL_DB)) {
+        return GLOBAL_DB;
+    }
+    
+    // Ensure ~/.bible-mcp directory exists for new users
+    if (!fs.existsSync(GLOBAL_DIR)) {
+        fs.mkdirSync(GLOBAL_DIR, { recursive: true });
+    }
+    
+    console.error(`[INFO] Bible Database not found at ${LOCAL_DB} or ${GLOBAL_DB}.`);
+    console.error(`[INFO] Please place 'bible_database.sqlite' into ${GLOBAL_DB} or download it from HuggingFace: https://huggingface.co/datasets/grizlizora/holy-bible-mcp`);
+    
+    return GLOBAL_DB;
+}
+
+const DB_PATH = resolveDbPath();
+
 // Connect to SQLite Database
-const db = new sqlite3.Database(DB_PATH, sqlite3.OPEN_READWRITE | sqlite3.OPEN_READONLY, (err) => {
+const db = new sqlite3.Database(DB_PATH, (err) => {
     if (err) {
         console.error("Error connecting to database:", err.message);
         process.exit(1);
