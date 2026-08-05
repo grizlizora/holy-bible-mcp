@@ -520,10 +520,24 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             };
         }
 
+function detectQueryLanguage(query: string): string | null {
+    const text = (query || "").toLowerCase();
+    
+    if (/[а-яєіїґ]/.test(text)) return "ukr";
+    if (/\b(el|la|los|las|de|en|y|que|por|para|con|amor|fe|esperanza|dios|jesús)\b/.test(text)) return "spa";
+    if (/\b(der|die|das|und|in|den|von|zu|mit|ist|liebe|glaube|hoffnung|gott)\b/.test(text)) return "deu";
+    if (/\b(le|la|les|et|en|du|de|pour|dans|un|une|amour|foi|espérance|dieu)\b/.test(text)) return "fra";
+    if (/\b(i|w|na|z|do|ze|o|przez|bóg|miłość|wiara|nadzieja)\b|[ąćęłńóśźż]/.test(text)) return "pol";
+    if (/\b(the|and|in|of|to|a|is|that|for|on|with|as|love|faith|hope|god|jesus)\b/.test(text)) return "eng";
+
+    return null;
+}
+
 function expandSearchQuery(query: string): string {
     const q = (query || "").trim().toLowerCase();
     
     const SYNONYMS: Record<string, string[]> = {
+        // Ukrainian
         "любов": ["люб*", "кохан*", "милосерд*"],
         "віра": ["вір*", "віру*", "упован*"],
         "надія": ["наді*", "упован*", "сподіван*"],
@@ -532,8 +546,27 @@ function expandSearchQuery(query: string): string {
         "гнів": ["гнів*", "лютість*", "ярість*"],
         "прощення": ["прощ*", "прости*", "милість*"],
         "страждання": ["страждан*", "скорбот*", "мук*", "біда*"],
-        "крипта": ["грош*", "багатст*", "мамон*", "надбан*"],
-        "інвестиції": ["збиран*", "множен*", "талант*"]
+
+        // English
+        "love": ["lov*", "charit*", "affection*"],
+        "faith": ["faith*", "believ*", "trust*"],
+        "hope": ["hope*", "trust*", "expectation*"],
+        "lie": ["lie*", "lying*", "deceit*", "falsehood*"],
+        "money": ["money*", "wealth*", "rich*", "mammon*"],
+        "anger": ["anger*", "wrath*", "rage*"],
+        "forgiveness": ["forgiv*", "pardon*", "mercy*"],
+        "suffering": ["suffer*", "affliction*", "tribulation*"],
+
+        // Spanish
+        "amor": ["amor*", "caridad*", "afecto*"],
+        "fe": ["fe*", "cree*", "confianza*"],
+        "esperanza": ["esperanza*", "confianza*"],
+        "mentira": ["mentira*", "engaño*", "falsedad*"],
+
+        // German
+        "liebe": ["lieb*", "barmherz*"],
+        "glaube": ["glaub*", "vertrauen*"],
+        "hoffnung": ["hoffnung*", "zuversicht*"]
     };
 
     for (const [key, terms] of Object.entries(SYNONYMS)) {
@@ -565,8 +598,16 @@ function expandSearchQuery(query: string): string {
         if (name === "search_keyword") {
             const rawQuery = args?.query as string;
             const query = expandSearchQuery(rawQuery);
-            const langCondition = args?.language ? `AND v.language = ?` : "";
-            const params = args?.language ? [query, args.language] : [query];
+            let language = args?.language as string;
+
+            // Auto-detect language if omitted
+            if (!language) {
+                const detected = detectQueryLanguage(rawQuery);
+                if (detected) language = detected;
+            }
+
+            const langCondition = language ? `AND v.language = ?` : "";
+            const params = language ? [query, language] : [query];
 
             const sql = `
                 SELECT v.id, v.book, v.chapter, v.verse, v.text 
