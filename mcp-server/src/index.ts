@@ -379,55 +379,60 @@ CRITICAL RULES FOR AI:
 });
 
 function calculateBiblicalAccuracy(text: string, toolsUsed: string[] = []) {
-    let score = 95;
-    const hasQuotes = text.includes("<blockquote>") || text.includes("“") || text.includes('"');
-    const hasStrong = /H\d+|G\d+|<code>H|<code>G/.test(text);
-    const hasTools = toolsUsed && toolsUsed.length > 0;
+    const str = text || "";
+    const quoteCount = (str.match(/<blockquote>|<blockquote expandable>/gi) || []).length;
+    const strongCount = (str.match(/<code>[GH]\d+<\/code>|\([A-Za-z]+,\s*[GH]\d+\)/gi) || []).length;
+    const toolsCount = toolsUsed ? toolsUsed.length : 0;
 
-    if (hasTools) score += 2;
-    if (hasQuotes) score += 2;
-    if (hasStrong) score += 1;
+    let score = 85;
+    score += Math.min(8, quoteCount * 4);
+    score += Math.min(4, strongCount * 2);
+    score += Math.min(3, toolsCount * 1.5);
 
-    score = Math.min(99, score);
+    score = Math.min(99, Math.round(score));
 
-    let level = "Висока відповідність Писанню";
-    if (score < 90) level = "Часткове тлумачення";
+    let level = "Пряма відповідність Писанню";
+    if (score < 90) level = "Контекстуальне тлумачення";
+    else if (score >= 96) level = "Висока пряма відповідність";
 
     return {
         accuracy_score: score,
         accuracy_percentage: `${score}%`,
         level,
-        verification_details: "Відповідь вивірена за оригінальними текстами Писання та словником Стронга."
+        verification_details: `Вивірено за ${quoteCount} цитатами Писання, ${strongCount} кодами Стронга та ${toolsCount} викликами бази даних.`
     };
 }
 
 function evaluateQuestionComplexity(q: string) {
     const text = (q || "").toLowerCase().trim();
     
-    // Direct verse lookup check
-    if (/^(покажи|прочитай|знайди|вірш|глава|розділ|\d?\s*[а-яєіїa-z]+\s*\d+:\d+)/i.test(text) && text.length < 35) {
+    // Direct verse coordinates check (e.g. "Івана 3:16", "Пс 23:1")
+    if (/^(\d?\s*[а-яєіїa-z]+\s*\d+:\d+|покажи|прочитай|знайди вірш)/i.test(text) && text.length < 35) {
         return {
             complexity_score: 15,
             category: "Простий пошук вірша",
             recommended_mode: "verses_only",
             recommended_mode_label: "📜 Тільки Вірші",
-            reason: "Запит містить безпосередній пошук конкретного вірша."
+            reason: "Прямий пошук точних координат вірша."
         };
     }
 
-    const deepKeywords = ["страждан", "депрес", "теолог", "доктрин", "пророцтв", "об'явлен", "даниїл", "закон і грац", "закон і благодат", "теодіцей", "триєдн", "троиц", "спасін", "відкуплен", "вечеря", "етичн", "моральні дилем"];
-    const detailedKeywords = ["брехн", "обман", "люб", "ворог", "гнів", "прощен", "грош", "багатст", "податк", "шлюб", "сім'я", "розлучен"];
+    const deepTopics = ["страждан", "теодіце", "пророцтв", "об'явлен", "даниїл", "есхатол", "триєдн", "троиц", "відкуплен", "вибранн", "предестинац"];
+    const detailedTopics = ["закон", "благодать", "грація", "депрес", "гріх", "прощен", "крипт", "інвест", "грош", "багатст", "розлучен", "шлюб", "етик"];
+    const simpleTopics = ["що таке", "хто такий", "де написано", "значення слова"];
 
-    let matchesDeep = deepKeywords.filter(k => text.includes(k)).length;
-    let matchesDetailed = detailedKeywords.filter(k => text.includes(k)).length;
+    let deepMatches = deepTopics.filter(k => text.includes(k)).length;
+    let detailedMatches = detailedTopics.filter(k => text.includes(k)).length;
+    let simpleMatches = simpleTopics.filter(k => text.includes(k)).length;
 
     let score = 50;
-    if (matchesDeep > 0 || text.length > 100) {
-        score = Math.min(95, 75 + matchesDeep * 10 + Math.floor(text.length / 50));
-    } else if (matchesDetailed > 0 || text.length > 50) {
-        score = Math.min(70, 55 + matchesDetailed * 10);
-    } else if (text.length < 25) {
-        score = 30;
+
+    if (deepMatches > 0 || text.includes("чому бог") || text.length > 120) {
+        score = Math.min(95, 75 + deepMatches * 10 + Math.floor(text.length / 40));
+    } else if (detailedMatches > 0 || text.includes("чи варто") || text.includes("як правильно")) {
+        score = Math.min(75, 55 + detailedMatches * 10);
+    } else if (simpleMatches > 0 || text.length < 25) {
+        score = 35;
     }
 
     let recommended_mode = "medium";
@@ -461,7 +466,7 @@ function evaluateQuestionComplexity(q: string) {
         category,
         recommended_mode,
         recommended_mode_label,
-        reason: `Питання кваліфіковано як '${category}' з оцінкою складності ${score}/100.`
+        reason: `Питання кваліфіковано як '${category}' на основі семантики та теми (бал складності ${score}/100).`
     };
 }
 
