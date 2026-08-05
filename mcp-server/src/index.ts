@@ -59,6 +59,48 @@ db.run("PRAGMA cache_size = -64000;"); // 64MB RAM cache
 db.run("PRAGMA mmap_size = 268435456;"); // 256MB Memory-Mapped I/O
 db.run("PRAGMA temp_store = MEMORY;");
 
+// Initialize Internal Commentary Engine & Semantic Concept Engine
+db.serialize(() => {
+    db.run(`CREATE TABLE IF NOT EXISTS commentaries (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        book TEXT,
+        chapter INTEGER,
+        verse INTEGER,
+        author TEXT,
+        commentary_text TEXT
+    );`);
+
+    db.run(`CREATE TABLE IF NOT EXISTS semantic_concepts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        concept_name TEXT,
+        keywords TEXT,
+        book TEXT,
+        chapter INTEGER,
+        verse INTEGER,
+        theological_principle TEXT
+    );`);
+
+    // Seed default historical commentary & semantic concept mappings
+    db.get("SELECT COUNT(*) as cnt FROM commentaries", (err, row: any) => {
+        if (!err && row && row.cnt === 0) {
+            db.run(`INSERT INTO commentaries (book, chapter, verse, author, commentary_text) VALUES 
+            ('JN', 3, 16, 'Іван Золотоуст', 'Бог так полюбив світ, що віддав Сина Свого Єдинородного. Це найвища демонстрація жертовної любові (Агапе).'),
+            ('JN', 3, 16, 'Меттью Генрі', 'Віра в Христа є єдиним засобом спасіння від вічної погибелі та отримання вічного життя.'),
+            ('PS', 23, 1, 'Іван Огієнко', 'Пастирський Псалом виражає абсолютну довіру Богу як Дбайливому Пастирю в часи випробувань.');`);
+        }
+    });
+
+    db.get("SELECT COUNT(*) as cnt FROM semantic_concepts", (err, row: any) => {
+        if (!err && row && row.cnt === 0) {
+            db.run(`INSERT INTO semantic_concepts (concept_name, keywords, book, chapter, verse, theological_principle) VALUES 
+            ('тривожність', 'тривога переймання страх неспокій', 'PHP', 4, 6, 'Ні про що не турбуйтесь, але в усьому через молитву відкривайте свої прохання Богові.'),
+            ('самотність', 'одинокість покинутий самотній', 'PS', 27, 10, 'Бо мій батько та мати мене залишили, але Господь прийме мене.'),
+            ('фінансові випробування', 'гроші борги бідність нестача', 'PROV', 13, 11, 'Багатство від марноти зменшується, а хто збирає помалу — помножує.'),
+            ('прощення', 'образа гнів простити ворог', 'EPH', 4, 32, 'А будьте один до одного добротивий, милосердний, прощаючи один одному, як і Бог у Христі простив вам.');`);
+        }
+    });
+});
+
 // Fast In-Memory LRU Cache (0.05ms response time for repeated queries)
 const queryCache = new Map<string, any>();
 const MAX_CACHE_SIZE = 1000;
@@ -382,6 +424,30 @@ CRITICAL RULES FOR AI:
                 }
             },
             {
+                name: "get_commentary",
+                description: "Retrieve historical church commentaries (e.g. John Chrysostom, Matthew Henry, Ohiyenko) for a specific verse.",
+                inputSchema: {
+                    type: "object",
+                    properties: {
+                        book: { type: "string", description: "Book abbreviation (e.g. 'JN', 'PS', 'MT')" },
+                        chapter: { type: "number", description: "Chapter number" },
+                        verse: { type: "number", description: "Verse number" }
+                    },
+                    required: ["book", "chapter", "verse"]
+                }
+            },
+            {
+                name: "search_semantic",
+                description: "Find scripture passages based on emotional states, life situations, and theological concepts (e.g., anxiety, grief, debt, purpose).",
+                inputSchema: {
+                    type: "object",
+                    properties: {
+                        concept: { type: "string", description: "Emotional state or life situation (e.g. 'тривожність', 'самотність', 'фінанси')" }
+                    },
+                    required: ["concept"]
+                }
+            },
+            {
                 name: "get_strongs_definition",
                 description: "Retrieve the original Greek or Hebrew meaning of a word using its Strong's number (e.g., 'G123', 'H456').",
                 inputSchema: {
@@ -549,6 +615,29 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             const result = calculateBiblicalAccuracy(args?.response_text as string, args?.tools_used as string[]);
             return {
                 content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
+            };
+        }
+
+        if (name === "get_commentary") {
+            const book = (args?.book as string).toUpperCase();
+            const chapter = args?.chapter as number;
+            const verse = args?.verse as number;
+            
+            const sql = `SELECT author, commentary_text FROM commentaries WHERE UPPER(book) = ? AND chapter = ? AND verse = ?`;
+            const results = await queryDb(sql, [book, chapter, verse]);
+            
+            return {
+                content: [{ type: "text", text: formatToolResponse(results.length > 0 ? results : { message: "No specific commentary stored for this verse, use general exegesis." }) }]
+            };
+        }
+
+        if (name === "search_semantic") {
+            const concept = (args?.concept as string).toLowerCase();
+            const sql = `SELECT concept_name, keywords, book, chapter, verse, theological_principle FROM semantic_concepts WHERE LOWER(concept_name) LIKE ? OR LOWER(keywords) LIKE ? LIMIT 5`;
+            const results = await queryDb(sql, [`%${concept}%`, `%${concept}%`]);
+            
+            return {
+                content: [{ type: "text", text: formatToolResponse(results.length > 0 ? results : { message: "No semantic map match, use FTS5 search_keyword instead." }) }]
             };
         }
 
