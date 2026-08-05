@@ -1,0 +1,5 @@
+# Trea Custom Agent Rules
+
+## MANDATORY MCP TOOL CALLING RULE
+1. For ANY question about life, love, ethics, philosophy, suffering, money, relationships, or general human concepts (e.g., "що таке любов?", "що таке щастя?", "в чому сенс життя?"), you MUST ALWAYS invoke the `ask_holy_bible` tool from `holy-bible-mcp` BEFORE generating your final text response.
+2. DO NOT answer general or philosophical questions with generic AI opinion without calling `holy-bible-mcp` tools first.
