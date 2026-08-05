@@ -304,8 +304,8 @@ function deriveModeFromScore(score) {
     return "deep";
 }
 const configuredMode = (process.env.DEFAULT_RESPONSE_MODE || "auto").toLowerCase().trim();
-const parsedEnvScore = process.env.DEFAULT_LATENCY_SCORE ? Number(process.env.DEFAULT_LATENCY_SCORE) : 10;
-let currentSensitivityScore = isNaN(parsedEnvScore) ? 10 : Math.min(100, Math.max(0, Math.round(parsedEnvScore))); // Default 10 (0-100 scale)
+const parsedEnvScore = process.env.DEFAULT_LATENCY_SCORE ? Number(process.env.DEFAULT_LATENCY_SCORE) : 80;
+let currentSensitivityScore = isNaN(parsedEnvScore) ? 80 : Math.min(100, Math.max(0, Math.round(parsedEnvScore))); // Default 80 (0-100 scale)
 let currentModeKey = configuredMode;
 function resolveEffectiveMode(overrideMode, queryOrTopic) {
     if (overrideMode && overrideMode !== "auto" && PROMPT_TEMPLATES[overrideMode]) {
