@@ -238,18 +238,27 @@ server.setRequestHandler(GetPromptRequestSchema, async (request) => {
     };
 });
 let currentModeKey = "medium";
-let currentSensitivity = "active"; // "strict", "balanced", "active"
-const SENSITIVITY_DIRECTIVES = {
-    strict: `RELEVANCE SENSITIVITY - STRICT (PASSIVE GATING):
-• Only invoke Bible MCP tools or cite verses if the user's prompt EXPLICITLY asks a question about the Bible, faith, God, theology, morality, or spiritual guidance.
-• For general technical, programming, math, or secular queries, DO NOT force Bible quotes. Respond as a standard helpful AI.`,
-    balanced: `RELEVANCE SENSITIVITY - BALANCED (SMART ADAPTIVE):
-• Automatically evaluate if the user's query has moral, ethical, financial, personal choice, or spiritual dimensions.
-• If relevant, ground the answer in Biblical principles. If purely technical, stay neutral.`,
-    active: `RELEVANCE SENSITIVITY - ACTIVE (DEDICATED BIBLE SCHOLAR):
-• Ground all life inquiries, moral dilemmas, financial decisions, and theological questions in Holy Scripture.`
-};
+let currentSensitivityScore = 80; // 0-100 scale
+function getSensitivityDirective(score) {
+    const s = Math.min(100, Math.max(0, Math.round(score)));
+    let label = "Пасивний фоновий режим (0-20%)";
+    let directive = `RELEVANCE SENSITIVITY THRESHOLD: ${s}% (PASSIVE). Only invoke Bible MCP tools if user explicitly mentions 'Bible', 'verse', 'God', or 'theology'. For general/technical queries, remain completely silent and neutral without citing scripture.`;
+    if (s > 20 && s <= 50) {
+        label = "Адаптивний контрольований режим (21-50%)";
+        directive = `RELEVANCE SENSITIVITY THRESHOLD: ${s}% (MODERATE). Only trigger Biblical principles for explicit moral dilemmas, ethics, or personal life guidance questions. Stay neutral on secular topics.`;
+    }
+    else if (s > 50 && s <= 80) {
+        label = "Активний біблійний довідник (51-80%)";
+        directive = `RELEVANCE SENSITIVITY THRESHOLD: ${s}% (ACTIVE). Ground all life choices, financial decisions, relationships, and moral inquiries in Holy Scripture.`;
+    }
+    else if (s > 80) {
+        label = "Максимальний біблійний вчений (81-100%)";
+        directive = `RELEVANCE SENSITIVITY THRESHOLD: ${s}% (MAXIMAL). Comprehensive Bible Scholar Mode. Integrate scripture grounding and etymological analysis across all life and theological inquiries.`;
+    }
+    return { score: s, label, directive };
+}
 function formatToolResponse(data) {
+    const sensInfo = getSensitivityDirective(currentSensitivityScore);
     return JSON.stringify({
         results: data,
         _AI_REASONING_COMPASS_AND_GUARDRAILS_: {
@@ -258,7 +267,11 @@ function formatToolResponse(data) {
             step_3_application: "Map the spiritual truth to practical daily Christian living in the <u>...</u> takeaway section.",
             step_4_formatting: "Enforce strict Telegram HTML format: <b>...</b> for headers, <blockquote>...</blockquote> for quotes, <i>...</i> for transliterations, <s>...</s> for misconceptions, <tg-spoiler>...</tg-spoiler> for reflection."
         },
-        _RELEVANCE_SENSITIVITY_DIRECTIVE_: SENSITIVITY_DIRECTIVES[currentSensitivity] || SENSITIVITY_DIRECTIVES["active"],
+        _RELEVANCE_SENSITIVITY_INDEX_: {
+            score: sensInfo.score,
+            mode_label: sensInfo.label,
+            directive: sensInfo.directive
+        },
         _REQUIRED_FORMATTING_RULES_FOR_AI_: PROMPT_TEMPLATES[currentModeKey] || PROMPT_TEMPLATES["medium"]
     }, null, 2);
 }
@@ -267,17 +280,16 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         tools: [
             {
                 name: "set_relevance_sensitivity",
-                description: "Adjust MCP sensitivity & context gating threshold. Use 'strict' (passive/silent unless asked about Bible), 'balanced' (smart adaptive for moral/life queries), or 'active' (dedicated Bible scholar for all inquiries).",
+                description: "Set MCP relevance sensitivity threshold on a continuous 0 to 100 scale. 0-20% = Passive/Silent, 21-50% = Moderate, 51-80% = Active, 81-100% = Maximal Bible Scholar.",
                 inputSchema: {
                     type: "object",
                     properties: {
-                        level: {
-                            type: "string",
-                            enum: ["strict", "balanced", "active"],
-                            description: "Sensitivity level: 'strict', 'balanced', or 'active'"
+                        score: {
+                            type: "number",
+                            description: "Sensitivity score from 0 to 100"
                         }
                     },
-                    required: ["level"]
+                    required: ["score"]
                 }
             },
             {
@@ -511,17 +523,17 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             };
         }
         if (name === "set_relevance_sensitivity") {
-            const level = args?.level;
-            if (["strict", "balanced", "active"].includes(level)) {
-                currentSensitivity = level;
-            }
+            const scoreVal = typeof args?.score === "number" ? args.score : 80;
+            currentSensitivityScore = Math.min(100, Math.max(0, Math.round(scoreVal)));
+            const sensInfo = getSensitivityDirective(currentSensitivityScore);
             return {
                 content: [{
                         type: "text",
                         text: JSON.stringify({
                             status: "success",
-                            message: `Relevance sensitivity updated to: ${currentSensitivity}`,
-                            directive: SENSITIVITY_DIRECTIVES[currentSensitivity]
+                            score: sensInfo.score,
+                            mode_label: sensInfo.label,
+                            directive: sensInfo.directive
                         }, null, 2)
                     }]
             };
