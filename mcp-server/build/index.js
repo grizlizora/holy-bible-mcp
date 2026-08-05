@@ -303,9 +303,23 @@ function deriveModeFromScore(score) {
         return "detailed";
     return "deep";
 }
+const configuredMode = (process.env.DEFAULT_RESPONSE_MODE || "auto").toLowerCase().trim();
 const parsedEnvScore = process.env.DEFAULT_LATENCY_SCORE ? Number(process.env.DEFAULT_LATENCY_SCORE) : 10;
 let currentSensitivityScore = isNaN(parsedEnvScore) ? 10 : Math.min(100, Math.max(0, Math.round(parsedEnvScore))); // Default 10 (0-100 scale)
-let currentModeKey = process.env.DEFAULT_RESPONSE_MODE || deriveModeFromScore(currentSensitivityScore);
+let currentModeKey = configuredMode;
+function resolveEffectiveMode(overrideMode, queryOrTopic) {
+    if (overrideMode && overrideMode !== "auto" && PROMPT_TEMPLATES[overrideMode]) {
+        return overrideMode;
+    }
+    if (currentModeKey === "auto") {
+        if (queryOrTopic) {
+            const evalResult = evaluateQuestionComplexity(queryOrTopic);
+            return evalResult.recommended_mode;
+        }
+        return deriveModeFromScore(currentSensitivityScore);
+    }
+    return PROMPT_TEMPLATES[currentModeKey] ? currentModeKey : "medium";
+}
 function getSensitivityDirective(score) {
     const s = Math.min(100, Math.max(0, Math.round(score)));
     let label = "Passive Background Mode (0-20%)";
@@ -324,8 +338,9 @@ function getSensitivityDirective(score) {
     }
     return { score: s, label, directive };
 }
-function formatToolResponse(data) {
+function formatToolResponse(data, overrideMode, queryOrTopic) {
     const sensInfo = getSensitivityDirective(currentSensitivityScore);
+    const effectiveMode = resolveEffectiveMode(overrideMode, queryOrTopic);
     return JSON.stringify({
         results: data,
         _AI_REASONING_COMPASS_AND_GUARDRAILS_: {
@@ -337,9 +352,10 @@ function formatToolResponse(data) {
         _RELEVANCE_SENSITIVITY_INDEX_: {
             score: sensInfo.score,
             mode_label: sensInfo.label,
+            active_mode: effectiveMode,
             directive: sensInfo.directive
         },
-        _REQUIRED_FORMATTING_RULES_FOR_AI_: PROMPT_TEMPLATES[currentModeKey] || PROMPT_TEMPLATES["medium"]
+        _REQUIRED_FORMATTING_RULES_FOR_AI_: PROMPT_TEMPLATES[effectiveMode] || PROMPT_TEMPLATES["medium"]
     }, null, 2);
 }
 server.setRequestHandler(ListToolsRequestSchema, async () => {
@@ -361,13 +377,13 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             },
             {
                 name: "set_response_mode",
-                description: "Switch the response formatting mode for the AI (works in TypingMind, Claude, Antigravity, Telegram, etc.). Modes: 'minimal', 'short', 'medium', 'detailed', 'deep', 'verses_only'.",
+                description: "Switch the response formatting mode for the AI (works in TypingMind, Claude, Antigravity, Telegram, etc.). Modes: 'auto' (automatic topic complexity selection), 'minimal', 'short', 'medium', 'detailed', 'deep', 'verses_only'.",
                 inputSchema: {
                     type: "object",
                     properties: {
                         mode: {
                             type: "string",
-                            enum: ["minimal", "short", "medium", "detailed", "deep", "verses_only"],
+                            enum: ["auto", "minimal", "short", "medium", "detailed", "deep", "verses_only"],
                             description: "Desired response mode"
                         }
                     },
