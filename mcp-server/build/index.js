@@ -328,6 +328,19 @@ CRITICAL RULES FOR AI:
                 }
             },
             {
+                name: "get_verse_parallel",
+                description: "Retrieve a verse in multiple parallel translations (e.g. Ukrainian and English) for linguistic comparison.",
+                inputSchema: {
+                    type: "object",
+                    properties: {
+                        book: { type: "string", description: "Book abbreviation (e.g. 'gn', 'ps', 'mt')" },
+                        chapter: { type: "number", description: "Chapter number" },
+                        verse: { type: "number", description: "Verse number" }
+                    },
+                    required: ["book", "chapter", "verse"]
+                }
+            },
+            {
                 name: "evaluate_question",
                 description: "Evaluate question complexity (0-100 score), provide category and recommend the optimal response mode.",
                 inputSchema: {
@@ -471,8 +484,43 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                     }]
             };
         }
+        function expandSearchQuery(query) {
+            const q = (query || "").trim().toLowerCase();
+            const SYNONYMS = {
+                "любов": ["люб*", "кохан*", "милосерд*"],
+                "віра": ["вір*", "віру*", "упован*"],
+                "надія": ["наді*", "упован*", "сподіван*"],
+                "брехня": ["брех*", "обман*", "неправд*", "фальш*"],
+                "гроші": ["грош*", "багатст*", "срібр*", "мамон*"],
+                "гнів": ["гнів*", "лютість*", "ярість*"],
+                "прощення": ["прощ*", "прости*", "милість*"],
+                "страждання": ["страждан*", "скорбот*", "мук*", "біда*"],
+                "крипта": ["грош*", "багатст*", "мамон*", "надбан*"],
+                "інвестиції": ["збиран*", "множен*", "талант*"]
+            };
+            for (const [key, terms] of Object.entries(SYNONYMS)) {
+                if (q.includes(key)) {
+                    return terms.join(" OR ");
+                }
+            }
+            if (!q.includes(" ") && !q.includes("*") && !q.includes("AND") && !q.includes("OR") && q.length > 3) {
+                return `${q}*`;
+            }
+            return q;
+        }
+        if (name === "get_verse_parallel") {
+            const book = (args?.book).toUpperCase();
+            const chapter = args?.chapter;
+            const verse = args?.verse;
+            const sql = `SELECT book, chapter, verse, language, text FROM verses WHERE UPPER(book) = ? AND chapter = ? AND verse = ?`;
+            const results = await queryDb(sql, [book, chapter, verse]);
+            return {
+                content: [{ type: "text", text: formatToolResponse(results.length > 0 ? results : { error: "Verse not found in parallel translations" }) }]
+            };
+        }
         if (name === "search_keyword") {
-            const query = args?.query;
+            const rawQuery = args?.query;
+            const query = expandSearchQuery(rawQuery);
             const langCondition = args?.language ? `AND v.language = ?` : "";
             const params = args?.language ? [query, args.language] : [query];
             const sql = `
