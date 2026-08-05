@@ -235,6 +235,12 @@ let currentModeKey = "medium";
 function formatToolResponse(data) {
     return JSON.stringify({
         results: data,
+        _AI_REASONING_COMPASS_AND_GUARDRAILS_: {
+            step_1_scripture_quote: "Only cite verses that actually exist in these returned results or through get_verse. Do NOT fabricate verses.",
+            step_2_etymology: "Highlight Hebrew/Greek roots and Strong IDs in <code>...</code> tags (e.g. <code>H8267</code>).",
+            step_3_application: "Map the spiritual truth to practical daily Christian living in the <u>...</u> takeaway section.",
+            step_4_formatting: "Enforce strict Telegram HTML format: <b>...</b> for headers, <blockquote>...</blockquote> for quotes, <i>...</i> for transliterations, <s>...</s> for misconceptions, <tg-spoiler>...</tg-spoiler> for reflection."
+        },
         _REQUIRED_FORMATTING_RULES_FOR_AI_: PROMPT_TEMPLATES[currentModeKey] || PROMPT_TEMPLATES["medium"]
     }, null, 2);
 }
