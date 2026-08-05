@@ -17,3 +17,12 @@ data/processed/*.sqlite-shm
 # Build output & logs (keep mcp-server/build tracked for npx)
 *.log
 .DS_Store
+
+# Environment Secrets
+.env
+*.env
+telegram-bot/.env
+
+# Large DB & Processed files
+data/processed/*.duckdb
+*.duckdb
