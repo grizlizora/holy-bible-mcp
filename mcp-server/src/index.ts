@@ -323,9 +323,17 @@ server.setRequestHandler(GetPromptRequestSchema, async (request) => {
     };
 });
 
+function deriveModeFromScore(score: number): string {
+    if (score <= 25) return "minimal";
+    if (score <= 45) return "short";
+    if (score <= 65) return "medium";
+    if (score <= 85) return "detailed";
+    return "deep";
+}
+
 const parsedEnvScore = process.env.DEFAULT_LATENCY_SCORE ? Number(process.env.DEFAULT_LATENCY_SCORE) : 10;
 let currentSensitivityScore = isNaN(parsedEnvScore) ? 10 : Math.min(100, Math.max(0, Math.round(parsedEnvScore))); // Default 10 (0-100 scale)
-let currentModeKey = process.env.DEFAULT_RESPONSE_MODE || "minimal";
+let currentModeKey = process.env.DEFAULT_RESPONSE_MODE || deriveModeFromScore(currentSensitivityScore);
 
 function getSensitivityDirective(score: number): { score: number; label: string; directive: string } {
     const s = Math.min(100, Math.max(0, Math.round(score)));
@@ -810,6 +818,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         if (name === "set_relevance_sensitivity") {
             const scoreVal = typeof args?.score === "number" ? args.score : 10;
             currentSensitivityScore = Math.min(100, Math.max(0, Math.round(scoreVal)));
+            currentModeKey = deriveModeFromScore(currentSensitivityScore);
             const sensInfo = getSensitivityDirective(currentSensitivityScore);
             return {
                 content: [{ 
@@ -818,6 +827,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                         status: "success", 
                         score: sensInfo.score,
                         mode_label: sensInfo.label,
+                        current_mode: currentModeKey,
                         directive: sensInfo.directive
                     }, null, 2) 
                 }]
