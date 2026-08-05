@@ -21,7 +21,9 @@ data/processed/*.sqlite-shm
 # Environment Secrets
 .env
 *.env
-telegram-bot/.env
+
+# Local Telegram Bot (Kept locally on device, not pushed to MCP repo)
+telegram-bot/
 
 # Large DB & Processed files
 data/processed/*.duckdb
