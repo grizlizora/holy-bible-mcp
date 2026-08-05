@@ -238,6 +238,17 @@ server.setRequestHandler(GetPromptRequestSchema, async (request) => {
     };
 });
 let currentModeKey = "medium";
+let currentSensitivity = "active"; // "strict", "balanced", "active"
+const SENSITIVITY_DIRECTIVES = {
+    strict: `RELEVANCE SENSITIVITY - STRICT (PASSIVE GATING):
+• Only invoke Bible MCP tools or cite verses if the user's prompt EXPLICITLY asks a question about the Bible, faith, God, theology, morality, or spiritual guidance.
+• For general technical, programming, math, or secular queries, DO NOT force Bible quotes. Respond as a standard helpful AI.`,
+    balanced: `RELEVANCE SENSITIVITY - BALANCED (SMART ADAPTIVE):
+• Automatically evaluate if the user's query has moral, ethical, financial, personal choice, or spiritual dimensions.
+• If relevant, ground the answer in Biblical principles. If purely technical, stay neutral.`,
+    active: `RELEVANCE SENSITIVITY - ACTIVE (DEDICATED BIBLE SCHOLAR):
+• Ground all life inquiries, moral dilemmas, financial decisions, and theological questions in Holy Scripture.`
+};
 function formatToolResponse(data) {
     return JSON.stringify({
         results: data,
@@ -247,12 +258,28 @@ function formatToolResponse(data) {
             step_3_application: "Map the spiritual truth to practical daily Christian living in the <u>...</u> takeaway section.",
             step_4_formatting: "Enforce strict Telegram HTML format: <b>...</b> for headers, <blockquote>...</blockquote> for quotes, <i>...</i> for transliterations, <s>...</s> for misconceptions, <tg-spoiler>...</tg-spoiler> for reflection."
         },
+        _RELEVANCE_SENSITIVITY_DIRECTIVE_: SENSITIVITY_DIRECTIVES[currentSensitivity] || SENSITIVITY_DIRECTIVES["active"],
         _REQUIRED_FORMATTING_RULES_FOR_AI_: PROMPT_TEMPLATES[currentModeKey] || PROMPT_TEMPLATES["medium"]
     }, null, 2);
 }
 server.setRequestHandler(ListToolsRequestSchema, async () => {
     return {
         tools: [
+            {
+                name: "set_relevance_sensitivity",
+                description: "Adjust MCP sensitivity & context gating threshold. Use 'strict' (passive/silent unless asked about Bible), 'balanced' (smart adaptive for moral/life queries), or 'active' (dedicated Bible scholar for all inquiries).",
+                inputSchema: {
+                    type: "object",
+                    properties: {
+                        level: {
+                            type: "string",
+                            enum: ["strict", "balanced", "active"],
+                            description: "Sensitivity level: 'strict', 'balanced', or 'active'"
+                        }
+                    },
+                    required: ["level"]
+                }
+            },
             {
                 name: "set_response_mode",
                 description: "Switch the response formatting mode for the AI (works in TypingMind, Claude, Antigravity, Telegram, etc.). Modes: 'minimal', 'short', 'medium', 'detailed', 'deep', 'verses_only'.",
@@ -481,6 +508,22 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             const result = evaluateQuestionComplexity(args?.question);
             return {
                 content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
+            };
+        }
+        if (name === "set_relevance_sensitivity") {
+            const level = args?.level;
+            if (["strict", "balanced", "active"].includes(level)) {
+                currentSensitivity = level;
+            }
+            return {
+                content: [{
+                        type: "text",
+                        text: JSON.stringify({
+                            status: "success",
+                            message: `Relevance sensitivity updated to: ${currentSensitivity}`,
+                            directive: SENSITIVITY_DIRECTIVES[currentSensitivity]
+                        }, null, 2)
+                    }]
             };
         }
         if (name === "set_response_mode") {
