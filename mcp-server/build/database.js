@@ -106,16 +106,10 @@ function resolveDbPath() {
         fs.mkdirSync(GLOBAL_DIR, { recursive: true });
     }
     console.error(`[INFO] Bible Database not found locally at ${LOCAL_DB} or ${GLOBAL_DB}.`);
-    console.error(`[INFO] Triggering Level 2 Background Auto-Downloader to ${GLOBAL_DB}...`);
-    // Trigger background auto-download if missing with dual fallback
-    downloadDatabaseStream(GLOBAL_DB, REMOTE_DB_PRIMARY).then((success) => {
-        if (!success) {
-            console.error(`[AUTO-DOWNLOADER] Primary source failed. Retrying with GitHub Releases fallback...`);
-            return downloadDatabaseStream(GLOBAL_DB, REMOTE_DB_FALLBACK);
-        }
-        return true;
-    }).catch((err) => {
-        console.error(`[AUTO-DOWNLOADER] Background download error:`, err);
+    console.error(`[INFO] Triggering Level 2 Load-Balanced Background Auto-Downloader to ${GLOBAL_DB}...`);
+    // Trigger background auto-download if missing with randomized CDN mirror load distribution
+    downloadDatabaseStreamResilient(GLOBAL_DB).catch((err) => {
+        console.error(`[CDN LOAD BALANCER] Background download error:`, err);
     });
     return GLOBAL_DB;
 }
