@@ -175,7 +175,11 @@ class McpManagerClass {
       }
     }
     if (promises.length > 0) {
-      await Promise.all(promises);
+      const globalTimeout = new Promise(resolve => setTimeout(resolve, 3500));
+      await Promise.race([
+        Promise.all(promises),
+        globalTimeout
+      ]);
     }
   }
 
@@ -208,7 +212,7 @@ class McpManagerClass {
       });
 
       const connectTimeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error(`MCP server '${id}' connection timed out after 12s`)), 12000)
+        setTimeout(() => reject(new Error(`MCP server '${id}' connection timed out after 3.5s`)), 3500)
       );
 
       await Promise.race([
