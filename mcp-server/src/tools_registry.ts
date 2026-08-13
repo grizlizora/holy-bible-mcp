@@ -281,7 +281,7 @@ export function registerToolHandlers(server: Server): void {
         const lang = String(args?.language || "auto");
 
         const verses = await queryDb(
-          `SELECT book, chapter, verse, text FROM verses WHERE LOWER(text) LIKE ? LIMIT 4`,
+          `SELECT book, chapter, verse, text FROM verses WHERE LOWER(text) LIKE ? AND LOWER(language) IN ('ukr', 'uk', 'ua', 'eng', 'en') LIMIT 4`,
           [`%${question.toLowerCase().slice(0, 5)}%`]
         );
 
@@ -304,7 +304,7 @@ export function registerToolHandlers(server: Server): void {
           : (typeof (args as any)?.parameter_size_b === "number" ? (args as any).parameter_size_b : ((args as any)?.isSmallModel ? 4.7 : 14.0));
 
         const verses = await queryDb(
-          `SELECT book, chapter, verse, text FROM verses WHERE LOWER(text) LIKE ? LIMIT 4`,
+          `SELECT book, chapter, verse, text FROM verses WHERE LOWER(text) LIKE ? AND LOWER(language) IN ('ukr', 'uk', 'ua', 'eng', 'en') LIMIT 4`,
           [`%${question.toLowerCase().slice(0, 5)}%`]
         );
 
@@ -454,10 +454,20 @@ export function registerToolHandlers(server: Server): void {
         const lang = String(args?.language || "ukr");
         const osisCode = OSIS_ALIAS_MAP[book] || book;
 
-        const rows = await queryDb(
-          `SELECT book, chapter, verse, text FROM verses WHERE UPPER(book) = ? AND chapter = ? ORDER BY verse ASC`,
-          [osisCode, chapter]
+        const targetLang = (lang || 'ukr').toLowerCase().trim();
+        const preferredLang = targetLang.includes('uk') || targetLang.includes('ua') ? 'ukr' : 'eng';
+
+        let rows = await queryDb(
+          `SELECT book, chapter, verse, text FROM verses WHERE UPPER(book) = ? AND chapter = ? AND LOWER(language) LIKE ? ORDER BY verse ASC`,
+          [osisCode, chapter, `%${preferredLang}%`]
         );
+
+        if (rows.length === 0) {
+          rows = await queryDb(
+            `SELECT book, chapter, verse, text FROM verses WHERE UPPER(book) = ? AND chapter = ? AND LOWER(language) IN ('ukr', 'uk', 'eng', 'en') ORDER BY verse ASC`,
+            [osisCode, chapter]
+          );
+        }
 
         const formattedText = rows.map((v: any) => {
           return formatScriptureVerse({ book: v.book || osisCode, chapter: v.chapter || chapter, verse: v.verse, text: v.text, language: lang }).formattedText;

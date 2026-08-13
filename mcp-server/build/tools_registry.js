@@ -274,7 +274,7 @@ export function registerToolHandlers(server) {
             if (name === "ask_holy_bible") {
                 const question = String(args?.question || "що таке любов");
                 const lang = String(args?.language || "auto");
-                const verses = await queryDb(`SELECT book, chapter, verse, text FROM verses WHERE LOWER(text) LIKE ? LIMIT 4`, [`%${question.toLowerCase().slice(0, 5)}%`]);
+                const verses = await queryDb(`SELECT book, chapter, verse, text FROM verses WHERE LOWER(text) LIKE ? AND LOWER(language) IN ('ukr', 'uk', 'ua', 'eng', 'en') LIMIT 4`, [`%${question.toLowerCase().slice(0, 5)}%`]);
                 const formattedVerses = verses.map((v) => {
                     return formatScriptureVerse({ book: v.book, chapter: v.chapter, verse: v.verse, text: v.text, language: lang }).formattedText;
                 }).join("\n\n");
@@ -290,7 +290,7 @@ export function registerToolHandlers(server) {
                 const paramSizeB = typeof args?.modelMetadata?.parameterSize === "number"
                     ? args.modelMetadata.parameterSize
                     : (typeof args?.parameter_size_b === "number" ? args.parameter_size_b : (args?.isSmallModel ? 4.7 : 14.0));
-                const verses = await queryDb(`SELECT book, chapter, verse, text FROM verses WHERE LOWER(text) LIKE ? LIMIT 4`, [`%${question.toLowerCase().slice(0, 5)}%`]);
+                const verses = await queryDb(`SELECT book, chapter, verse, text FROM verses WHERE LOWER(text) LIKE ? AND LOWER(language) IN ('ukr', 'uk', 'ua', 'eng', 'en') LIMIT 4`, [`%${question.toLowerCase().slice(0, 5)}%`]);
                 const formattedVerses = verses.map((v) => {
                     return formatScriptureVerse({ book: v.book, chapter: v.chapter, verse: v.verse, text: v.text, language: lang }).formattedText;
                 }).join("\n\n");
@@ -428,7 +428,12 @@ export function registerToolHandlers(server) {
                 const chapter = Number(args?.chapter || 1);
                 const lang = String(args?.language || "ukr");
                 const osisCode = OSIS_ALIAS_MAP[book] || book;
-                const rows = await queryDb(`SELECT book, chapter, verse, text FROM verses WHERE UPPER(book) = ? AND chapter = ? ORDER BY verse ASC`, [osisCode, chapter]);
+                const targetLang = (lang || 'ukr').toLowerCase().trim();
+                const preferredLang = targetLang.includes('uk') || targetLang.includes('ua') ? 'ukr' : 'eng';
+                let rows = await queryDb(`SELECT book, chapter, verse, text FROM verses WHERE UPPER(book) = ? AND chapter = ? AND LOWER(language) LIKE ? ORDER BY verse ASC`, [osisCode, chapter, `%${preferredLang}%`]);
+                if (rows.length === 0) {
+                    rows = await queryDb(`SELECT book, chapter, verse, text FROM verses WHERE UPPER(book) = ? AND chapter = ? AND LOWER(language) IN ('ukr', 'uk', 'eng', 'en') ORDER BY verse ASC`, [osisCode, chapter]);
+                }
                 const formattedText = rows.map((v) => {
                     return formatScriptureVerse({ book: v.book || osisCode, chapter: v.chapter || chapter, verse: v.verse, text: v.text, language: lang }).formattedText;
                 }).join("\n\n");

@@ -80,7 +80,14 @@ export function formatScriptureVerse(item: {
   const locBook = getLocalizedBookNameFromDict(book, language);
   const displayTitle = `${locBook} ${chapter}:${verse}`;
   const osisRef = `${book.toUpperCase()} ${chapter}:${verse}`;
-  const cleanText = (text || '').trim();
+  const cleanText = (text || '')
+    .replace(/\{\{CITATION:[\s\S]*?\}\}/gi, '')
+    .replace(/\{\{VERSE:[\s\S]*?\}\}/gi, '')
+    .replace(/\[\[METRICS:[\s\S]*?\]\]/gi, '')
+    .replace(/<think>[\s\S]*?<\/think>/gi, '')
+    .replace(/📖|\*\*|>|«|»/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 
   // 1. Elegant Markdown Blockquote (for Trea, Cursor, Cloud Code, Claude Desktop)
   const markdownBlock = `> «${cleanText}»\n> — **${displayTitle}**`;
