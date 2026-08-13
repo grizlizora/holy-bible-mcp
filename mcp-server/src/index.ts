@@ -16,8 +16,8 @@ registerToolHandlers(server);
 registerPromptHandlers(server);
 
 async function main() {
-  const isSseMode = process.argv.includes("--sse") || Boolean(process.env.PORT);
-  const port = parseInt(process.env.PORT || "3001", 10);
+  const isSseMode = process.argv.includes("--sse") || process.env.MCP_TRANSPORT === "sse" || process.env.ENABLE_SSE === "true";
+  const port = parseInt(process.env.MCP_PORT || process.env.PORT || "3001", 10);
 
   if (isSseMode) {
     let sseTransport: SSEServerTransport | null = null;

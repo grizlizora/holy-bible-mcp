@@ -9,8 +9,8 @@ const server = new Server({ name: "holy-bible-mcp", version: "1.0.0" }, { capabi
 registerToolHandlers(server);
 registerPromptHandlers(server);
 async function main() {
-    const isSseMode = process.argv.includes("--sse") || Boolean(process.env.PORT);
-    const port = parseInt(process.env.PORT || "3001", 10);
+    const isSseMode = process.argv.includes("--sse") || process.env.MCP_TRANSPORT === "sse" || process.env.ENABLE_SSE === "true";
+    const port = parseInt(process.env.MCP_PORT || process.env.PORT || "3001", 10);
     if (isSseMode) {
         let sseTransport = null;
         const httpServer = http.createServer(async (req, res) => {
