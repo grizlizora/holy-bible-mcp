@@ -21,19 +21,35 @@ Equipped with strict theological guardrails (`bible_scholar` system prompt), Gre
 
 ---
 
-## 🚀 Quick Start (IDE Configuration)
+## ⚡ 1-Click Interactive Terminal Setup (macOS / Linux / Windows WSL)
 
-### 1. Antigravity IDE Configuration
-Add the following block to your `mcp_config.json`:
+Run this single command in your terminal for an interactive English installer:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/grizlizora/holy-bible-mcp/main/setup.sh | bash
+```
+
+This interactive installer will:
+1. Ask if you want to clone/set up the codebase locally.
+2. Ask if you want to download the **100MB Offline Holy Bible SQLite Database** with **real-time percentage progress**.
+3. Output the exact JSON configuration for your IDE!
+
+---
+
+## 🚀 Quick Start (Universal 1-JSON IDE Configuration)
+
+Add this snippet to **Trea, Cursor, Claude Desktop, VSCode, or Cloud Code**:
 
 ```json
 {
   "mcpServers": {
-    "bible-mcp": {
-      "command": "node",
-      "args": [
-        "/path/to/holy/mcp-server/build/index.js"
-      ]
+    "holy-bible": {
+      "command": "npx",
+      "args": ["-y", "@grizlizora/holy-bible-mcp"],
+      "env": {
+        "DEFAULT_MODE": "deep",
+        "DEFAULT_WARMTH": "80"
+      }
     }
   }
 }
