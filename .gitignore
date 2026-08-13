@@ -1,7 +1,16 @@
-# Dependencies
+# Dependencies & Build artifacts
 node_modules/
 venv/
 .venv/
+
+# Non-MCP web & bot components (retained locally, excluded from GitHub MCP repository)
+client/
+converter/
+data/
+telegram-bot/
+mcp-server/
+fix_sqlite.cjs
+start.sh
 
 # IDE & Editor Temporary Folders
 .trae/
@@ -9,7 +18,7 @@ venv/
 .idea/
 .next/
 
-# Tunnels & Temporary Executables/Logs
+# Tunnels & Logs
 *.log
 *.mp4
 jprq
@@ -22,32 +31,10 @@ npx_tmole*
 tuns_test*
 cloudflared*
 ssish_test*
-data/liquid_ai.db*
-
-# Database raw files & temporary extraction
-data/raw/
-*.zip
-*.tar.gz
-*.tmp
-
-# SQLite & DuckDB Large Databases (hosted via HuggingFace/Releases)
-data/processed/*.sqlite
-data/processed/*.sqlite-wal
-data/processed/*.sqlite-shm
-data/processed/*.duckdb
-data/processed/*.db
-*.duckdb
-*.sqlite
 
 # OS System Files
 .DS_Store
 Thumbs.db
-
-# Scratch & Dev Logs
 scratch/
-mcp-server/scratch/
-telegram-bot/
-
-# Environment Secrets
 .env
 *.env
