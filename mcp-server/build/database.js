@@ -10,9 +10,14 @@ const ENV_DB = process.env.BIBLE_DB_PATH ? path.resolve(process.env.BIBLE_DB_PAT
 const LOCAL_DB = path.resolve(__dirname, "../../data/processed/bible_database.sqlite");
 const GLOBAL_DIR = path.join(os.homedir(), ".bible-mcp");
 const GLOBAL_DB = path.join(GLOBAL_DIR, "bible_database.sqlite");
-const REMOTE_DB_PRIMARY = process.env.REMOTE_BIBLE_DB_URL ||
-    "https://huggingface.co/datasets/grizlizora/holy-bible-mcp-data/resolve/main/bible_database.sqlite";
-const REMOTE_DB_FALLBACK = "https://github.com/grizlizora/holy-bible-mcp/releases/download/v1.0.0/bible_database.sqlite";
+const REMOTE_MIRRORS = [
+    process.env.REMOTE_BIBLE_DB_URL,
+    "https://huggingface.co/datasets/grizlizora/holy-bible-mcp-data/resolve/main/bible_database.sqlite",
+    "https://github.com/grizlizora/holy-bible-mcp/releases/download/v1.0.0/bible_database.sqlite",
+    "https://cdn.jsdelivr.net/gh/grizlizora/holy-bible-mcp@main/data/processed/bible_database.sqlite"
+].filter(Boolean);
+const REMOTE_DB_PRIMARY = REMOTE_MIRRORS[0];
+const REMOTE_DB_FALLBACK = REMOTE_MIRRORS[1] || REMOTE_MIRRORS[0];
 function isValidDb(dbPath) {
     if (!dbPath)
         return false;
