@@ -216,6 +216,7 @@ class McpManagerClass {
         connectTimeoutPromise
       ]);
 
+      this.servers.set(id, { client, transport });
       this.statuses.set(id, 'working');
       
       const response = await client.listTools();

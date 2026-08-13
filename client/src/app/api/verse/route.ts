@@ -398,7 +398,6 @@ export async function GET(req: Request) {
       const fs = await import('fs');
       const path = await import('path');
       const os = await import('os');
-      const sqlite3 = await import('sqlite3');
 
       const possibleDbPaths = [
         ...(process.env.BIBLE_DB_PATH ? [path.resolve(process.env.BIBLE_DB_PATH)] : []),
@@ -411,28 +410,36 @@ export async function GET(req: Request) {
       const dbPath = possibleDbPaths.find(p => fs.existsSync(p) && fs.statSync(p).size > 1000000);
 
       if (dbPath) {
-        const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READONLY);
-        const queryDb = (sql: string, params: any[]) => new Promise<any[]>((resolve) => {
-          db.all(sql, params, (err, rows) => {
-            if (err || !rows) resolve([]);
-            else resolve(rows);
-          });
-        });
+        const Database = (await import('better-sqlite3')).default || await import('better-sqlite3');
+        const db = new (Database as any)(dbPath, { readonly: true });
+
+        const possibleBooks = Array.from(new Set([
+          engBook,
+          engBook.slice(0, 3),
+          engBook.slice(0, 4),
+          engBook === '1TIM' ? '1TI' : engBook,
+          engBook === '2TIM' ? '2TI' : engBook,
+          engBook === '1COR' ? '1CO' : engBook,
+          engBook === '2COR' ? '2CO' : engBook,
+          engBook === '1THESS' ? '1TH' : engBook,
+          engBook === '2THESS' ? '2TH' : engBook,
+          engBook === '1PET' ? '1PE' : engBook,
+          engBook === '2PET' ? '2PE' : engBook,
+          engBook === '1JOHN' ? '1JN' : engBook,
+          engBook === '2JOHN' ? '2JN' : engBook,
+          engBook === '3JOHN' ? '3JN' : engBook
+        ])).map(b => b.toUpperCase());
+
+        const bookPlaceholders = possibleBooks.map(() => '?').join(',');
 
         const directTexts: string[] = [];
         for (const v of verseNumbers) {
-          let rows = await queryDb(
-            `SELECT text FROM verses WHERE UPPER(book) = ? AND chapter = ? AND verse = ? AND language = ? LIMIT 1`,
-            [engBook, chapter, v, lang]
-          );
-          if (!rows || rows.length === 0) {
-            rows = await queryDb(
-              `SELECT text FROM verses WHERE UPPER(book) = ? AND chapter = ? AND verse = ? LIMIT 1`,
-              [engBook, chapter, v]
-            );
+          let row = db.prepare(`SELECT text FROM verses WHERE UPPER(book) IN (${bookPlaceholders}) AND chapter = ? AND verse = ? AND language = ? LIMIT 1`).get(...possibleBooks, chapter, v, lang) as {text: string} | undefined;
+          if (!row) {
+            row = db.prepare(`SELECT text FROM verses WHERE UPPER(book) IN (${bookPlaceholders}) AND chapter = ? AND verse = ? LIMIT 1`).get(...possibleBooks, chapter, v) as {text: string} | undefined;
           }
-          if (rows && rows[0] && rows[0].text) {
-            directTexts.push(rows[0].text.trim());
+          if (row && row.text) {
+            directTexts.push(row.text.trim());
           }
         }
         db.close();
@@ -458,36 +465,45 @@ export async function GET(req: Request) {
     } catch (e) {}
 
     // 2. Secondary: Parallel BibleMcpClient fallback
-    const mcpClient = await getMcpClient();
+    try {
+      const mcpClient = await getMcpClient();
 
-    // ⚡ Parallel MCP Verse Fetcher: Fetch all verses in range concurrently with Promise.all
-    const fetchedResults = await Promise.all(
-      verseNumbers.map(async (v) => {
-        let verseRes: any = await mcpClient.callTool("get_verse", {
-          book: engBook,
-          chapter,
-          verse: v,
-          language: lang
-        });
+      // ⚡ Parallel MCP Verse Fetcher: Fetch all verses in range concurrently with Promise.all
+      const fetchedResults = await Promise.all(
+        verseNumbers.map(async (v) => {
+          try {
+            let verseRes: any = await mcpClient.callTool("get_verse", {
+              book: engBook,
+              chapter,
+              verse: v,
+              language: lang
+            });
 
-        let text = extractVerseText(verseRes);
-        if (!text) {
-          verseRes = await mcpClient.callTool("get_verse", {
-            book: engBook,
-            chapter,
-            verse: v,
-            language: ""
-          });
-          text = extractVerseText(verseRes);
-        }
-        return text;
-      })
-    );
+            let text = extractVerseText(verseRes);
+            if (!text) {
+              verseRes = await mcpClient.callTool("get_verse", {
+                book: engBook,
+                chapter,
+                verse: v,
+                language: ""
+              });
+              text = extractVerseText(verseRes);
+            }
+            return text;
+          } catch (e) {
+            console.warn(`[VERSE API] MCP Client callTool failed for verse ${v}:`, e);
+            return null;
+          }
+        })
+      );
 
-    const verseTexts = fetchedResults.filter((t): t is string => Boolean(t));
+      const verseTexts = fetchedResults.filter((t): t is string => Boolean(t));
 
-    if (verseTexts.length > 0) {
-      return NextResponse.json({ text: verseTexts.join(' ') });
+      if (verseTexts.length > 0) {
+        return NextResponse.json({ text: verseTexts.join(' ') });
+      }
+    } catch (e) {
+      console.warn('[VERSE API] MCP Client initialization failed:', e);
     }
 
     return NextResponse.json({ error: 'Verse not found' }, { status: 404 });
