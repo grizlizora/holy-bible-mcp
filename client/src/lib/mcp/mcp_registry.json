@@ -1,0 +1,21 @@
+[
+  {
+    "id": "holy-bible-local",
+    "name": "Holy Bible MCP (Local)",
+    "command": "node",
+    "args": [
+      "../mcp-server/build/index.js"
+    ],
+    "enabled": true
+  },
+  {
+    "id": "holy-bible-remote",
+    "name": "Holy Bible MCP (GitHub Remote)",
+    "command": "npx",
+    "args": [
+      "-y",
+      "github:grizlizora/holy-bible-mcp#main"
+    ],
+    "enabled": false
+  }
+]

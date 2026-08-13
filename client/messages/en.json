@@ -1,0 +1,178 @@
+{
+  "Common": {
+    "ok": "OK",
+    "cancel": "Cancel",
+    "save": "Save",
+    "close": "Close",
+    "retry": "Retry",
+    "active": "Active",
+    "inactive": "Inactive",
+    "loading": "Loading...",
+    "delete": "Delete",
+    "copy": "Copy",
+    "copied": "Copied",
+    "confirm": "Confirm"
+  },
+  "Index": {
+    "title": "Welcome, Roman! What's on your mind?"
+  },
+  "Sidebar": {
+    "newChat": "New Chat",
+    "searchPlaceholder": "Search chats...",
+    "settings": "Settings",
+    "pins": "Pinned",
+    "recent": "Recent",
+    "noChats": "No chats",
+    "deleteChatConfirm": "Delete this chat?",
+    "searchResults": "Search results",
+    "searchHint": "Try changing the word or check your spelling",
+    "chats": "Chats",
+    "generating": "Generating...",
+    "stopGeneration": "Stop generation",
+    "waitingReview": "Waiting for review"
+  },
+  "Settings": {
+    "title": "Settings",
+    "general": "General",
+    "mcpHub": "MCP Hub",
+    "appearance": "Appearance",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "themeSystem": "System",
+    "language": "Interface Language",
+    "ukrainian": "Ukrainian",
+    "english": "English",
+    "russian": "Russian",
+    "mcpTitle": "MCP Server Management",
+    "mcpDesc": "Configure Model Context Protocol servers to extend Liquid AI capabilities.",
+    "addMcp": "Add MCP",
+    "editMcp": "Edit MCP JSON",
+    "cancel": "Cancel",
+    "save": "Save",
+    "status_working": "Working",
+    "status_connecting": "Connecting",
+    "status_error": "Error",
+    "status_disconnected": "Disconnected",
+    "tier_passive": "Passive",
+    "tier_partial": "Other",
+    "tier_warmth_only": "Warmth",
+    "tier_modes_only": "Modes",
+    "tier_full": "Full",
+    "mcpMetricsTitle": "Additional Info (MCP)",
+    "mcpMetricsDesc": "Show additional data (accuracy, modes) at the end of the chat response.",
+    "mcpUiWarmthTitle": "Warmth Control",
+    "mcpUiWarmthDesc": "Use this MCP to control the warmth slider.",
+    "mcpUiModesTitle": "Modes Control",
+    "mcpUiModesDesc": "Use this MCP to switch detail modes.",
+    "mcpAnotherActiveWarn": "⚠️ Another MCP already controls this setting. Disable it there first.",
+    "close": "Close",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "settings": "Settings",
+    "delete": "Delete"
+  },
+  "Header": {
+    "warmth": "Warmth",
+    "detail": "Detail Level",
+    "model": "Model",
+    "mode": "Mode",
+    "auto": "Auto",
+    "native": "Native"
+  },
+  "WarmthModal": {
+    "title": "Warmth & Empathy",
+    "subtitle": "Adjust the empathy level and biblical grounding in AI responses.",
+    "warmthScore": "Warmth Score",
+    "dryAcademic": "Dry Academic",
+    "deepEmpathy": "Deep Empathy",
+    "presetPrecise": "Precise",
+    "presetBalanced": "Balanced",
+    "presetCreative": "Creative",
+    "presetDeep": "Deep",
+    "save": "Confirm"
+  },
+  "DetailModal": {
+    "title": "Answer Detail Level",
+    "minimal": "Minimal",
+    "minimalDesc": "1-2 sentences, fastest pace",
+    "short": "Short",
+    "shortDesc": "Brief and to the point",
+    "medium": "Balanced",
+    "mediumDesc": "Optimal balance",
+    "detailed": "Detailed",
+    "detailedDesc": "Extended answer with examples",
+    "deep": "Deep",
+    "deepDesc": "Deep analysis and citations",
+    "versesOnly": "Verses Only",
+    "versesOnlyDesc": "Search verses and passages in the Bible"
+  },
+  "InputDock": {
+    "placeholder": "Write a message or ask a question...",
+    "channelSource": "Channel Source",
+    "localModel": "Local Model",
+    "cloudApi": "Cloud API",
+    "send": "Send",
+    "listening": "Listening...",
+    "dropFilesHere": "Drop files here",
+    "localApp": "Local application:",
+    "chooseModel": "Choose model:",
+    "apiProvider": "API Provider:",
+    "encryptedStream": "Direct encrypted stream between nodes without intermediate servers.",
+    "confirm": "Confirm"
+  },
+  "VerseCard": {
+    "loading": "Loading verse...",
+    "failed": "Failed to load verse text.",
+    "retry": "Retry",
+    "copyVerse": "Copy verse",
+    "hide": "Hide",
+    "show": "Show"
+  },
+  "SearchModal": {
+    "title": "Quick Search",
+    "placeholder": "Search all chats...",
+    "noResults": "No results found"
+  },
+  "AttachmentDock": {
+    "title": "Attached files",
+    "scrollRight": "Scroll right →",
+    "deleteFile": "Delete file",
+    "processing": "Processing...",
+    "cancelUpload": "Cancel upload"
+  },
+  "ChatView": {
+    "scrollToBottom": "Scroll to bottom"
+  },
+  "MessageList": {
+    "copyRequest": "Copy request",
+    "rollbackAndEdit": "Rollback and edit",
+    "copyCleanText": "Copy clean text",
+    "listen": "Listen",
+    "downloadFile": "Download file",
+    "processingRequest": "AI is reasoning and thinking...",
+    "status_init": "Analyzing prompt & initializing...",
+    "status_vector_search": "Searching & analyzing context...",
+    "status_mcp_connect": "Connecting to MCP servers...",
+    "status_mcp_query": "Analyzing Biblical context & sources...",
+    "status_ollama_connect": "AI is thinking and reasoning...",
+    "status_api_connect": "AI is thinking and reasoning...",
+    "status_generating": "Thinking and generating response...",
+    "modelThinking": "Model Thoughts",
+    "modelThinkingInProgress": "Model Thoughts (thinking...)",
+    "thinkingStatusFallback": "Thinking and reasoning..."
+  },
+  "MetricsCard": {
+    "complexity": "Complexity",
+    "mode": "Mode",
+    "accuracy": "Accuracy"
+  },
+  "Page": {
+    "attachedFile": "Attached file",
+    "newChat": "New chat"
+  },
+  "Chat": {
+    "stop_generation": "Stop Generation",
+    "cancel_recording": "Cancel Recording",
+    "send_voice": "Send Voice"
+  }
+}

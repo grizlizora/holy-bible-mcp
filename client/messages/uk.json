@@ -1,0 +1,178 @@
+{
+  "Common": {
+    "ok": "ОК",
+    "cancel": "Скасувати",
+    "save": "Зберегти",
+    "close": "Закрити",
+    "retry": "Повторити",
+    "active": "Активний",
+    "inactive": "Вимкнений",
+    "loading": "Завантаження...",
+    "delete": "Видалити",
+    "copy": "Копіювати",
+    "copied": "Скопійовано",
+    "confirm": "Підтвердити"
+  },
+  "Index": {
+    "title": "Вітаю, Роман! Про що думаєте?"
+  },
+  "Sidebar": {
+    "newChat": "Новий чат",
+    "searchPlaceholder": "Пошук по чатам...",
+    "settings": "Налаштування",
+    "pins": "Закріплені",
+    "recent": "Нещодавні",
+    "noChats": "Немає чатів",
+    "deleteChatConfirm": "Видалити цей чат?",
+    "searchResults": "Результати пошуку",
+    "searchHint": "Спробуйте змінити слово або перевірте правильність написання",
+    "chats": "Чати",
+    "generating": "Генерує...",
+    "stopGeneration": "Зупинити генерацію",
+    "waitingReview": "Чекає перегляду"
+  },
+  "Settings": {
+    "title": "Налаштування",
+    "general": "Загальні",
+    "mcpHub": "MCP Hub",
+    "appearance": "Вигляд",
+    "themeLight": "Світла",
+    "themeDark": "Темна",
+    "themeSystem": "Системна",
+    "language": "Мова Інтерфейсу",
+    "ukrainian": "Українська",
+    "english": "English",
+    "russian": "Російська",
+    "mcpTitle": "Управління MCP Серверами",
+    "mcpDesc": "Налаштуйте Model Context Protocol сервери для розширення можливостей Liquid AI.",
+    "addMcp": "Додати MCP",
+    "editMcp": "Редагувати MCP JSON",
+    "cancel": "Скасувати",
+    "save": "Зберегти",
+    "status_working": "Працює",
+    "tier_passive": "Пасивний",
+    "tier_partial": "Інше",
+    "tier_warmth_only": "Теплота",
+    "tier_modes_only": "Режими",
+    "tier_full": "Повний",
+    "status_connecting": "З'єднується",
+    "status_error": "Помилка",
+    "status_disconnected": "Вимкнено",
+    "mcpMetricsTitle": "Додаткова інформація (MCP)",
+    "mcpMetricsDesc": "Показувати додаткові дані (точність, режими) в кінці відповіді чату.",
+    "mcpUiWarmthTitle": "Керування теплотою",
+    "mcpUiWarmthDesc": "Використовувати цей MCP для керування повзунком теплоти.",
+    "mcpUiModesTitle": "Керування режимами",
+    "mcpUiModesDesc": "Використовувати цей MCP для перемикання режимів деталізації.",
+    "mcpAnotherActiveWarn": "⚠️ Інший MCP вже керує цим налаштуванням. Вимкніть його там спочатку.",
+    "close": "Закрити",
+    "enabled": "Увімкнено",
+    "disabled": "Вимкнено",
+    "settings": "Налаштування",
+    "delete": "Видалити"
+  },
+  "Header": {
+    "warmth": "Душевність",
+    "detail": "Деталізація",
+    "model": "Модель",
+    "mode": "Режим",
+    "auto": "Авто",
+    "native": "Нативний"
+  },
+  "WarmthModal": {
+    "title": "Душевність та Теплота",
+    "subtitle": "Налаштуйте рівень емпатії та біблійного орієнтиру в відповідях AI.",
+    "warmthScore": "Рівень теплоти",
+    "dryAcademic": "Сухий академічний",
+    "deepEmpathy": "Глибока емпатія",
+    "presetPrecise": "Точний",
+    "presetBalanced": "Баланс",
+    "presetCreative": "Творчий",
+    "presetDeep": "Глибокий",
+    "save": "Підтвердити"
+  },
+  "DetailModal": {
+    "title": "Рівень Деталізації Відповіді",
+    "minimal": "Мінімально",
+    "minimalDesc": "1-2 речення, найшвидший темп",
+    "short": "Скорочено",
+    "shortDesc": "Коротко і по суті",
+    "medium": "Середньо",
+    "mediumDesc": "Оптимальний баланс",
+    "detailed": "Детально",
+    "detailedDesc": "Розгорнута відповідь з прикладами",
+    "deep": "Поглиблено",
+    "deepDesc": "Глибокий аналіз та цитати",
+    "versesOnly": "Тільки Вірші",
+    "versesOnlyDesc": "Пошук віршів та уривків у Біблії"
+  },
+  "InputDock": {
+    "placeholder": "Напишіть повідомлення або поставте запитання...",
+    "channelSource": "Джерело каналу",
+    "localModel": "Локальна модель",
+    "cloudApi": "Хмарний API",
+    "send": "Надіслати",
+    "listening": "Слухаю...",
+    "dropFilesHere": "Відпустіть файли тут",
+    "localApp": "Локальний додаток:",
+    "chooseModel": "Оберіть модель:",
+    "apiProvider": "Провайдер API:",
+    "encryptedStream": "Прямий зашифрований потік між вузлами без проміжних серверів.",
+    "confirm": "Підтвердити"
+  },
+  "VerseCard": {
+    "loading": "Завантаження вірша...",
+    "failed": "Не вдалося завантажити текст вірша.",
+    "retry": "Повторити",
+    "copyVerse": "Скопіювати вірш",
+    "hide": "Приховати",
+    "show": "Показати"
+  },
+  "SearchModal": {
+    "title": "Швидкий пошук",
+    "placeholder": "Шукати в усіх чатах...",
+    "noResults": "Нічого не знайдено"
+  },
+  "AttachmentDock": {
+    "title": "Прикріплені файли",
+    "scrollRight": "Гортайте вправо →",
+    "deleteFile": "Видалити файл",
+    "processing": "Обробка...",
+    "cancelUpload": "Скасувати завантаження"
+  },
+  "ChatView": {
+    "scrollToBottom": "Вниз до відповіді"
+  },
+  "MessageList": {
+    "copyRequest": "Скопіювати запит",
+    "rollbackAndEdit": "Відкотитися до цього запиту та відредагувати",
+    "copyCleanText": "Скопіювати чистий текст без метрик",
+    "listen": "Прослухати",
+    "downloadFile": "Скачати файл",
+    "processingRequest": "Нейромережа обмірковує відповідь...",
+    "status_init": "Аналіз запиту та ініціалізація...",
+    "status_vector_search": "Пошук та аналіз контексту...",
+    "status_mcp_connect": "Підключення до MCP серверів...",
+    "status_mcp_query": "Аналіз біблійного контексту та джерел...",
+    "status_ollama_connect": "Нейромережа обмірковує відповідь...",
+    "status_api_connect": "Нейромережа обмірковує відповідь...",
+    "status_generating": "Обмірковування відповіді та думки...",
+    "modelThinking": "Думки моделі",
+    "modelThinkingInProgress": "Думки моделі (думає...)",
+    "thinkingStatusFallback": "Обмірковування відповіді..."
+  },
+  "MetricsCard": {
+    "complexity": "Складність",
+    "mode": "Режим",
+    "accuracy": "Точність"
+  },
+  "Page": {
+    "attachedFile": "Прикріплений файл",
+    "newChat": "Новий чат"
+  },
+  "Chat": {
+    "stop_generation": "Зупинити генерацію",
+    "cancel_recording": "Скасувати запис",
+    "send_voice": "Надіслати голосове"
+  }
+}

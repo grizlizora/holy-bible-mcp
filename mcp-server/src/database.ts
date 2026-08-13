@@ -4,13 +4,20 @@ import fs from "fs";
 import os from "os";
 import { fileURLToPath } from "url";
 
+import https from "https";
+import http from "http";
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+const ENV_DB = process.env.BIBLE_DB_PATH ? path.resolve(process.env.BIBLE_DB_PATH) : null;
 const LOCAL_DB = path.resolve(__dirname, "../../data/processed/bible_database.sqlite");
 const GLOBAL_DIR = path.join(os.homedir(), ".bible-mcp");
 const GLOBAL_DB = path.join(GLOBAL_DIR, "bible_database.sqlite");
+const REMOTE_DB_URL = process.env.REMOTE_BIBLE_DB_URL || 
+  "https://huggingface.co/datasets/grizlizora/holy-bible-mcp-data/resolve/main/bible_database.sqlite";
 
-function isValidDb(dbPath: string): boolean {
+function isValidDb(dbPath: string | null): boolean {
+  if (!dbPath) return false;
   try {
     return fs.existsSync(dbPath) && fs.statSync(dbPath).size > 1000000;
   } catch (e) {
@@ -18,21 +25,97 @@ function isValidDb(dbPath: string): boolean {
   }
 }
 
+export async function downloadDatabaseStream(targetPath: string, url: string = REMOTE_DB_URL): Promise<boolean> {
+  console.error(`[AUTO-DOWNLOADER] Starting automatic download of Holy Bible SQLite DB to ${targetPath}...`);
+  const targetDir = path.dirname(targetPath);
+  if (!fs.existsSync(targetDir)) {
+    fs.mkdirSync(targetDir, { recursive: true });
+  }
+
+  const tempPath = `${targetPath}.tmp`;
+
+  return new Promise((resolve) => {
+    const fetchWithRedirects = (currentUrl: string, redirectCount = 0) => {
+      if (redirectCount > 5) {
+        console.error(`[AUTO-DOWNLOADER] Error: Too many HTTP redirects.`);
+        resolve(false);
+        return;
+      }
+
+      const client = currentUrl.startsWith("https") ? https : http;
+      const req = client.get(currentUrl, { timeout: 15000 }, (res) => {
+        if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+          fetchWithRedirects(res.headers.location, redirectCount + 1);
+          return;
+        }
+
+        if (res.statusCode !== 200) {
+          console.error(`[AUTO-DOWNLOADER] HTTP ${res.statusCode} error fetching remote DB.`);
+          resolve(false);
+          return;
+        }
+
+        const totalBytes = parseInt(res.headers['content-length'] || '0', 10);
+        let downloadedBytes = 0;
+        let lastReportedPercent = 0;
+
+        const fileStream = fs.createWriteStream(tempPath);
+        res.on('data', (chunk) => {
+          downloadedBytes += chunk.length;
+          if (totalBytes > 0) {
+            const percent = Math.floor((downloadedBytes / totalBytes) * 100);
+            if (percent >= lastReportedPercent + 25) {
+              lastReportedPercent = percent;
+              console.error(`[AUTO-DOWNLOADER] Progress: ${percent}% (${Math.round(downloadedBytes / (1024*1024))}MB / ${Math.round(totalBytes / (1024*1024))}MB)`);
+            }
+          }
+        });
+
+        res.pipe(fileStream);
+
+        fileStream.on('finish', () => {
+          fileStream.close(() => {
+            if (fs.existsSync(tempPath) && fs.statSync(tempPath).size > 1000000) {
+              fs.renameSync(tempPath, targetPath);
+              console.error(`[AUTO-DOWNLOADER] ✅ Database successfully downloaded and verified at ${targetPath}`);
+              resolve(true);
+            } else {
+              console.error(`[AUTO-DOWNLOADER] Warning: Downloaded file is incomplete.`);
+              if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+              resolve(false);
+            }
+          });
+        });
+      });
+
+      req.on('error', (err) => {
+        console.error(`[AUTO-DOWNLOADER] Network offline or restricted during download: ${err.message}`);
+        if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+        resolve(false);
+      });
+    };
+
+    fetchWithRedirects(url);
+  });
+}
+
 function resolveDbPath(): string {
-  if (isValidDb(LOCAL_DB)) {
-    return LOCAL_DB;
-  }
-  if (isValidDb(GLOBAL_DB)) {
-    return GLOBAL_DB;
-  }
+  if (isValidDb(ENV_DB)) return ENV_DB!;
+  if (isValidDb(LOCAL_DB)) return LOCAL_DB;
+  if (isValidDb(GLOBAL_DB)) return GLOBAL_DB;
   
   if (!fs.existsSync(GLOBAL_DIR)) {
     fs.mkdirSync(GLOBAL_DIR, { recursive: true });
   }
   
-  console.error(`[INFO] Bible Database not found at ${LOCAL_DB} or ${GLOBAL_DB}.`);
-  console.error(`[INFO] Please place 'bible_database.sqlite' into ${GLOBAL_DB} or download it from HuggingFace.`);
+  console.error(`[INFO] Bible Database not found locally at ${LOCAL_DB} or ${GLOBAL_DB}.`);
+  console.error(`[INFO] Triggering Level 2 Background Auto-Downloader to ${GLOBAL_DB}...`);
   
+  // Trigger background auto-download if missing
+  downloadDatabaseStream(GLOBAL_DB).catch((err) => {
+    console.error(`[AUTO-DOWNLOADER] Background download error:`, err);
+  });
+
   return GLOBAL_DB;
 }
 
