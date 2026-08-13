@@ -785,9 +785,25 @@ ${stdFidelityRule}
     await this.initAllEnabled();
 
     let aggregatedContext = "";
-    let maxComplexityScore = 60;
+    
+    // 🧠 Dynamic Prompt Complexity Estimator: Dynamically evaluate user query instead of hardcoding 60
+    const textLen = (userMessage || '').trim().length;
+    let initialComplexity = 35;
+    if (textLen > 300 || /аналіз|порівняй|богослов|екзегез|контекст|грецьк|іврит/i.test(userMessage)) initialComplexity = 85;
+    else if (textLen > 120 || /як|чому|значення|поясни/i.test(userMessage)) initialComplexity = 65;
+    else if (textLen > 40) initialComplexity = 45;
+    else initialComplexity = 25;
+
+    let maxComplexityScore = initialComplexity;
     let minAccuracyScore = 100;
     let finalAppliedMode = mode;
+
+    if (mode === 'auto') {
+      if (initialComplexity >= 80) finalAppliedMode = 'deep';
+      else if (initialComplexity >= 60) finalAppliedMode = 'detailed';
+      else if (initialComplexity >= 40) finalAppliedMode = 'medium';
+      else finalAppliedMode = 'short';
+    }
     
     const allCapabilities = this.getCapabilities();
     let primaryConfigs = primaryMcpId 
