@@ -376,7 +376,7 @@ function InputDockComponent({ onSendMessage, isStreaming, onStop, initialText }:
                 style={{ willChange: 'transform', transform: 'translate3d(0,0,0)', backfaceVisibility: 'hidden' }}
                 className={cn(
                   getGlassClasses("modal", "lg"),
-                  "relative w-full max-w-sm sm:max-w-md rounded-t-3xl sm:rounded-3xl p-6 sm:p-7 shadow-2xl flex flex-col gap-5 max-h-[90vh] overflow-y-auto no-scrollbar overscroll-none mx-auto border-t sm:border-t-0"
+                  "relative w-full max-w-sm sm:max-w-md md:max-w-2xl lg:max-w-3xl rounded-t-3xl sm:rounded-3xl p-6 sm:p-7 shadow-2xl flex flex-col gap-5 max-h-[90vh] overflow-y-auto no-scrollbar overscroll-none mx-auto border-t sm:border-t-0"
                 )}
               >
               <div className="flex items-center justify-between border-b border-white/20 dark:border-slate-700/50 pb-5 mb-1 gap-2">
@@ -421,7 +421,7 @@ function InputDockComponent({ onSendMessage, isStreaming, onStop, initialText }:
                 <div className="flex flex-col gap-5 pt-1">
                   <div className="flex flex-col gap-2.5">
                     <span className="text-[11px] font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-widest pl-1">{tInput('localApp')}</span>
-                    <div className="grid grid-cols-2 gap-2.5">
+                    <div className="grid grid-cols-3 gap-2.5">
                       {(['ollama', 'lmstudio', 'vllm'] as LocalProvider[]).map(lp => (
                         <button 
                           key={lp} 
@@ -441,14 +441,15 @@ function InputDockComponent({ onSendMessage, isStreaming, onStop, initialText }:
 
                   <div className="flex flex-col gap-2.5 mt-1">
                     <span className="text-[11px] font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-widest pl-1">{tInput('chooseModel')}</span>
-                    <div className="grid grid-cols-2 gap-2.5">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                       {localModels.map(m => (
                         <button 
                           key={m} 
+                          title={m}
                           onClick={() => setTempSelectedModel(m)}
-                          className={`w-full py-3.5 px-3.5 text-[13px] rounded-2xl border font-bold transition-all flex items-center justify-between min-w-0 backdrop-blur-md ${tempSelectedModel === m ? 'border-blue-500 bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/30 scale-[1.02] ring-1 ring-blue-500/50' : 'border-slate-200 dark:border-slate-700/60 text-slate-700 dark:text-slate-200 bg-white/70 dark:bg-slate-800/40 hover:bg-white dark:hover:bg-slate-700/60 hover:border-slate-300 dark:hover:border-slate-600'}`}
+                          className={`w-full py-3 px-3 text-[12px] sm:text-[13px] rounded-2xl border font-bold transition-all flex items-center justify-between min-w-0 backdrop-blur-md ${tempSelectedModel === m ? 'border-blue-500 bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/30 scale-[1.02] ring-1 ring-blue-500/50' : 'border-slate-200 dark:border-slate-700/60 text-slate-700 dark:text-slate-200 bg-white/70 dark:bg-slate-800/40 hover:bg-white dark:hover:bg-slate-700/60 hover:border-slate-300 dark:hover:border-slate-600'}`}
                         >
-                          <span className="truncate">{m}</span>
+                          <span className="truncate flex-1 text-left">{m}</span>
                           {tempSelectedModel === m ? (
                             <Check size={16} className="flex-shrink-0 ml-1 text-white" />
                           ) : (

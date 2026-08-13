@@ -123,10 +123,20 @@ class McpManagerClass {
     try {
       if (fs.existsSync(this.registryPath)) {
         const data = fs.readFileSync(this.registryPath, 'utf8');
-        this.configs = JSON.parse(data);
+        const parsed = JSON.parse(data);
+        this.configs = (Array.isArray(parsed) ? parsed : [])
+          .filter((c: any) => c.id !== 'holy-bible-remote' && !c.name?.includes('GitHub Remote'))
+          .map((c: any) => c.id === 'holy-bible-local' ? { ...c, name: 'Holy Bible MCP' } : c);
       } else {
-        this.configs = [];
+        this.configs = [{
+          id: "holy-bible-local",
+          name: "Holy Bible MCP",
+          command: "node",
+          args: ["../mcp-server/build/index.js"],
+          enabled: true
+        }];
       }
+      this.saveRegistry();
     } catch (e) {
       console.error("Failed to load MCP registry", e);
       this.configs = [];
@@ -186,6 +196,10 @@ class McpManagerClass {
   public async connectServer(id: string) {
     const config = this.configs.find(c => c.id === id);
     if (!config) return;
+
+    if (this.statuses.get(id) === 'working' && this.servers.has(id)) {
+      return; // Instant 0ms bypass for already connected servers!
+    }
 
     this.statuses.set(id, 'connecting');
 

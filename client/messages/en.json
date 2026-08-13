@@ -69,7 +69,14 @@
     "enabled": "Enabled",
     "disabled": "Disabled",
     "settings": "Settings",
-    "delete": "Delete"
+    "delete": "Delete",
+    "codeLocal": "MCP Code (Local)",
+    "dbReady": "Database 5.88 GB (Local)",
+    "downloadDb": "📥 Download DB 5.88 GB (Online)",
+    "downloadingDb": "Downloading (Online)",
+    "status_full_local": "Working (Local Code & DB)",
+    "status_hybrid_db": "Working (Cloud Code, Local DB)",
+    "status_full_cloud": "Working (Cloud Code & DB)"
   },
   "Header": {
     "warmth": "Warmth",

@@ -3,9 +3,9 @@ import { createPortal } from 'react-dom';
 import { useTranslations } from 'next-intl';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSettingsStore } from '@/stores/useSettingsStore';
-import { GlassBox, getGlassClasses } from '@/components/ui/glass';
+import { GlassBox, GlassButton, getGlassClasses } from '@/components/ui/glass';
 import { cn } from '@/lib/utils';
-import { Pencil, Trash2, Plus, Sparkles, Check, Activity, ShieldCheck, Layers, Server, Settings, X } from 'lucide-react';
+import { Pencil, Trash2, Plus, Sparkles, Check, Activity, ShieldCheck, Layers, Server, Settings, X, FileCode } from 'lucide-react';
 
 export interface McpServerConfig {
   id: string;
@@ -14,6 +14,10 @@ export interface McpServerConfig {
   args: string[];
   enabled: boolean;
   status?: 'disconnected' | 'connecting' | 'working' | 'error';
+  codeInstalled?: boolean;
+  dbDownloaded?: boolean;
+  dbSizeBytes?: number;
+  dbSizeFormatted?: string;
 }
 
 export function McpDashboard() {
@@ -23,6 +27,51 @@ export function McpDashboard() {
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [settingsModalId, setSettingsModalId] = useState<string | null>(null);
+
+  const [downloadState, setDownloadState] = useState<{
+    isDownloading: boolean;
+    progressPercent: number;
+    downloadedBytes: number;
+    totalBytes: number;
+    speedBytesPerSec: number;
+    isComplete: boolean;
+    error: string | null;
+  }>({
+    isDownloading: false,
+    progressPercent: 0,
+    downloadedBytes: 0,
+    totalBytes: 5881192448,
+    speedBytesPerSec: 0,
+    isComplete: false,
+    error: null
+  });
+
+  const pollDownload = async () => {
+    try {
+      const res = await fetch('/api/mcp/download-db');
+      if (res.ok) {
+        const data = await res.json();
+        setDownloadState(data);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  useEffect(() => {
+    pollDownload();
+    const interval = setInterval(pollDownload, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleStartDownload = async () => {
+    try {
+      await fetch('/api/mcp/download-db', { method: 'POST' });
+      pollDownload();
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   useEffect(() => {
     setMounted(true);
@@ -100,7 +149,24 @@ export function McpDashboard() {
 
   const handleSaveJson = async () => {
     try {
-      const parsed = JSON.parse(editJson);
+      let parsed = JSON.parse(editJson);
+
+      // Support universal standard mcpServers object format (Claude Desktop, Cursor, Trea)
+      if (parsed.mcpServers && typeof parsed.mcpServers === 'object') {
+        const keys = Object.keys(parsed.mcpServers);
+        if (keys.length > 0) {
+          const firstKey = keys[0];
+          const serverObj = parsed.mcpServers[firstKey];
+          parsed = {
+            id: firstKey,
+            name: serverObj.name || firstKey,
+            command: serverObj.command,
+            args: serverObj.args || [],
+            enabled: serverObj.enabled !== undefined ? serverObj.enabled : true
+          };
+        }
+      }
+
       if (isAdding) {
         await fetch('/api/mcp', {
           method: 'POST',
@@ -121,18 +187,50 @@ export function McpDashboard() {
     }
   };
 
-  const getStatusBadge = (status?: string) => {
-    switch (status) {
-      case 'working': return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 shrink-0">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+  const getStatusBadge = (svr: McpServerConfig) => {
+    const { status, codeInstalled, dbDownloaded } = svr;
+
+    if (status === 'working') {
+      // 1. Mode 3: Local Code + Local DB (Full Local) -> Emerald Green
+      if (codeInstalled && dbDownloaded) {
+        return (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-extrabold rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/40 shadow-sm shrink-0">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            <span>{t('status_full_local') || 'Працює (Код і База Локально)'}</span>
           </span>
-          {t('status_working')}
+        );
+      }
+
+      // 2. Mode 2: Cloud Code + Local DB (Hybrid) -> Indigo / Blue
+      if (!codeInstalled && dbDownloaded) {
+        return (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-extrabold rounded-full bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border border-indigo-500/40 shadow-sm shrink-0">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+            </span>
+            <span>{t('status_hybrid_db') || 'Працює (Код Онлайн, База Локально)'}</span>
+          </span>
+        );
+      }
+
+      // 3. Mode 1: Cloud Code + Cloud DB (Full Cloud) -> Purple / Violet
+      return (
+        <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-extrabold rounded-full bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/40 shadow-sm shrink-0">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-purple-500"></span>
+          </span>
+          <span>{t('status_full_cloud') || 'Працює (Код і База Онлайн)'}</span>
         </span>
       );
-      case 'connecting': return (
+    }
+
+    if (status === 'connecting') {
+      return (
         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 shrink-0">
           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
@@ -141,19 +239,23 @@ export function McpDashboard() {
           {t('status_connecting')}
         </span>
       );
-      case 'error': return (
+    }
+
+    if (status === 'error') {
+      return (
         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-full bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30 shrink-0">
           <span className="h-2 w-2 rounded-full bg-rose-500"></span>
           {t('status_error')}
         </span>
       );
-      default: return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-full bg-slate-200/80 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 border border-slate-300/50 dark:border-slate-700/50 shrink-0">
-          <span className="h-2 w-2 rounded-full bg-slate-400 dark:bg-slate-500"></span>
-          {t('status_disconnected')}
-        </span>
-      );
     }
+
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-full bg-slate-200/80 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 border border-slate-300/50 dark:border-slate-700/50 shrink-0">
+        <span className="h-2 w-2 rounded-full bg-slate-400 dark:bg-slate-500"></span>
+        {t('status_disconnected')}
+      </span>
+    );
   };
 
   const getTierBadge = (svrId: string, status?: string) => {
@@ -241,15 +343,69 @@ export function McpDashboard() {
             <div className="flex items-center justify-between gap-3">
               <span className="font-extrabold text-sm sm:text-base text-slate-900 dark:text-slate-100 truncate">{svr.name}</span>
               <div className="flex items-center gap-1.5 shrink-0">
-                {getStatusBadge(svr.status)}
+                {getStatusBadge(svr)}
                 {getTierBadge(svr.id, svr.status)}
               </div>
             </div>
 
             {/* Middle Row: Code block command */}
-            <div className="text-[11px] text-slate-600 dark:text-slate-400 font-mono break-all bg-slate-100/90 dark:bg-slate-950/80 px-3.5 py-2.5 rounded-xl border border-slate-200/80 dark:border-slate-800/80 shadow-inner">
+            <div className="text-[11px] text-slate-600 dark:text-slate-400 font-mono font-medium truncate bg-slate-100/90 dark:bg-slate-950/80 px-3.5 py-2.5 rounded-xl border border-slate-200/80 dark:border-slate-800/80 shadow-inner w-full">
               {svr.command} {svr.args.join(' ')}
             </div>
+
+            {/* Storage Indicators: 1. Code Status, 2. DB Status */}
+            {svr.id === 'holy-bible-local' && (
+              <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-100 dark:border-slate-800/60 text-xs">
+                {/* Indicator 1: Code status */}
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/25 font-extrabold">
+                  <Check size={14} className="text-blue-500 shrink-0" />
+                  <span>{t('codeLocal') || '1. Код MCP (Локальний)'}</span>
+                </div>
+
+                {/* Indicator 2: DB 5.88 GB Status / Download button */}
+                {svr.dbDownloaded || downloadState.isComplete || downloadState.progressPercent >= 99 ? (
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/25 font-extrabold">
+                    <ShieldCheck size={14} className="text-emerald-500 shrink-0" />
+                    <span>{t('dbReady') || '2. База даних 5.88 ГБ (Готова)'}</span>
+                  </div>
+                ) : downloadState.isDownloading ? (
+                  <div className="flex flex-col gap-1.5 p-2.5 rounded-xl bg-amber-500/10 text-amber-800 dark:text-amber-200 border border-amber-500/30 font-extrabold min-w-[240px]">
+                    <div className="flex items-center justify-between gap-3 text-xs">
+                      <div className="flex items-center gap-1.5">
+                        <svg className="animate-spin w-3.5 h-3.5 text-amber-500 shrink-0" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                        </svg>
+                        <span>{(t('downloadingDb') || 'Скачування')}</span>
+                      </div>
+                      <span className="font-mono text-amber-600 dark:text-amber-400 font-extrabold">{downloadState.progressPercent}%</span>
+                    </div>
+
+                    {/* Visual Progress Bar */}
+                    <div className="w-full bg-slate-200 dark:bg-slate-800 h-2 rounded-full overflow-hidden border border-amber-500/20">
+                      <div 
+                        className="bg-gradient-to-r from-amber-500 to-orange-500 h-full rounded-full transition-all duration-300"
+                        style={{ width: `${Math.max(3, downloadState.progressPercent)}%` }}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between text-[11px] text-slate-600 dark:text-slate-400 font-mono">
+                      <span>{Math.round(downloadState.downloadedBytes / (1024 * 1024))} МБ / 5,881 МБ</span>
+                      {downloadState.speedBytesPerSec > 0 && (
+                        <span className="text-amber-600 dark:text-amber-400 font-bold">{(downloadState.speedBytesPerSec / (1024 * 1024)).toFixed(1)} МБ/сек</span>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={handleStartDownload}
+                    className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-extrabold shadow-md hover:scale-[1.03] active:scale-95 transition-all cursor-pointer"
+                  >
+                    <span>{t('downloadDb') || '📥 Скачати базу (5.88 ГБ)'}</span>
+                  </button>
+                )}
+              </div>
+            )}
 
             <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-800/60">
               <div className="flex items-center gap-2.5">
@@ -287,7 +443,7 @@ export function McpDashboard() {
                   onClick={() => {
                     setEditingId(svr.id);
                     setIsAdding(false);
-                    const { status, ...cfg } = svr;
+                    const { status, codeInstalled, dbDownloaded, dbSizeBytes, dbSizeFormatted, ...cfg } = svr;
                     setEditJson(JSON.stringify(cfg, null, 2));
                   }}
                   className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700/60 transition-all hover:scale-105 active:scale-95 cursor-pointer shadow-xs"
@@ -309,43 +465,106 @@ export function McpDashboard() {
         })}
       </div>
 
-      <AnimatePresence>
-        {editingId && (
-          <motion.div 
-            key="edit-modal"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
-            className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md"
-          >
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 w-full max-w-lg shadow-2xl flex flex-col gap-4">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
-                {isAdding ? t('addMcp') : t('editMcp')}
-              </h3>
-              <textarea 
-                value={editJson}
-                onChange={e => setEditJson(e.target.value)}
-                className="w-full h-64 bg-slate-950 text-emerald-400 font-mono text-sm p-4 rounded-xl border border-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none"
-                spellCheck={false}
-              />
-              <div className="flex justify-end gap-3">
-                <button 
-                  onClick={() => setEditingId(null)}
-                  className="px-4 py-2 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-xs font-bold cursor-pointer"
-                >
-                  {t('cancel')}
-                </button>
-                <button 
-                  onClick={handleSaveJson}
-                  className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md transition-colors cursor-pointer"
-                >
-                  {t('save')}
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {mounted && createPortal(
+        <AnimatePresence>
+          {editingId && (
+            <motion.div 
+              key="edit-modal"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[99999] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/70 backdrop-blur-xl"
+              onClick={() => setEditingId(null)}
+            >
+              <motion.div 
+                initial={{ scale: 0.95, opacity: 0, y: 12 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.95, opacity: 0, y: 12 }}
+                transition={{ duration: 0.24, ease: [0.32, 0.72, 0, 1] }}
+                onClick={(e) => e.stopPropagation()}
+                className={cn(
+                  getGlassClasses("modal", "2xl"),
+                  "relative w-full max-w-lg md:max-w-2xl rounded-t-3xl sm:rounded-3xl p-5 sm:p-7 shadow-2xl flex flex-col gap-4 sm:gap-5 max-h-[90vh] overflow-y-auto no-scrollbar overscroll-none border-t sm:border border-white/20 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95"
+                )}
+              >
+                {/* Header */}
+                <div className="flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800/80 pb-4 gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-2xl bg-blue-500/15 flex items-center justify-center text-blue-600 dark:text-blue-400 shadow-inner shrink-0">
+                      <FileCode size={22} />
+                    </div>
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-base sm:text-lg font-extrabold text-slate-800 dark:text-slate-100 truncate">
+                        {isAdding ? t('addMcp') : t('editMcp')}
+                      </span>
+                      <span className="text-xs font-medium text-slate-500 dark:text-slate-400 truncate">
+                        {t('mcpDesc') || "Налаштуйте специфікацію JSON сервера MCP"}
+                      </span>
+                    </div>
+                  </div>
+                  <GlassButton 
+                    onClick={() => setEditingId(null)}
+                    className="w-9 h-9 rounded-xl shrink-0"
+                  >
+                    <X size={18} />
+                  </GlassButton>
+                </div>
+
+                {/* Code Editor Header & Textarea */}
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between px-1">
+                    <span className="text-[11px] font-mono font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                      mcp_config.json
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        try {
+                          const parsed = JSON.parse(editJson);
+                          setEditJson(JSON.stringify(parsed, null, 2));
+                        } catch (e: any) {
+                          alert("Invalid JSON format: " + e.message);
+                        }
+                      }}
+                      className="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                    >
+                      Format JSON 🪄
+                    </button>
+                  </div>
+
+                  <div className="relative rounded-2xl bg-slate-950 border border-slate-800/80 overflow-hidden shadow-2xl">
+                    <textarea 
+                      value={editJson}
+                      onChange={e => setEditJson(e.target.value)}
+                      className="w-full h-64 bg-transparent text-emerald-400 font-mono text-[13px] leading-relaxed p-4 border-none focus:outline-none resize-none no-scrollbar"
+                      spellCheck={false}
+                    />
+                  </div>
+                </div>
+
+                {/* Footer Actions */}
+                <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-200/60 dark:border-slate-800/80">
+                  <button 
+                    onClick={() => setEditingId(null)}
+                    className="px-5 py-2.5 rounded-2xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-xs font-bold cursor-pointer"
+                  >
+                    {t('cancel')}
+                  </button>
+                  <button 
+                    onClick={handleSaveJson}
+                    className="px-6 py-2.5 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-extrabold text-xs shadow-lg shadow-blue-500/30 hover:shadow-blue-500/40 active:scale-[0.98] transition-all cursor-pointer flex items-center gap-1.5"
+                  >
+                    <Check size={16} />
+                    {t('save')}
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>,
+      document.body
+    )}
 
       {mounted && createPortal(
         <AnimatePresence>

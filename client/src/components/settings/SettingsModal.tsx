@@ -270,7 +270,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             transition={{ duration: 0.24, ease: [0.32, 0.72, 0, 1] }}
             style={{ willChange: 'transform, opacity', transform: 'translate3d(0,0,0)', backfaceVisibility: 'hidden' }}
             className={cn(
-              "w-full max-w-2xl rounded-3xl flex flex-col max-h-[85vh] pointer-events-auto overflow-hidden",
+              "w-full max-w-2xl md:max-w-3xl lg:max-w-4xl rounded-3xl flex flex-col max-h-[85vh] pointer-events-auto overflow-hidden",
               "bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-slate-200/80 dark:border-slate-800 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.35)] text-slate-900 dark:text-slate-100"
             )}
           >

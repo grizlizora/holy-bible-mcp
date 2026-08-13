@@ -1,15 +1,39 @@
 import { NextRequest, NextResponse } from "next/server";
 import { mcpManager } from "@/lib/mcp/mcp-manager";
+import fs from "fs";
+import path from "path";
+import os from "os";
 
 export async function GET(req: NextRequest) {
   try {
-    const configs = mcpManager.getConfigs();
+    await mcpManager.initAllEnabled();
+    const rawConfigs = mcpManager.getConfigs();
+    const configs = rawConfigs
+      .filter(c => c.id !== 'holy-bible-remote' && !c.name?.includes('GitHub Remote'))
+      .map(c => c.id === 'holy-bible-local' ? { ...c, name: 'Holy Bible MCP' } : c);
     const statuses = mcpManager.getAllStatuses();
     
-    // Combine config with current status
+    const userHome = os.homedir();
+    const dbPath1 = path.join(userHome, ".bible-mcp", "bible_database.sqlite");
+    const dbPath2 = path.resolve(process.cwd(), "../data/processed/bible_database.sqlite");
+    const dbPath3 = path.resolve(process.cwd(), "./data/processed/bible_database.sqlite");
+
+    const foundDbPath = [dbPath1, dbPath2, dbPath3].find(p => fs.existsSync(p) && fs.statSync(p).size > 1000000);
+    const dbSizeBytes = foundDbPath ? fs.statSync(foundDbPath).size : 0;
+    const dbDownloaded = dbSizeBytes >= 5800000000;
+    const dbSizeFormatted = (dbSizeBytes / (1024 * 1024 * 1024)).toFixed(2) + " GB";
+
+    const localCodePath = path.resolve(process.cwd(), "../mcp-server/build/index.js");
+    const codeInstalled = fs.existsSync(localCodePath);
+
+    // Combine config with current status and storage badges
     const data = configs.map(c => ({
       ...c,
-      status: statuses[c.id] || 'disconnected'
+      status: statuses[c.id] || 'disconnected',
+      codeInstalled: c.id === 'holy-bible-local' ? codeInstalled : true,
+      dbDownloaded: c.id === 'holy-bible-local' ? dbDownloaded : true,
+      dbSizeBytes,
+      dbSizeFormatted
     }));
     
     return NextResponse.json(data);

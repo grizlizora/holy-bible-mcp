@@ -304,7 +304,7 @@ function ChatHeaderComponent({ chatTitle }: { chatTitle?: string }) {
                 style={{ willChange: 'transform', transform: 'translate3d(0,0,0)', backfaceVisibility: 'hidden' }}
                 className={cn(
                   getGlassClasses("modal", "2xl"),
-                  "relative w-full max-w-sm sm:max-w-md rounded-t-3xl sm:rounded-3xl p-6 sm:p-7 shadow-2xl flex flex-col gap-4 max-h-[90vh] overflow-y-auto no-scrollbar overscroll-none mx-auto border-t sm:border-t-0"
+                  "relative w-full max-w-sm sm:max-w-md md:max-w-xl lg:max-w-2xl rounded-t-3xl sm:rounded-3xl p-6 sm:p-7 shadow-2xl flex flex-col gap-4 max-h-[90vh] overflow-y-auto no-scrollbar overscroll-none mx-auto border-t sm:border-t-0"
                 )}
               >
               <div className="flex items-center justify-between border-b border-white/20 dark:border-slate-700/50 pb-5 mb-1 gap-2">
@@ -450,7 +450,7 @@ function ChatHeaderComponent({ chatTitle }: { chatTitle?: string }) {
                 style={{ willChange: 'transform', transform: 'translate3d(0,0,0)', backfaceVisibility: 'hidden' }}
                 className={cn(
                   getGlassClasses("modal", "2xl"),
-                  "relative w-full max-w-sm sm:max-w-md rounded-t-3xl sm:rounded-3xl p-6 sm:p-7 shadow-2xl flex flex-col gap-4 max-h-[90vh] overflow-y-auto no-scrollbar overscroll-none mx-auto border-t sm:border-t-0"
+                  "relative w-full max-w-sm md:max-w-2xl lg:max-w-3xl rounded-t-3xl sm:rounded-3xl p-6 sm:p-7 shadow-2xl flex flex-col gap-4 max-h-[90vh] overflow-y-auto no-scrollbar overscroll-none mx-auto border-t sm:border-t-0"
                 )}
               >
               <div className="flex items-center justify-between border-b border-white/20 dark:border-slate-700/50 pb-5 mb-1 gap-2">
@@ -468,7 +468,7 @@ function ChatHeaderComponent({ chatTitle }: { chatTitle?: string }) {
                 </GlassButton>
               </div>
 
-              <div className="flex flex-col gap-2.5 py-1">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 py-1">
                 {(Object.keys(detailMap)).filter(dKey => dKey !== 'auto').map(dKey => {
                   const isSelected = tempDetailLevel === dKey;
                   const theme = optionStyleMap[dKey] || {
