@@ -95,6 +95,22 @@ export async function downloadDatabaseStream(targetPath, url = REMOTE_DB_PRIMARY
         fetchWithRedirects(url);
     });
 }
+export async function downloadDatabaseStreamResilient(targetPath) {
+    const shuffledMirrors = [...REMOTE_MIRRORS].sort(() => Math.random() - 0.5);
+    for (let i = 0; i < shuffledMirrors.length; i++) {
+        const mirrorUrl = shuffledMirrors[i];
+        console.error(`[CDN LOAD BALANCER] Distributing traffic to Mirror ${i + 1}/${shuffledMirrors.length}: ${mirrorUrl.slice(0, 50)}...`);
+        const success = await downloadDatabaseStream(targetPath, mirrorUrl);
+        if (success) {
+            console.error(`[CDN LOAD BALANCER] ✅ Download successful via Mirror ${i + 1}`);
+            return true;
+        }
+        const backoffMs = Math.pow(2, i) * 1000;
+        console.error(`[CDN LOAD BALANCER] Mirror ${i + 1} rate-limited or offline. Gentle pause ${backoffMs}ms before failover...`);
+        await new Promise((res) => setTimeout(res, backoffMs));
+    }
+    return false;
+}
 function resolveDbPath() {
     if (isValidDb(ENV_DB))
         return ENV_DB;
