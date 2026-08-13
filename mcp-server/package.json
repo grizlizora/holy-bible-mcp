@@ -1,12 +1,15 @@
 {
-  "name": "holy-bible-mcp",
-  "version": "1.0.0",
+  "name": "@grizlizora/holy-bible-mcp",
+  "version": "1.0.1",
   "description": "Universal Multilingual Bible MCP Server (800+ languages, 11.9M verses, 100% offline, zero-latency FTS5)",
   "main": "build/index.js",
   "type": "module",
   "bin": {
     "holy-bible-mcp": "build/index.js"
   },
+  "files": [
+    "build"
+  ],
   "scripts": {
     "build": "tsc && mkdir -p build/data && cp src/data/osis_dictionary.json build/data/osis_dictionary.json",
     "start": "node build/index.js",
