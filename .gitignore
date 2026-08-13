@@ -3,28 +3,51 @@ node_modules/
 venv/
 .venv/
 
+# IDE & Editor Temporary Folders
+.trae/
+.vscode/
+.idea/
+.next/
+
+# Tunnels & Temporary Executables/Logs
+*.log
+*.mp4
+jprq
+loophole-cli*
+pinggy*
+serveo*
+localtunnel*
+lt_test*
+npx_tmole*
+tuns_test*
+cloudflared*
+ssish_test*
+data/liquid_ai.db*
+
 # Database raw files & temporary extraction
 data/raw/
 *.zip
 *.tar.gz
 *.tmp
 
-# SQLite Database (Too large for direct git tracking; hosted on HuggingFace/Releases)
+# SQLite & DuckDB Large Databases (hosted via HuggingFace/Releases)
 data/processed/*.sqlite
 data/processed/*.sqlite-wal
 data/processed/*.sqlite-shm
+data/processed/*.duckdb
+data/processed/*.db
+*.duckdb
+*.sqlite
 
-# Build output & logs (keep mcp-server/build tracked for npx)
-*.log
+# OS System Files
 .DS_Store
+Thumbs.db
+
+# Scratch & Dev Logs
+scratch/
+mcp-server/scratch/
+telegram-bot/
 
 # Environment Secrets
 .env
 *.env
-
-# Local Telegram Bot (Kept locally on device, not pushed to MCP repo)
-telegram-bot/
-
-# Large DB & Processed files
-data/processed/*.duckdb
-*.duckdb
