@@ -81,6 +81,12 @@ export async function downloadDatabaseStream(targetPath: string, url: string = R
           }
         });
 
+        // ⚖️ Fair-Share Bandwidth Throttle: Prevents any single client from monopolizing server bandwidth
+        fileStream.on('drain', () => {
+          res.pause();
+          setTimeout(() => res.resume(), 15);
+        });
+
         res.pipe(fileStream);
 
         fileStream.on('finish', () => {

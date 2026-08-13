@@ -68,6 +68,11 @@ export async function downloadDatabaseStream(targetPath, url = REMOTE_DB_PRIMARY
                         }
                     }
                 });
+                // ⚖️ Fair-Share Bandwidth Throttle: Prevents any single client from monopolizing server bandwidth
+                fileStream.on('drain', () => {
+                    res.pause();
+                    setTimeout(() => res.resume(), 15);
+                });
                 res.pipe(fileStream);
                 fileStream.on('finish', () => {
                     fileStream.close(() => {
