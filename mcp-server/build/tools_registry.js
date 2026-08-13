@@ -373,9 +373,9 @@ export function registerToolHandlers(server) {
                 const limit = typeof args?.limit === "number" ? args.limit : 10;
                 const cleanKey = rawKeyword.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
                 const stem = cleanKey.length >= 5 ? cleanKey.slice(0, cleanKey.length - 1) : cleanKey;
-                let rows = await queryDb(`SELECT book, chapter, verse, text FROM verses WHERE LOWER(text) LIKE ? LIMIT ?`, [`%${cleanKey}%`, limit]);
+                let rows = await queryDb(`SELECT book, chapter, verse, text FROM verses WHERE LOWER(text) LIKE ? AND LOWER(language) IN ('ukr', 'uk', 'eng', 'en') LIMIT ?`, [`%${cleanKey}%`, limit]);
                 if (rows.length === 0 && stem.length >= 3) {
-                    rows = await queryDb(`SELECT book, chapter, verse, text FROM verses WHERE LOWER(text) LIKE ? LIMIT ?`, [`%${stem}%`, limit]);
+                    rows = await queryDb(`SELECT book, chapter, verse, text FROM verses WHERE LOWER(text) LIKE ? AND LOWER(language) IN ('ukr', 'uk', 'eng', 'en') LIMIT ?`, [`%${stem}%`, limit]);
                 }
                 const formattedText = rows.map((v) => {
                     return formatScriptureVerse({ book: v.book, chapter: v.chapter, verse: v.verse, text: v.text, language: lang }).formattedText;
@@ -399,7 +399,19 @@ export function registerToolHandlers(server) {
                     }
                 }
                 const osisCode = OSIS_ALIAS_MAP[book] || book;
-                const rows = await queryDb(`SELECT book, chapter, verse, text FROM verses WHERE (UPPER(book) = ? OR UPPER(book) LIKE ?) AND chapter = ? AND verse = ? LIMIT 1`, [osisCode, `%${book}%`, chapter || 1, verse || 1]);
+                const targetLang = (lang || 'ukr').toLowerCase().trim();
+                const preferredLangs = targetLang.includes('uk') || targetLang.includes('ua')
+                    ? ['ukr', 'uk', 'ua', 'eng', 'en']
+                    : [targetLang, 'eng', 'en', 'ukr'];
+                let rows = [];
+                for (const l of preferredLangs) {
+                    rows = await queryDb(`SELECT book, chapter, verse, text FROM verses WHERE (UPPER(book) = ? OR UPPER(book) LIKE ?) AND chapter = ? AND verse = ? AND LOWER(language) = ? LIMIT 1`, [osisCode, `%${book}%`, chapter || 1, verse || 1, l]);
+                    if (rows.length > 0)
+                        break;
+                }
+                if (rows.length === 0) {
+                    rows = await queryDb(`SELECT book, chapter, verse, text FROM verses WHERE (UPPER(book) = ? OR UPPER(book) LIKE ?) AND chapter = ? AND verse = ? AND LOWER(language) IN ('ukr', 'uk', 'eng', 'en') LIMIT 1`, [osisCode, `%${book}%`, chapter || 1, verse || 1]);
+                }
                 if (rows.length > 0) {
                     const v = rows[0];
                     const formatted = formatScriptureVerse({ book: v.book, chapter: v.chapter, verse: v.verse, text: v.text, language: lang }).formattedText;

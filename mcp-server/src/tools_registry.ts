@@ -376,13 +376,13 @@ export function registerToolHandlers(server: Server): void {
         const stem = cleanKey.length >= 5 ? cleanKey.slice(0, cleanKey.length - 1) : cleanKey;
 
         let rows = await queryDb(
-          `SELECT book, chapter, verse, text FROM verses WHERE LOWER(text) LIKE ? LIMIT ?`,
+          `SELECT book, chapter, verse, text FROM verses WHERE LOWER(text) LIKE ? AND LOWER(language) IN ('ukr', 'uk', 'eng', 'en') LIMIT ?`,
           [`%${cleanKey}%`, limit]
         );
 
         if (rows.length === 0 && stem.length >= 3) {
           rows = await queryDb(
-            `SELECT book, chapter, verse, text FROM verses WHERE LOWER(text) LIKE ? LIMIT ?`,
+            `SELECT book, chapter, verse, text FROM verses WHERE LOWER(text) LIKE ? AND LOWER(language) IN ('ukr', 'uk', 'eng', 'en') LIMIT ?`,
             [`%${stem}%`, limit]
           );
         }
@@ -414,10 +414,26 @@ export function registerToolHandlers(server: Server): void {
 
         const osisCode = OSIS_ALIAS_MAP[book] || book;
 
-        const rows = await queryDb(
-          `SELECT book, chapter, verse, text FROM verses WHERE (UPPER(book) = ? OR UPPER(book) LIKE ?) AND chapter = ? AND verse = ? LIMIT 1`,
-          [osisCode, `%${book}%`, chapter || 1, verse || 1]
-        );
+        const targetLang = (lang || 'ukr').toLowerCase().trim();
+        const preferredLangs = targetLang.includes('uk') || targetLang.includes('ua') 
+          ? ['ukr', 'uk', 'ua', 'eng', 'en']
+          : [targetLang, 'eng', 'en', 'ukr'];
+
+        let rows: any[] = [];
+        for (const l of preferredLangs) {
+          rows = await queryDb(
+            `SELECT book, chapter, verse, text FROM verses WHERE (UPPER(book) = ? OR UPPER(book) LIKE ?) AND chapter = ? AND verse = ? AND LOWER(language) = ? LIMIT 1`,
+            [osisCode, `%${book}%`, chapter || 1, verse || 1, l]
+          );
+          if (rows.length > 0) break;
+        }
+
+        if (rows.length === 0) {
+          rows = await queryDb(
+            `SELECT book, chapter, verse, text FROM verses WHERE (UPPER(book) = ? OR UPPER(book) LIKE ?) AND chapter = ? AND verse = ? AND LOWER(language) IN ('ukr', 'uk', 'eng', 'en') LIMIT 1`,
+            [osisCode, `%${book}%`, chapter || 1, verse || 1]
+          );
+        }
 
         if (rows.length > 0) {
           const v = rows[0];

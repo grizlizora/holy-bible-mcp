@@ -438,14 +438,36 @@ export async function GET(req: Request) {
 
         const bookPlaceholders = possibleBooks.map(() => '?').join(',');
 
+        const sanitizeVerse = (raw: string) => {
+          if (!raw) return '';
+          return raw
+            .replace(/\{\{CITATION:[\s\S]*?\}\}/gi, '')
+            .replace(/\{\{VERSE:[\s\S]*?\}\}/gi, '')
+            .replace(/\[\[METRICS:[\s\S]*?\]\]/gi, '')
+            .replace(/<think>[\s\S]*?<\/think>/gi, '')
+            .replace(/📖|\*\*|>|«|»/g, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+        };
+
+        const targetLang = (lang || 'ukr').toLowerCase().trim();
+        const preferredLangs = targetLang.includes('uk') || targetLang.includes('ua') 
+          ? ['ukr', 'uk', 'ua', 'eng', 'en']
+          : [targetLang, 'eng', 'en', 'ukr'];
+
         const directTexts: string[] = [];
         for (const v of verseNumbers) {
-          let row = db.prepare(`SELECT text FROM verses WHERE UPPER(book) IN (${bookPlaceholders}) AND chapter = ? AND verse = ? AND language = ? LIMIT 1`).get(...possibleBooks, chapter, v, lang) as {text: string} | undefined;
+          let row: { text: string } | undefined;
+          for (const l of preferredLangs) {
+            row = db.prepare(`SELECT text FROM verses WHERE UPPER(book) IN (${bookPlaceholders}) AND chapter = ? AND verse = ? AND LOWER(language) = ? LIMIT 1`).get(...possibleBooks, chapter, v, l) as {text: string} | undefined;
+            if (row && row.text) break;
+          }
           if (!row) {
-            row = db.prepare(`SELECT text FROM verses WHERE UPPER(book) IN (${bookPlaceholders}) AND chapter = ? AND verse = ? LIMIT 1`).get(...possibleBooks, chapter, v) as {text: string} | undefined;
+            row = db.prepare(`SELECT text FROM verses WHERE UPPER(book) IN (${bookPlaceholders}) AND chapter = ? AND verse = ? AND LOWER(language) IN ('ukr', 'uk', 'eng', 'en') LIMIT 1`).get(...possibleBooks, chapter, v) as {text: string} | undefined;
           }
           if (row && row.text) {
-            directTexts.push(row.text.trim());
+            const cleaned = sanitizeVerse(row.text);
+            if (cleaned) directTexts.push(cleaned);
           }
         }
         db.close();
