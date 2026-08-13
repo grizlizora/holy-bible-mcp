@@ -57,8 +57,12 @@ else
   if [[ "$DB_CHOICE" =~ ^[Yy]$ ]]; then
     echo "📥 Downloading Holy Bible SQLite Database (5.88GB) to $GLOBAL_DB..."
     echo "   Progress:"
-    curl -L --progress-bar "$REMOTE_DB" -o "$GLOBAL_DB.tmp"
-    mv "$GLOBAL_DB.tmp" "$GLOBAL_DB"
+    if command -v aria2c &> /dev/null; then
+      aria2c -x 16 -s 16 -k 1M --continue=true "$REMOTE_DB" -d "$GLOBAL_DIR" -o "bible_database.sqlite"
+    else
+      curl -L --progress-bar -C - "$REMOTE_DB" -o "$GLOBAL_DB.tmp"
+      mv "$GLOBAL_DB.tmp" "$GLOBAL_DB"
+    fi
     echo "✅ Database download & verification complete!"
   else
     echo "⚠️ Database download skipped. Server will auto-download on first query or use remote mode."
