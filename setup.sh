@@ -86,7 +86,8 @@ cat << "JSONEOF"
       "args": ["-y", "@grizlizora/holy-bible-mcp"],
       "env": {
         "DEFAULT_MODE": "deep",
-        "DEFAULT_WARMTH": "80"
+        "DEFAULT_WARMTH": "80",
+        "SHOW_METRICS": "on"
       }
     }
   }
@@ -103,7 +104,8 @@ echo "   - detailed: Detailed structured explanation."
 echo "   - verses_only: Strict scripture verse output only."
 echo "   - minimal: Concise response under 40 words."
 echo ""
-echo "• DEFAULT_WARMTH Options: 0 to 100 (Default: 80 for pastoral empathy & depth)."
+echo "• DEFAULT_WARMTH Options: 0 to 100 (Default: 80 for pastoral empathy & depth).
+• SHOW_METRICS Options: "on" | "off" (Controls whether accuracy/complexity metrics footer is shown at the end of responses)."
 echo ""
 echo "• RESPONSE METRICS FOOTER:"
 echo "  Every response automatically ends with a verified status badge:"

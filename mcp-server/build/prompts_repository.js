@@ -180,7 +180,9 @@ export function registerPromptHandlers(server) {
 }
 export function buildMetricsFooterDirective(params) {
     const { showMetrics, language, complexityScore = 65, modeLabel, accuracyScore = '96.5%', effectiveDetailLevel = 'medium' } = params;
-    if (!showMetrics) {
+    const envShowMetrics = process.env.SHOW_METRICS ? !['off', 'false', '0'].includes(process.env.SHOW_METRICS.toLowerCase()) : true;
+    const isMetricsEnabled = showMetrics && envShowMetrics;
+    if (!isMetricsEnabled) {
         return `\n[METRICS FOOTER DIRECTIVE]: SHOW_METRICS IS OFF. DO NOT OUTPUT ANY METRICS BADGE OR FOOTER TEXT AT THE END OF YOUR RESPONSE.`;
     }
     const detectedLang = language ? language.toLowerCase().trim().slice(0, 3) : 'auto';

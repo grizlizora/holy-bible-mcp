@@ -212,8 +212,10 @@ export function buildMetricsFooterDirective(params: {
   effectiveDetailLevel?: string;
 }): string {
   const { showMetrics, language, complexityScore = 65, modeLabel, accuracyScore = '96.5%', effectiveDetailLevel = 'medium' } = params;
+  const envShowMetrics = process.env.SHOW_METRICS ? !['off', 'false', '0'].includes(process.env.SHOW_METRICS.toLowerCase()) : true;
+  const isMetricsEnabled = showMetrics && envShowMetrics;
 
-  if (!showMetrics) {
+  if (!isMetricsEnabled) {
     return `\n[METRICS FOOTER DIRECTIVE]: SHOW_METRICS IS OFF. DO NOT OUTPUT ANY METRICS BADGE OR FOOTER TEXT AT THE END OF YOUR RESPONSE.`;
   }
 
