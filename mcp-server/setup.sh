@@ -6,7 +6,7 @@ set -e
 
 GLOBAL_DIR="$HOME/.bible-mcp"
 GLOBAL_DB="$GLOBAL_DIR/bible_database.sqlite"
-REMOTE_DB="https://huggingface.co/datasets/grizlizora/holy-bible-mcp-data/resolve/main/bible_database.sqlite"
+REMOTE_DB="https://huggingface.co/datasets/grizlizora/holy-bible-mcp/resolve/main/bible_database.sqlite"
 
 clear
 echo "=============================================================================="
@@ -51,11 +51,11 @@ mkdir -p "$GLOBAL_DIR"
 if [ -f "$GLOBAL_DB" ] && [ $(wc -c <"$GLOBAL_DB") -gt 1000000 ]; then
   echo "✅ Holy Bible SQLite Database verified at $GLOBAL_DB"
 else
-  read -p "2. Do you want to download the 100MB Offline Holy Bible Database now? [Y/n]: " DB_CHOICE
+  read -p "2. Do you want to download the 5.88GB Offline Holy Bible Database now? [Y/n]: " DB_CHOICE
   DB_CHOICE=${DB_CHOICE:-Y}
 
   if [[ "$DB_CHOICE" =~ ^[Yy]$ ]]; then
-    echo "📥 Downloading Holy Bible SQLite Database (100MB) to $GLOBAL_DB..."
+    echo "📥 Downloading Holy Bible SQLite Database (5.88GB) to $GLOBAL_DB..."
     echo "   Progress:"
     curl -L --progress-bar "$REMOTE_DB" -o "$GLOBAL_DB.tmp"
     mv "$GLOBAL_DB.tmp" "$GLOBAL_DB"

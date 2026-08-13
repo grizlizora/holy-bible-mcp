@@ -15,10 +15,13 @@ const GLOBAL_DIR = path.join(os.homedir(), ".bible-mcp");
 const GLOBAL_DB = path.join(GLOBAL_DIR, "bible_database.sqlite");
 const REMOTE_MIRRORS = [
   process.env.REMOTE_BIBLE_DB_URL,
-  "https://huggingface.co/datasets/grizlizora/holy-bible-mcp-data/resolve/main/bible_database.sqlite",
+  "https://huggingface.co/datasets/grizlizora/holy-bible-mcp/resolve/main/bible_database.sqlite",
   "https://github.com/grizlizora/holy-bible-mcp/releases/download/v1.0.0/bible_database.sqlite",
   "https://cdn.jsdelivr.net/gh/grizlizora/holy-bible-mcp@main/data/processed/bible_database.sqlite"
 ].filter(Boolean) as string[];
+
+export const BIBLE_DB_MAGNET_URI = 
+  "magnet:?xt=urn:btih:e221d09e3870ddc23d3e1f62858a12b4152792847b911728371d39fa85279bb3&dn=bible_database.sqlite&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337%2Fannounce&tr=udp%3A%2F%2Ftracker.openbittorrent.com%3A6969%2Fannounce&tr=wss%3A%2F%2Ftracker.webtorrent.dev";
 
 const REMOTE_DB_PRIMARY = REMOTE_MIRRORS[0];
 const REMOTE_DB_FALLBACK = REMOTE_MIRRORS[1] || REMOTE_MIRRORS[0];
@@ -134,23 +137,26 @@ function resolveDbPath(): string {
 
 export const DB_PATH = resolveDbPath();
 
-// 🧠 Hardware-Aware CPU/RAM/VRAM Optimization Engine
+// 🧠 Hardware-Aware CPU/RAM/VRAM Optimization Engine (Calibrated for 5.88 GB Database)
 const totalRamGB = Math.round(os.totalmem() / (1024 * 1024 * 1024));
 const cpuCores = os.cpus().length || 4;
 const arch = os.arch();
 
-let cacheSizeKb = -64000; // 64MB default
-let mmapSizeBytes = 268435456; // 256MB default
+let cacheSizeKb = -256000; // 256MB RAM cache default
+let mmapSizeBytes = 1073741824; // 1GB Memory-Mapped I/O default
 
-if (totalRamGB >= 16) {
-  cacheSizeKb = -128000; // 128MB RAM cache on high-RAM systems (>=16GB)
-  mmapSizeBytes = 536870912; // 512MB Memory-Mapped I/O
+if (totalRamGB >= 32) {
+  cacheSizeKb = -1024000; // 1GB RAM cache on ultra-high RAM systems (>=32GB)
+  mmapSizeBytes = 4294967296; // 4GB Memory-Mapped I/O
+} else if (totalRamGB >= 16) {
+  cacheSizeKb = -512000; // 512MB RAM cache on high RAM systems (16GB-32GB)
+  mmapSizeBytes = 2147483648; // 2GB Memory-Mapped I/O
 } else if (totalRamGB < 8) {
-  cacheSizeKb = -16000; // 16MB RAM cache on low memory devices (<8GB)
+  cacheSizeKb = -32000; // 32MB RAM cache on low memory devices (<8GB)
   mmapSizeBytes = 0; // Disable MMAP to protect low RAM devices
 }
 
-console.log(`[HARDWARE ENGINE] OS: ${process.platform} (${arch}), CPU Cores: ${cpuCores}, RAM: ${totalRamGB}GB. Scaled Cache: ${Math.abs(cacheSizeKb)/1000}MB, MMAP: ${mmapSizeBytes / (1024*1024)}MB`);
+console.log(`[HARDWARE ENGINE] OS: ${process.platform} (${arch}), CPU Cores: ${cpuCores}, RAM: ${totalRamGB}GB. Scaled RAM Cache: ${Math.abs(cacheSizeKb)/1000}MB, MMAP I/O: ${mmapSizeBytes / (1024*1024)}MB`);
 
 export const db = new sqlite3.Database(DB_PATH, (err) => {
   if (err) {
