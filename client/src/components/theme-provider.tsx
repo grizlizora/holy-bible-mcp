@@ -52,10 +52,8 @@ export function ThemeProvider({
   }, []);
 
   return (
-    <div suppressHydrationWarning className="contents">
-      <NextThemesProvider {...props}>
-        {children}
-      </NextThemesProvider>
-    </div>
+    <NextThemesProvider {...props}>
+      {children}
+    </NextThemesProvider>
   );
 }
