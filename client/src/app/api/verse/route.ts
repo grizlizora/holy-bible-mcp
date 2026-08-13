@@ -450,10 +450,12 @@ export async function GET(req: Request) {
             .trim();
         };
 
-        const targetLang = (lang || 'ukr').toLowerCase().trim();
+        let targetLang = (lang || 'ukr').toLowerCase().trim();
+        if (targetLang === 'auto' || !targetLang) targetLang = 'ukr';
+
         const preferredLangs = targetLang.includes('uk') || targetLang.includes('ua') 
           ? ['ukr', 'uk', 'ua', 'eng', 'en']
-          : [targetLang, 'eng', 'en', 'ukr'];
+          : [targetLang, 'ukr', 'uk', 'eng', 'en'];
 
         const directTexts: string[] = [];
         for (const v of verseNumbers) {
