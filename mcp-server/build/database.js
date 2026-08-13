@@ -10,8 +10,9 @@ const ENV_DB = process.env.BIBLE_DB_PATH ? path.resolve(process.env.BIBLE_DB_PAT
 const LOCAL_DB = path.resolve(__dirname, "../../data/processed/bible_database.sqlite");
 const GLOBAL_DIR = path.join(os.homedir(), ".bible-mcp");
 const GLOBAL_DB = path.join(GLOBAL_DIR, "bible_database.sqlite");
-const REMOTE_DB_URL = process.env.REMOTE_BIBLE_DB_URL ||
+const REMOTE_DB_PRIMARY = process.env.REMOTE_BIBLE_DB_URL ||
     "https://huggingface.co/datasets/grizlizora/holy-bible-mcp-data/resolve/main/bible_database.sqlite";
+const REMOTE_DB_FALLBACK = "https://github.com/grizlizora/holy-bible-mcp/releases/download/v1.0.0/bible_database.sqlite";
 function isValidDb(dbPath) {
     if (!dbPath)
         return false;
@@ -22,7 +23,7 @@ function isValidDb(dbPath) {
         return false;
     }
 }
-export async function downloadDatabaseStream(targetPath, url = REMOTE_DB_URL) {
+export async function downloadDatabaseStream(targetPath, url = REMOTE_DB_PRIMARY) {
     console.error(`[AUTO-DOWNLOADER] Starting automatic download of Holy Bible SQLite DB to ${targetPath}...`);
     const targetDir = path.dirname(targetPath);
     if (!fs.existsSync(targetDir)) {
@@ -100,8 +101,14 @@ function resolveDbPath() {
     }
     console.error(`[INFO] Bible Database not found locally at ${LOCAL_DB} or ${GLOBAL_DB}.`);
     console.error(`[INFO] Triggering Level 2 Background Auto-Downloader to ${GLOBAL_DB}...`);
-    // Trigger background auto-download if missing
-    downloadDatabaseStream(GLOBAL_DB).catch((err) => {
+    // Trigger background auto-download if missing with dual fallback
+    downloadDatabaseStream(GLOBAL_DB, REMOTE_DB_PRIMARY).then((success) => {
+        if (!success) {
+            console.error(`[AUTO-DOWNLOADER] Primary source failed. Retrying with GitHub Releases fallback...`);
+            return downloadDatabaseStream(GLOBAL_DB, REMOTE_DB_FALLBACK);
+        }
+        return true;
+    }).catch((err) => {
         console.error(`[AUTO-DOWNLOADER] Background download error:`, err);
     });
     return GLOBAL_DB;
