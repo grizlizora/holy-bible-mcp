@@ -196,10 +196,10 @@ db.serialize(() => {
         }
     });
 });
-// Fast In-Memory Bounded LRU Cache with 5-minute TTL
+// Fast In-Memory Bounded LRU Cache with 10-minute TTL (Up to 5,000 cached queries)
 const queryCache = new Map();
-const MAX_CACHE_SIZE = 500;
-const DEFAULT_CACHE_TTL_MS = 300000;
+const MAX_CACHE_SIZE = 5000;
+const DEFAULT_CACHE_TTL_MS = 600000;
 export function getFromCache(key) {
     const entry = queryCache.get(key);
     if (!entry)
