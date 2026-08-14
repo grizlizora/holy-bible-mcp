@@ -163,10 +163,24 @@ else if (totalRamGB < 8) {
     mmapSizeBytes = 0; // Disable MMAP to protect low RAM devices
 }
 console.log(`[HARDWARE ENGINE] OS: ${process.platform} (${arch}), CPU Cores: ${cpuCores}, RAM: ${totalRamGB}GB. Scaled RAM Cache: ${Math.abs(cacheSizeKb) / 1000}MB, MMAP I/O: ${mmapSizeBytes / (1024 * 1024)}MB`);
+// Track whether the core `verses` table actually exists (false when DB absent/empty)
+let dbHasVersesTable = false;
 export const db = new sqlite3.Database(DB_PATH, (err) => {
     if (err) {
         console.error("[DATABASE ENGINE] Warning: Native SQLite connection error:", err.message);
+        return;
     }
+    // Verify the canonical verses table exists right after open
+    db.get("SELECT name FROM sqlite_master WHERE type='table' AND name='verses'", (e, row) => {
+        if (!e && row) {
+            dbHasVersesTable = true;
+            console.log(`[DATABASE ENGINE] ✅ Verses table verified at: ${DB_PATH}`);
+        }
+        else {
+            dbHasVersesTable = false;
+            console.error(`[DATABASE ENGINE] ⚠️  'verses' table NOT found at ${DB_PATH}. Offline mode: scripture queries will return empty results. Download the database to enable full functionality.`);
+        }
+    });
 });
 // Configure SQLite for WAL mode and multi-reader speed sequentially inside serialize()
 db.serialize(() => {
@@ -244,7 +258,15 @@ export function saveToCache(key, data) {
     }
     queryCache.set(key, { data, expiresAt: Date.now() + DEFAULT_CACHE_TTL_MS });
 }
+export function isDbReady() {
+    return dbHasVersesTable;
+}
 export function queryDb(sql, params = []) {
+    // Offline guard: if the verses table is missing, return empty immediately
+    if (!dbHasVersesTable && (sql.includes('FROM verses') || sql.includes('verses_fts'))) {
+        console.warn('[DATABASE ENGINE] Offline mode — database not available. Returning empty result.');
+        return Promise.resolve([]);
+    }
     const cacheKey = `${sql}::${JSON.stringify(params)}`;
     const cached = getFromCache(cacheKey);
     if (cached !== undefined) {
@@ -253,8 +275,16 @@ export function queryDb(sql, params = []) {
     return new Promise((resolve, reject) => {
         db.all(sql, params, (err, rows) => {
             if (err) {
-                console.error("Database query error:", err.message);
-                reject(err);
+                // If the table doesn't exist (DB downloaded but corrupted/empty), mark offline and resolve empty
+                if (err.message?.includes('no such table')) {
+                    dbHasVersesTable = false;
+                    console.error('[DATABASE ENGINE] ⚠️  Table missing during query. Switching to offline mode.');
+                    resolve([]);
+                }
+                else {
+                    console.error('Database query error:', err.message);
+                    reject(err);
+                }
             }
             else {
                 saveToCache(cacheKey, rows || []);

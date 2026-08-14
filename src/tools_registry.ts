@@ -1,6 +1,6 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { ListToolsRequestSchema, CallToolRequestSchema } from "@modelcontextprotocol/sdk/types.js";
-import { queryDb, BIBLE_DB_MAGNET_URI } from "./database.js";
+import { queryDb, isDbReady, BIBLE_DB_MAGNET_URI } from "./database.js";
 import { getSensitivityDirective, resolveEffectiveMode, UNIVERSAL_ARCHETYPES, calculateBiblicalAccuracy } from "./archetypes.js";
 import { computeAdaptiveModelBudget, estimatePromptComplexity } from "./capabilities.js";
 import { extractVectorContext } from "./vector_context.js";
@@ -525,6 +525,11 @@ export function registerToolHandlers(server: Server): void {
       }
 
       if (name === "search_keyword") {
+        if (!isDbReady()) {
+          return {
+            content: [{ type: "text", text: "" }]
+          };
+        }
         const rawKeyword = String(args?.keyword || "").trim();
         const lang = String(args?.language || "ukr");
         const limit = typeof args?.limit === "number" ? args.limit : 10;
@@ -566,6 +571,11 @@ export function registerToolHandlers(server: Server): void {
       }
 
       if (name === "get_verse") {
+        if (!isDbReady()) {
+          return {
+            content: [{ type: "text", text: JSON.stringify({ error: "offline", message: "База даних Біблії не завантажена. Завантажте базу даних (5.88 GB) для роботи зі Scritpure в офлайн режимі." }) }]
+          };
+        }
         let book = String(args?.book || "").toUpperCase();
         let chapter = Number(args?.chapter || 0);
         let verse = Number(args?.verse || 0);
