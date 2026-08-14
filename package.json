@@ -5,7 +5,8 @@
   "main": "build/index.js",
   "type": "module",
   "bin": {
-    "holy-bible-mcp": "build/index.js"
+    "holy-bible-mcp": "build/index.js",
+    "@grizlizora/holy-bible-mcp": "build/index.js"
   },
   "files": [
     "build"
