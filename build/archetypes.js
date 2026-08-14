@@ -71,24 +71,23 @@ export function getSensitivityDirective(score = 80) {
     }
     return { score, label, directive };
 }
-export function deriveModeFromScore(score) {
-    if (score < 30)
-        return "verses_only";
-    if (score < 45)
+export function deriveModeFromComplexity(complexityScore) {
+    if (complexityScore < 35)
         return "minimal";
-    if (score < 60)
+    if (complexityScore < 50)
         return "short";
-    if (score < 80)
+    if (complexityScore < 70)
         return "medium";
-    if (score < 92)
+    if (complexityScore < 85)
         return "detailed";
     return "deep";
 }
-export function resolveEffectiveMode(currentModeKey, currentSensitivityScore) {
-    if (currentModeKey && currentModeKey !== "auto") {
-        return currentModeKey;
+export function resolveEffectiveMode(currentModeKey, promptComplexityScore = 50) {
+    const normKey = (currentModeKey || 'auto').toLowerCase().trim();
+    if (normKey && normKey !== "auto") {
+        return normKey;
     }
-    return deriveModeFromScore(currentSensitivityScore);
+    return deriveModeFromComplexity(promptComplexityScore);
 }
 export function calculateBiblicalAccuracy(text, toolsUsed = []) {
     const str = text || "";

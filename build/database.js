@@ -7,6 +7,7 @@ import https from "https";
 import http from "http";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ENV_DB = process.env.BIBLE_DB_PATH ? path.resolve(process.env.BIBLE_DB_PATH) : null;
+const MCP_STORAGE_DB = path.join(os.homedir(), ".holy-bible-mcp", "mcp-storage", "holy-bible-local", "data", "bible_database.sqlite");
 const LOCAL_DB = path.resolve(__dirname, "../../data/processed/bible_database.sqlite");
 const GLOBAL_DIR = path.join(os.homedir(), ".bible-mcp");
 const GLOBAL_DB = path.join(GLOBAL_DIR, "bible_database.sqlite");
@@ -119,6 +120,8 @@ export async function downloadDatabaseStreamResilient(targetPath) {
 function resolveDbPath() {
     if (isValidDb(ENV_DB))
         return ENV_DB;
+    if (isValidDb(MCP_STORAGE_DB))
+        return MCP_STORAGE_DB;
     if (isValidDb(LOCAL_DB))
         return LOCAL_DB;
     if (isValidDb(GLOBAL_DB))

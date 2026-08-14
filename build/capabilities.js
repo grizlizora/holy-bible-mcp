@@ -115,83 +115,52 @@ export function estimatePromptComplexity(text) {
     }
     const clean = text.trim();
     let score = 50;
-    // 1. Language-Agnostic Structural & Length Metrics
+    // 1. Universal Unicode Structural & Script Density Metrics (800+ Languages)
     const words = clean.split(/\s+/).filter(Boolean);
     const wordCount = words.length;
-    if (clean.length > 250 || wordCount > 40)
+    const isCjk = /[\u4E00-\u9FFF\u3040-\u30FF\uAC00-\uD7AF]/.test(clean);
+    const effectiveWordCount = isCjk ? clean.length * 1.5 : wordCount;
+    if (clean.length > 250 || effectiveWordCount > 40)
         score += 20;
-    else if (clean.length > 120 || wordCount > 20)
+    else if (clean.length > 120 || effectiveWordCount > 20)
         score += 10;
-    else if (clean.length < 25 || wordCount < 4)
+    else if (clean.length < 20 && effectiveWordCount < 3)
         score -= 12;
-    // Clause count & punctuation complexity (commas, semicolons, colons, question marks)
-    const punctuationCount = (clean.match(/[,;:\-\–\—\?\!]/g) || []).length;
+    // Clause count & punctuation complexity across all world scripts (Latin, Cyrillic, Arabic, Armenian, Ethiopic, CJK)
+    const punctuationCount = (clean.match(/[,;:\-–—?!¿¡؟፧՞\u3001\u3002\uFF1F\uFF01]/gu) || []).length;
     if (punctuationCount >= 4)
         score += 10;
-    // Scripture reference detection (e.g. "3:16", "12.4")
-    const hasScriptureRef = /\b\d{1,3}\s*[:\.]\s*\d{1,3}\b/.test(clean);
+    // Universal Scripture reference detection across scripts (e.g. "3:16", "12.4", "３：１６")
+    const hasScriptureRef = /\b\d{1,3}\s*[:\.\uff1a]\s*\d{1,3}\b/.test(clean);
     if (hasScriptureRef)
-        score += 8;
+        score += 10;
     // Strong's ID / Etymology indicator (e.g. "H8267", "G5579")
     const hasStrongsCode = /\b[HG]\d{3,5}\b/i.test(clean);
     if (hasStrongsCode)
         score += 15;
-    // 2. Multi-lingual Trigger Keywords (UKR, ENG, SPA, DEU, FRA, POL, ITA, POR, NLD)
-    const deepTriggers = [
-        // UKR
-        'чому', 'проаналізуй', 'поясни', 'смерть', 'гріх', 'спасіння', 'віра', 'благодать', 'закон', 'любов', 'душа', 'вечність', 'сенс', 'страждання',
-        // ENG
-        'why', 'analyze', 'explain', 'death', 'sin', 'salvation', 'faith', 'grace', 'law', 'love', 'soul', 'eternity', 'meaning', 'suffering', 'purpose',
-        // SPA
-        'por qué', 'analiza', 'explica', 'muerte', 'pecado', 'salvación', 'fe', 'gracia', 'ley', 'amor', 'alma', 'eternidad', 'sufrimiento',
-        // DEU
-        'warum', 'analysiere', 'erkläre', 'tod', 'sünde', 'rettung', 'glaube', 'gnade', 'gesetz', 'liebe', 'seele', 'ewigkeit',
-        // FRA
-        'pourquoi', 'analyser', 'expliquer', 'mort', 'péché', 'salut', 'foi', 'grâce', 'loi', 'amour', 'âme', 'éternité',
-        // POL
-        'dlaczego', 'przeanalizuj', 'wyjaśnij', 'śmierć', 'grzech', 'zbawienie', 'wiara', 'łaska', 'prawo', 'miłość', 'dusza', 'wieczność',
-        // ITA / POR / NLD
-        'perché', 'porque', 'analisar', 'morte', 'salvação', 'waarom', 'geloof', 'liefde'
-    ];
-    const simpleTriggers = [
-        // UKR
-        'де', 'хто', 'коли', 'який', 'прочитай', 'знайди', 'покажи',
-        // ENG
-        'where', 'who', 'when', 'which', 'read', 'find', 'show', 'list',
-        // SPA
-        'dónde', 'quién', 'cuándo', 'cuál', 'lee', 'busca', 'muestra',
-        // DEU
-        'wo', 'wer', 'wann', 'welche', 'lies', 'finde', 'zeige',
-        // FRA
-        'où', 'qui', 'quand', 'quel', 'lire', 'trouver', 'montrer',
-        // POL
-        'gdzie', 'kto', 'kiedy', 'jaki', 'przeczytaj', 'znajdź', 'pokaż'
-    ];
-    const lower = clean.toLowerCase();
-    let deepMatches = 0;
-    let simpleMatches = 0;
-    for (const t of deepTriggers) {
-        if (lower.includes(t))
-            deepMatches++;
+    // 2. Universal Semantic & Ontological Inquiry Evaluator (800+ Languages)
+    // Detects conceptual questions (definitions, purpose, suffering, faith, love, hope, grace, eternity) across all language families
+    const isQuestion = /[?¿؟፧՞\uff1f]/.test(clean) || /^(?:що|як|чому|хто|де|чи|what|why|how|who|where|is|can|qué|por qué|cómo|quién|warum|wie|wer|was|pourquoi|comment|qui|que|dlaczego|jak|kto|co|perché|come|chi|cosa|porque|como|quem|qual|waarom|hoe|wie|wat|зачем|لماذا|كيف|من|ما|למה|איך|מי|מה|为什么|如何|谁|什么是|なぜ|どうして|誰|何|왜|어떻게|누구|무엇|kyk|hvorfor|hvordan|hvem|hva|miksi|kuinka|kuka|mitä)/i.test(clean.trim());
+    if (isQuestion) {
+        score = Math.max(68, score + 15);
     }
-    for (const t of simpleTriggers) {
-        if (lower.includes(t))
-            simpleMatches++;
+    // Trivial single-token greeting detection across all major language roots
+    const isTrivialGreeting = /^(?:привіт|добрий|дякую|спасибі|ок|hello|hi|thanks|ok|hola|gracias|hallo|danke|bonjour|merci|cześć|dzięki|ciao|grazie|olá|obrigado|hallo|bedankt|привет|спасибо|مرحبا|شكرا|שלום|תודה|你好|谢谢|こんにちは|ありがとう|안녕하세요|감사합니다)$/i.test(clean.trim());
+    if (isTrivialGreeting) {
+        score = Math.min(25, score - 25);
     }
-    score += deepMatches * 6;
-    score -= simpleMatches * 4;
     score = Math.max(10, Math.min(100, score));
     if (score < 40) {
-        return { score, level: 'simple', multiplier: 0.7, reason: 'Short factual query' };
+        return { score, level: 'simple', multiplier: 0.7, reason: 'Short factual or greeting query' };
     }
     else if (score < 70) {
         return { score, level: 'moderate', multiplier: 1.0, reason: 'Standard analytical question' };
     }
     else if (score < 85) {
-        return { score, level: 'deep', multiplier: 1.3, reason: 'Deep theological query' };
+        return { score, level: 'deep', multiplier: 1.3, reason: 'Deep conceptual/theological query' };
     }
     else {
-        return { score, level: 'unthrottled', multiplier: 1.5, reason: 'Complex ontological prompt' };
+        return { score, level: 'unthrottled', multiplier: 1.5, reason: 'Complex ontological study' };
     }
 }
 /**

@@ -81,20 +81,20 @@ export function getSensitivityDirective(score: number = 80): { score: number; la
   return { score, label, directive };
 }
 
-export function deriveModeFromScore(score: number): string {
-  if (score < 30) return "verses_only";
-  if (score < 45) return "minimal";
-  if (score < 60) return "short";
-  if (score < 80) return "medium";
-  if (score < 92) return "detailed";
+export function deriveModeFromComplexity(complexityScore: number): string {
+  if (complexityScore < 35) return "minimal";
+  if (complexityScore < 50) return "short";
+  if (complexityScore < 70) return "medium";
+  if (complexityScore < 85) return "detailed";
   return "deep";
 }
 
-export function resolveEffectiveMode(currentModeKey: string, currentSensitivityScore: number): string {
-  if (currentModeKey && currentModeKey !== "auto") {
-    return currentModeKey;
+export function resolveEffectiveMode(currentModeKey: string, promptComplexityScore: number = 50): string {
+  const normKey = (currentModeKey || 'auto').toLowerCase().trim();
+  if (normKey && normKey !== "auto") {
+    return normKey;
   }
-  return deriveModeFromScore(currentSensitivityScore);
+  return deriveModeFromComplexity(promptComplexityScore);
 }
 
 export function calculateBiblicalAccuracy(text: string, toolsUsed: string[] = []): {
