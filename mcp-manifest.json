@@ -1,6 +1,9 @@
 {
   "name": "Holy Bible MCP",
   "version": "1.0.1",
+  "code": {
+    "sizeBytes": 335168980
+  },
   "databases": [
     {
       "id": "bible",
