@@ -163,11 +163,19 @@ else if (totalRamGB < 8) {
     mmapSizeBytes = 0; // Disable MMAP to protect low RAM devices
 }
 console.log(`[HARDWARE ENGINE] OS: ${process.platform} (${arch}), CPU Cores: ${cpuCores}, RAM: ${totalRamGB}GB. Scaled RAM Cache: ${Math.abs(cacheSizeKb) / 1000}MB, MMAP I/O: ${mmapSizeBytes / (1024 * 1024)}MB`);
-// Track whether the core `verses` table actually exists (false when DB absent/empty)
+// Open DB: use real file if it exists, otherwise use in-memory stub so the server
+// stays alive and returns graceful empty results instead of crashing.
 let dbHasVersesTable = false;
-export const db = new sqlite3.Database(DB_PATH, (err) => {
+const DB_FILE_EXISTS = fs.existsSync(DB_PATH) && fs.statSync(DB_PATH).size > 1_000_000;
+export const db = new sqlite3.Database(DB_FILE_EXISTS ? DB_PATH : ':memory:', (err) => {
     if (err) {
-        console.error("[DATABASE ENGINE] Warning: Native SQLite connection error:", err.message);
+        console.error("[DATABASE ENGINE] Warning: SQLite connection error:", err.message);
+        return;
+    }
+    if (!DB_FILE_EXISTS) {
+        console.error(`[DATABASE ENGINE] ⚠️  Database file not found at: ${DB_PATH}`);
+        console.error(`[DATABASE ENGINE] 🔄  Running in offline stub mode — download the 5.88 GB database to enable scripture queries.`);
+        dbHasVersesTable = false;
         return;
     }
     // Verify the canonical verses table exists right after open
@@ -178,7 +186,7 @@ export const db = new sqlite3.Database(DB_PATH, (err) => {
         }
         else {
             dbHasVersesTable = false;
-            console.error(`[DATABASE ENGINE] ⚠️  'verses' table NOT found at ${DB_PATH}. Offline mode: scripture queries will return empty results. Download the database to enable full functionality.`);
+            console.error(`[DATABASE ENGINE] ⚠️  'verses' table NOT found. Download the database to enable full functionality.`);
         }
     });
 });
