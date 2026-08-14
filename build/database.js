@@ -118,18 +118,24 @@ export async function downloadDatabaseStreamResilient(targetPath) {
     return false;
 }
 function resolveDbPath() {
-    if (isValidDb(ENV_DB))
-        return ENV_DB;
-    if (isValidDb(MCP_STORAGE_DB))
-        return MCP_STORAGE_DB;
-    if (isValidDb(LOCAL_DB))
-        return LOCAL_DB;
-    if (isValidDb(GLOBAL_DB))
-        return GLOBAL_DB;
+    const candidatePaths = [
+        ENV_DB,
+        MCP_STORAGE_DB,
+        path.join(os.homedir(), ".holy-bible-mcp", "servers", "Holy Bible MCP", "data", "bible_database.sqlite"),
+        LOCAL_DB,
+        path.resolve(__dirname, "../data/processed/bible_database.sqlite"),
+        path.resolve(process.cwd(), "data/processed/bible_database.sqlite"),
+        path.resolve(process.cwd(), "../data/processed/bible_database.sqlite"),
+        path.resolve(process.cwd(), "../../data/processed/bible_database.sqlite"),
+        GLOBAL_DB
+    ].filter(Boolean);
+    const found = candidatePaths.find(p => isValidDb(p));
+    if (found)
+        return found;
     if (!fs.existsSync(GLOBAL_DIR)) {
         fs.mkdirSync(GLOBAL_DIR, { recursive: true });
     }
-    console.error(`[INFO] Bible Database not found locally at ${LOCAL_DB} or ${GLOBAL_DB}.`);
+    console.error(`[INFO] Bible Database not found locally. Checking storage paths.`);
     console.error(`[INFO] Triggering Level 2 Load-Balanced Background Auto-Downloader to ${GLOBAL_DB}...`);
     // Trigger background auto-download if missing with randomized CDN mirror load distribution
     downloadDatabaseStreamResilient(GLOBAL_DB).catch((err) => {
