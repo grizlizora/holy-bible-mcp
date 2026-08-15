@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "holy-bible-mcp": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@grizlizora/holy-bible-mcp"
+      ],
+      "env": {
+        "MODES_CONTROL": "on",
+        "WARMTH_CONTROL": "on",
+        "SHOW_METRICS": "on",
+        "DEFAULT_MODE": "auto",
+        "DEFAULT_WARMTH": "80"
+      }
+    }
+  }
+}
