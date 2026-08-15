@@ -1,110 +1,26 @@
 import { ListPromptsRequestSchema, GetPromptRequestSchema } from "@modelcontextprotocol/sdk/types.js";
-import { UNIVERSAL_BIBLICAL_MAPPING_RULE } from "./archetypes.js";
-import { getModelTier, extractModelParamSizeB } from "./capabilities.js";
+import { extractModelParamSizeB } from "./capabilities.js";
+import { DirectiveStore } from "./directives/directive_store.js";
 export class PromptRepositoryEngine {
-    static BOLD_SYNTAX_MANDATE = `
-CRITICAL MARKDOWN SYNTAX & RICH FORMATTING RULES:
-1. NEVER wrap numbered list prefixes inside bold asterisks. Write "1. **Header**" NOT "** 1. **Header".
-2. Use GitHub Callout Alerts for highlights:
-   > [!NOTE]
-   > **Історичний контекст:** ...
-   > [!TIP]
-   > **Пастирська порада:** ...
-   > [!IMPORTANT]
-   > **Богословська істина:** ...
-3. Use Collapsible Sections <details><summary><b>Заголовок</b></summary>...</details> for deep optional studies.
-4. Use Comparison Tables | Термін | Значення | Код | for linguistic comparisons.
-5. Use Action Checklists (- [ ]) for practical life application steps.`;
     static getPromptTemplates() {
-        return {
-            minimal: `You are a concise Bible Guide. Give a MINIMAL response (under 40 words).
-${UNIVERSAL_BIBLICAL_MAPPING_RULE}
-${PromptRepositoryEngine.BOLD_SYNTAX_MANDATE}
-STRICT SINGLE RESPONSE RULE:
-Select EXACTLY ONE single most relevant verse quote from the provided database results.
-Output section headers in the exact language used in the user's prompt (e.g. Ukrainian: <b>📖 Вірш:</b> and <b>💡 Висновок:</b>).
-<b>📖 Verse / Вірш:</b>
-<blockquote>"..." — <b>Book Chapter:Verse</b></blockquote>
-<b>💡 Summary / Висновок:</b> <u>1 short sentence summarizing the answer.</u>`,
-            verses_only: `You are a scripture extraction engine. Give a STRICT VERSES ONLY response.
-${UNIVERSAL_BIBLICAL_MAPPING_RULE}
-${PromptRepositoryEngine.BOLD_SYNTAX_MANDATE}
-STRICT VERSES ONLY RULE:
-Do NOT output long commentary, opinions, explanations, or essays. Output ONLY verified scripture verses matching the query.
-Format:
-> "Verse text..." — **Book Chapter:Verse**`,
-            short: `You are a concise Bible Guide. Give a SHORT response (under 100 words).
-${UNIVERSAL_BIBLICAL_MAPPING_RULE}
-${PromptRepositoryEngine.BOLD_SYNTAX_MANDATE}
-UNIVERSAL MARKDOWN FORMATTING:
-• Headers: **...**
-• Verses: > "..." — **Book Chapter:Verse**
-• Transliterations: *šâqar*
-• Strong IDs: \`H8267\` or \`G5579\`
-**📖 Key Passages**
-> "..." — **Book Chapter:Verse**
-**🔍 Core Meaning:**
-• **Old Testament:** 1 sentence with (*word*, \`H8267\`).
-• **New Testament:** 1 sentence with (*word*, \`G5579\`).
-**💡 Takeaway:** *1 short sentence.*`,
-            medium: `You are a wise Bible Scholar. Give a BALANCED response (around 150 words).
-${UNIVERSAL_BIBLICAL_MAPPING_RULE}
-${PromptRepositoryEngine.BOLD_SYNTAX_MANDATE}
-UNIVERSAL MARKDOWN FORMATTING SUITE:
-• Section Headers: **...**
-• Verses: > "..." — **Book Chapter:Verse**
-• Transliterations: *šâqar*
-• Strong IDs: \`H8267\` or \`G5579\`
-**📖 Key Passages / Ключові Уривки**
-> "..." — **Book Chapter:Verse**
-**🔍 Linguistic Context & Essence / Мовний контекст & Сутність**
-• **Old Testament:** Explain Hebrew root (e.g. *šâqar*, \`H8267\`).
-• **New Testament:** Explain Greek root (e.g. *pseudos*, \`G5579\`).
-**💡 Practical Synthesis / Підсумок для життя**
-1-2 clear, practical sentences.
-**🙏 For Personal Reflection:** ||Personal reflection question||`,
-            detailed: `You are a detailed Bible Scholar. Provide a THOROUGH response with full language etymology, Strong's verification, and deep multi-dimensional reasoning.
-${UNIVERSAL_BIBLICAL_MAPPING_RULE}
-${PromptRepositoryEngine.BOLD_SYNTAX_MANDATE}
-**📖 Key Scripture Passages**
-> "..." — **Book Chapter:Verse**
-**🔍 Detailed Linguistic & Etymological Analysis**
-• **Hebrew Root Analysis:** Deep root definition, \`H8267\`.
-• **Greek Root Analysis:** Deep root definition, \`G5579\`.
-**🔗 Spiritual & Systemic Cross-Connections**
-• Connect the topic's real-world mechanisms directly to scripture wisdom.
-**💡 Synthesis & Practical Conclusion**
-2-3 impactful sentences providing a balanced synthesis.
-**☑ Actionable Application Steps:**
-☐ Step 1
-☐ Step 2`,
-            deep: `You are an exhaustive Bible Scholar. Provide a DEEP THEOLOGICAL STUDY of the topic.
-${UNIVERSAL_BIBLICAL_MAPPING_RULE}
-${PromptRepositoryEngine.BOLD_SYNTAX_MANDATE}
-**📖 Foundational Scripture Passages**
-> "..." — **Book Chapter:Verse**
-**🏛️ Historical & Covenantal Context**
-Explain the cultural, historical, and covenantal backdrop.`
-        };
+        const store = DirectiveStore.getInstance();
+        const modes = store.getAllModes();
+        const result = {};
+        for (const m of modes) {
+            result[m.modeKey] = m.templateBody || m.structureMandate;
+        }
+        return result;
     }
     static buildHydratedStudyPrompt(options) {
         const { topic, language = 'ukr', detailLevel = 'medium', modelName } = options;
         const isUkr = language === 'ukr' || language === 'uk';
         const sizeB = modelName ? (extractModelParamSizeB(modelName) || 14) : 14;
-        const tier = options.modelTier || getModelTier(sizeB);
-        const templates = PromptRepositoryEngine.getPromptTemplates();
-        let baseTemplate = templates[detailLevel] || templates.medium;
-        if (tier === 'tier1') {
-            baseTemplate += `\n[TIER 1 MODEL DIRECTIVE]: Maintain ultra-concise sentences, zero decorative filler, and maximum structural clarity.`;
-        }
-        else if (tier === 'tier1_5') {
-            baseTemplate += `\n[TIER 1.5 MODEL DIRECTIVE]: Provide balanced structured reasoning with concise scripture etymology.`;
-        }
-        else if (tier === 'tier2') {
-            baseTemplate += `\n[TIER 2 MODEL DIRECTIVE]: Provide rich linguistic etymology and multi-dimensional covenantal analysis.`;
-        }
-        else if (tier === 'tier3') {
-            baseTemplate += `\n[TIER 3 MODEL DIRECTIVE]: Provide deep canonical cross-mesh analysis, rich typological connections, and multi-layered hermeneutical synthesis.`;
+        const store = DirectiveStore.getInstance();
+        const tier = store.resolveTierByParamSize(sizeB);
+        const modeObj = store.getMode(detailLevel) || store.getMode('medium');
+        let baseTemplate = modeObj?.templateBody || modeObj?.structureMandate || '';
+        if (tier?.systemDirective) {
+            baseTemplate += `\n${tier.systemDirective}`;
         }
         const langRules = isUkr
             ? `STRICT LANGUAGE & CITATION RULE: Respond EXCLUSIVELY in Ukrainian. Structure your response with an introductory overview paragraph followed by 4 detailed bullet points matching the canonical 4-part trajectory: 1. **Сутність та якір**; 2. **Духовний механізм**; 3. **Практичний вияв**; 4. **Вічний плід**. Include scripture citations at the end of each bullet formatted as Ukrainian book names (e.g. 1 Коринфянам 13:4).`
@@ -169,7 +85,6 @@ export function registerPromptHandlers(server) {
                         role: "user",
                         content: {
                             type: "text",
-                            text: `Question: "${question}"\n\n${UNIVERSAL_BIBLICAL_MAPPING_RULE}`
                         }
                     }
                 ]
@@ -179,11 +94,12 @@ export function registerPromptHandlers(server) {
     });
 }
 export function buildMetricsFooterDirective(params) {
-    const { showMetrics, language, complexityScore = 65, modeLabel, accuracyScore = '96.5%', effectiveDetailLevel = 'medium' } = params;
+    const { showMetrics, modesControlEnabled = true, language, complexityScore = 65, modeLabel, accuracyScore = '96.5%', effectiveDetailLevel = 'medium' } = params;
     const envShowMetrics = process.env.SHOW_METRICS ? !['off', 'false', '0'].includes(process.env.SHOW_METRICS.toLowerCase()) : true;
     const isMetricsEnabled = showMetrics && envShowMetrics;
+    // 🛡️ ZERO-LEAKAGE: Return empty string when metrics are disabled (no prompt leakage)
     if (!isMetricsEnabled) {
-        return `\n[METRICS FOOTER DIRECTIVE]: SHOW_METRICS IS OFF. DO NOT OUTPUT ANY METRICS BADGE OR FOOTER TEXT AT THE END OF YOUR RESPONSE.`;
+        return "";
     }
     const detectedLang = language ? language.toLowerCase().trim().slice(0, 3) : 'auto';
     const METRICS_TITLES = {
@@ -213,18 +129,17 @@ export function buildMetricsFooterDirective(params) {
         verses_only: { ukr: "📜 Тільки Вірші", eng: "📜 Verses Only", spa: "📜 Solo Versículos", deu: "📜 Nur Verse", fra: "📜 Versets Seulement", pol: "📜 Tylko Wersety", por: "📜 Apenas Versículos", ita: "📜 Solo Versetti" }
     };
     const isKnown = detectedLang !== 'auto' && Boolean(METRICS_TITLES[detectedLang] || METRICS_TITLES[detectedLang.slice(0, 2)]);
-    const titles = isKnown ? (METRICS_TITLES[detectedLang] || METRICS_TITLES[detectedLang.slice(0, 2)]) : null;
+    const titles = isKnown ? (METRICS_TITLES[detectedLang] || METRICS_TITLES[detectedLang.slice(0, 2)]) : { complexity: "Complexity", mode: "Mode", accuracy: "Accuracy" };
     const modeValDict = MODE_TRANSLATIONS[effectiveDetailLevel] || MODE_TRANSLATIONS.medium;
     const finalModeStr = isKnown && titles ? (modeValDict[detectedLang] || modeValDict[detectedLang.slice(0, 2)] || modeLabel) : modeLabel;
-    if (titles && finalModeStr) {
+    if (modesControlEnabled && effectiveDetailLevel !== 'unrestricted' && finalModeStr) {
         return `\n---\n[UNIVERSAL METRICS FOOTER DIRECTIVE]:
 At the very end of your response, output a clean single-line Markdown badge footer in the EXACT language of the user prompt:
 ---
 📊 **${titles.complexity}:** \`${complexityScore}/100\` | ⚖️ **${titles.mode}:** \`${finalModeStr}\` | 🛡️ **${titles.accuracy}:** \`${accuracyScore}\``;
     }
-    return `\n---\n[UNIVERSAL 700+ LANGUAGE DYNAMIC METRICS FOOTER DIRECTIVE]:
-At the very end of your response, output a clean single-line Markdown badge footer.
-CRITICAL MANDATE: Dynamically translate the 3 metric titles (Complexity, Mode, Accuracy) and mode value into the EXACT SAME LANGUAGE as the user's prompt (e.g. Ukrainian, English, Spanish, German, French, Japanese, Chinese, Turkish, etc.):
+    return `\n---\n[UNIVERSAL METRICS FOOTER DIRECTIVE]:
+At the very end of your response, output a clean single-line Markdown badge footer in the EXACT language of the user prompt:
 ---
-📊 **[Complexity in Prompt Language]:** \`${complexityScore}/100\` | ⚖️ **[Mode in Prompt Language]:** \`${effectiveDetailLevel}\` | 🛡️ **[Accuracy in Prompt Language]:** \`${accuracyScore}\``;
+📊 **${titles.complexity}:** \`${complexityScore}/100\` | 🛡️ **${titles.accuracy}:** \`${accuracyScore}\``;
 }

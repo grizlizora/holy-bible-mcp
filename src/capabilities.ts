@@ -152,59 +152,78 @@ export function detectModelFamily(modelName: string, details?: any): LLMFamily {
  */
 export function estimatePromptComplexity(text: string): PromptComplexityResult {
   if (!text || !text.trim()) {
-    return { score: 50, level: 'moderate', multiplier: 1.0, reason: 'Empty or trivial query' };
+    return { score: 50, level: 'moderate', multiplier: 1.0, reason: 'Empty query' };
   }
 
   const clean = text.trim();
-  let score = 50;
-
-  // 1. Universal Unicode Structural & Script Density Metrics (800+ Languages)
+  const lower = clean.toLowerCase();
   const words = clean.split(/\s+/).filter(Boolean);
   const wordCount = words.length;
-  const isCjk = /[\u4E00-\u9FFF\u3040-\u30FF\uAC00-\uD7AF]/.test(clean);
-  const effectiveWordCount = isCjk ? clean.length * 1.5 : wordCount;
 
-  if (clean.length > 250 || effectiveWordCount > 40) score += 20;
-  else if (clean.length > 120 || effectiveWordCount > 20) score += 10;
-  else if (clean.length < 20 && effectiveWordCount < 3) score -= 12;
-
-  // Clause count & punctuation complexity across all world scripts (Latin, Cyrillic, Arabic, Armenian, Ethiopic, CJK)
-  const punctuationCount = (clean.match(/[,;:\-–—?!¿¡؟፧՞\u3001\u3002\uFF1F\uFF01]/gu) || []).length;
-  if (punctuationCount >= 4) score += 10;
-
-  // Universal Scripture reference detection across scripts (e.g. "3:16", "12.4", "３：１６")
-  const hasScriptureRef = /\b\d{1,3}\s*[:\.\uff1a]\s*\d{1,3}\b/.test(clean);
-  if (hasScriptureRef) score += 10;
-
-  // Strong's ID / Etymology indicator (e.g. "H8267", "G5579")
-  const hasStrongsCode = /\b[HG]\d{3,5}\b/i.test(clean);
-  if (hasStrongsCode) score += 15;
-
-  // 2. Universal Semantic & Ontological Inquiry Evaluator (800+ Languages)
-  // Detects conceptual questions (definitions, purpose, suffering, faith, love, hope, grace, eternity) across all language families
-  const isQuestion = /[?¿؟፧՞\uff1f]/.test(clean) || /^(?:що|як|чому|хто|де|чи|what|why|how|who|where|is|can|qué|por qué|cómo|quién|warum|wie|wer|was|pourquoi|comment|qui|que|dlaczego|jak|kto|co|perché|come|chi|cosa|porque|como|quem|qual|waarom|hoe|wie|wat|зачем|لماذا|كيف|من|ما|למה|איך|מי|מה|为什么|如何|谁|什么是|なぜ|どうして|誰|何|왜|어떻게|누구|무엇|kyk|hvorfor|hvordan|hvem|hva|miksi|kuinka|kuka|mitä)/i.test(clean.trim());
-  
-  if (isQuestion) {
-    score = Math.max(68, score + 15);
+  // 1. Trivial single-phrase greeting / acknowledgement (minimal: 15-25)
+  const isTrivial = /^(?:привіт|добрий\s*день|доброго\s*дня|дякую|спасибі|ок|hello|hi|thanks|ok|hola|gracias|hallo|danke|bonjour|merci|привет|спасибо)$/i.test(lower) || (wordCount <= 2 && clean.length < 12 && !clean.includes('?'));
+  if (isTrivial) {
+    const score = Math.max(15, Math.min(25, 15 + wordCount * 3));
+    return { score, level: 'simple', multiplier: 0.7, reason: 'Short greeting or acknowledgement' };
   }
 
-  // Trivial single-token greeting detection across all major language roots
-  const isTrivialGreeting = /^(?:привіт|добрий|дякую|спасибі|ок|hello|hi|thanks|ok|hola|gracias|hallo|danke|bonjour|merci|cześć|dzięki|ciao|grazie|olá|obrigado|hallo|bedankt|привет|спасибо|مرحبا|شكرا|שלום|תודה|你好|谢谢|こんにちは|ありがとう|안녕하세요|감사합니다)$/i.test(clean.trim());
-  if (isTrivialGreeting) {
-    score = Math.min(25, score - 25);
+  // 2. Explicit scripture verses list request (verses_only: 25-34)
+  const isVersesOnly = /(?:дай|покажи|знайди|список|наведи|текст|цитати)\s+(?:вірш[івіам]?|цитат[иа]?|писанн?я|біблійн[их|і])/i.test(lower) ||
+    /(?:verses\s+only|only\s+verses|list\s+of\s+verses|show\s+verses|find\s+verses|scriptures\s+on)/i.test(lower);
+  if (isVersesOnly) {
+    const score = Math.max(25, Math.min(34, 26 + Math.min(6, wordCount)));
+    return { score, level: 'simple', multiplier: 0.8, reason: 'Scripture verses list request' };
   }
 
-  score = Math.max(10, Math.min(100, score));
+  // --- Dynamic Multi-Dimensional Continuous Score Calculator (28 to 98) ---
+  let score = 38;
 
-  if (score < 40) {
-    return { score, level: 'simple', multiplier: 0.7, reason: 'Short factual or greeting query' };
-  } else if (score < 70) {
-    return { score, level: 'moderate', multiplier: 1.0, reason: 'Standard analytical question' };
-  } else if (score < 85) {
-    return { score, level: 'deep', multiplier: 1.3, reason: 'Deep conceptual/theological query' };
-  } else {
-    return { score, level: 'unthrottled', multiplier: 1.5, reason: 'Complex ontological study' };
+  // Factor A: Linguistic Depth & Length (scales +2 to +22)
+  score += Math.min(22, Math.round(wordCount * 1.6));
+
+  // Factor B: Structural & Punctuation Complexity
+  const punctuationCount = (clean.match(/[,;:\-–—\(\)]/g) || []).length;
+  score += Math.min(8, punctuationCount * 2);
+
+  // Factor C: Direct Single-Fact / Lookup Intent (-10 to -14)
+  const isDirectFactual = /^(?:хто\s+так[ийаеі]+|де\s+народив[сясь]+|де\s+знаходиться|де\s+написано|коли\s+жив|хто\s+написав|скільки\s+років|чи\s+був|чи\s+була|хто\s+був|хто\s+є|де\s+є|who\s+is|where\s+was|where\s+is|when\s+did)/iu.test(clean);
+  if (isDirectFactual && wordCount <= 8) {
+    score -= 12;
   }
+
+  // Factor D: Practical "How-to" / Life Guidance (+6 to +10)
+  const isPracticalGuidance = /(?:як\s+правильно|як\s+навчитися|як\s+прощати|як\s+молитися|як\s+боротися|що\s+робити|як\s+подолати|порадь|порада|практичн|how\s+to|what\s+should)/i.test(lower);
+  if (isPracticalGuidance) {
+    score += 8;
+  }
+
+  // Factor E: Theological / Philosophical Concept Definition (+12 to +18)
+  const isConceptualTopic = /(?:що\s+таке|сутність|природа|значення|доктрин|первородн|виправданн|відкупленн|троїчн|заповіт|теодице|есхатолог|що\s+означає|concept|theology|doctrine|nature\s+of)/i.test(lower);
+  if (isConceptualTopic) {
+    score += 16;
+  }
+
+  // Factor F: Deep Comparative / Exegetical / Cross-Testament Analysis (+20 to +28)
+  const isDeepAnalytical = /(?:порівняй|аналіз|екзегез|богословськ|історичн|контекст|грецьк|іврит|дослідж|пророцтв|герменевтик|символізм|розкрий\s+глибин|treatise|exegesis|theological|compare|historical)/i.test(lower);
+  if (isDeepAnalytical) {
+    score += 24;
+  }
+
+  // Factor G: Specific Scripture or Strong's Reference (+6)
+  if (/\b\d{1,3}\s*[:\.]\s*\d{1,3}\b/.test(clean) || /\b[HG]\d{3,5}\b/i.test(clean) || /агапе|шалом|логос|хесед|алетейя/i.test(lower)) {
+    score += 6;
+  }
+
+  // Bound within 28 to 98
+  score = Math.max(28, Math.min(98, Math.round(score)));
+
+  let level: 'simple' | 'moderate' | 'deep' | 'unthrottled' = 'moderate';
+  if (score < 40) level = 'simple';
+  else if (score < 68) level = 'moderate';
+  else if (score < 80) level = 'deep';
+  else level = 'unthrottled';
+
+  return { score, level, multiplier: 1.0, reason: `Computed dynamic complexity: ${score}%` };
 }
 
 /**

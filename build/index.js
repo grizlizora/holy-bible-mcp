@@ -3,12 +3,15 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { registerToolHandlers } from "./tools_registry.js";
 import { registerPromptHandlers } from "./prompts_repository.js";
+import { DirectiveStore } from "./directives/directive_store.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import http from "http";
 const server = new Server({ name: "holy-bible-mcp", version: "1.0.0" }, { capabilities: { tools: {}, prompts: {} } });
 registerToolHandlers(server);
 registerPromptHandlers(server);
 async function main() {
+    // ⚡ Pre-compile in-memory directive tables on boot (0.0ms runtime lookups)
+    await DirectiveStore.getInstance().loadDirectives();
     const isSseMode = process.argv.includes("--sse") || process.env.MCP_TRANSPORT === "sse" || process.env.ENABLE_SSE === "true";
     const port = parseInt(process.env.MCP_PORT || process.env.PORT || "3001", 10);
     if (isSseMode) {

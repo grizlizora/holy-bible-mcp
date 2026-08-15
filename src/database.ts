@@ -16,8 +16,8 @@ const GLOBAL_DIR = path.join(os.homedir(), ".bible-mcp");
 const GLOBAL_DB = path.join(GLOBAL_DIR, "bible_database.sqlite");
 const REMOTE_MIRRORS = [
   process.env.REMOTE_BIBLE_DB_URL,
-  "https://github.com/grizlizora/holy-bible-mcp/releases/download/v1.0.0/bible_database.sqlite",
   "https://huggingface.co/datasets/grizlizora/holy-bible-mcp/resolve/main/bible_database.sqlite",
+  "https://github.com/grizlizora/holy-bible-mcp/releases/download/v1.0.0/bible_database.sqlite",
   "https://cdn.jsdelivr.net/gh/grizlizora/holy-bible-mcp@main/data/processed/bible_database.sqlite"
 ].filter(Boolean) as string[];
 
@@ -138,6 +138,8 @@ export async function downloadDatabaseStreamResilient(targetPath: string): Promi
 function resolveDbPath(): string {
   const candidatePaths = [
     ENV_DB,
+    path.join(os.homedir(), ".mcp-hub", "servers", "Holy_Bible_MCP", "data", "bible_database.sqlite"),
+    path.join(os.homedir(), ".holy-bible-mcp", "mcp-storage", "holy-bible", "data", "bible_database.sqlite"),
     MCP_STORAGE_DB,
     path.join(os.homedir(), ".holy-bible-mcp", "servers", "Holy Bible MCP", "data", "bible_database.sqlite"),
     LOCAL_DB,
@@ -191,8 +193,8 @@ console.log(`[HARDWARE ENGINE] OS: ${process.platform} (${arch}), CPU Cores: ${c
 
 // Open DB: use real file if it exists, otherwise use in-memory stub so the server
 // stays alive and returns graceful empty results instead of crashing.
-let dbHasVersesTable = false;
 const DB_FILE_EXISTS = fs.existsSync(DB_PATH) && fs.statSync(DB_PATH).size > 1_000_000;
+let dbHasVersesTable = DB_FILE_EXISTS;
 
 export const db = new sqlite3.Database(
   DB_FILE_EXISTS ? DB_PATH : ':memory:',

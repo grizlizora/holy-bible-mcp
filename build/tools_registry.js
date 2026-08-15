@@ -5,6 +5,7 @@ import { computeAdaptiveModelBudget, estimatePromptComplexity } from "./capabili
 import { extractVectorContext } from "./vector_context.js";
 import { sanitizeMarkdownText, formatScriptureVerse } from "./formatting.js";
 import { OSIS_ALIAS_MAP } from "./data/osis_dictionary.js";
+import { DirectiveStore } from "./directives/directive_store.js";
 function parseInitialConfig() {
     let warmth = 80;
     let mode = "auto";
@@ -418,101 +419,84 @@ export function registerToolHandlers(server) {
                         // Fallback gracefully on query syntax error
                     }
                 }
-                const formattedVerses = verses.map((v) => {
+                const store = DirectiveStore.getInstance();
+                const tier = store.resolveTierByParamSize(paramSizeB);
+                const tierName = tier.nameDisplay;
+                const complexityScoreObj = estimatePromptComplexity(question);
+                const effectiveMode = modesControlEnabled ? resolveEffectiveMode(requestedMode, complexityScoreObj.score, question, paramSizeB) : 'unrestricted';
+                const maxVersesLimit = (!modesControlEnabled || effectiveMode === 'unrestricted')
+                    ? (paramSizeB <= 8.5 ? 2 : 4)
+                    : (store.getMode(effectiveMode)?.maxVerses || 6);
+                const selectedVerses = verses.slice(0, maxVersesLimit);
+                const formattedVerses = selectedVerses.map((v) => {
                     return formatScriptureVerse({ book: v.book, chapter: v.chapter, verse: v.verse, text: v.text, language: detectedLang }).formattedText;
                 }).join("\n\n");
-                const complexityScoreObj = estimatePromptComplexity(question);
-                const effectiveMode = modesControlEnabled ? resolveEffectiveMode(requestedMode, complexityScoreObj.score) : 'unrestricted';
-                const sensInfo = warmthControlEnabled && warmth !== null ? getSensitivityDirective(warmth) : null;
-                const modeDirectives = {
-                    minimal: 'MINIMAL MODE: Provide a concise focused answer with direct verified scripture citations.',
-                    verses_only: 'VERSES ONLY MODE: Provide verified scripture verses and direct citations matching the query.',
-                    short: 'SHORT MODE: Provide a clear, focused response with verified scripture quotes and practical essence.',
-                    medium: 'BALANCED MODE: Provide a balanced, comprehensive response with clear theological insights, practical takeaways, and verified scripture citations.',
-                    detailed: 'DETAILED MODE: Provide a thorough, in-depth exploration with original language etymology, Strong verification, full context, and actionable application.',
-                    deep: 'DEEP EXHAUSTIVE MODE: Provide an exhaustive multi-dimensional study with etymology, cross-mesh canonical references, and covenantal analysis.'
-                };
-                const isTier3 = paramSizeB >= 25;
-                const isTier2 = paramSizeB >= 10.5 && paramSizeB < 25;
-                const isTier1_5 = paramSizeB >= 8.5 && paramSizeB < 10.5;
-                const tierName = isTier3 ? 'Tier 3 (Frontier / High-Capacity)' : isTier2 ? 'Tier 2 (Medium Standard)' : isTier1_5 ? 'Tier 1.5 (Compact Mid)' : 'Tier 1 (Small)';
+                const sensInfo = (warmthControlEnabled && warmth !== null) ? store.resolveWarmth(warmth, detectedLang) : null;
                 const supportsThinking = Boolean(args?.supportsThinking || args?.modelMetadata?.supportsThinking);
                 let modeText = '';
-                if (modesControlEnabled && effectiveMode !== 'unrestricted' && modeDirectives[effectiveMode]) {
-                    modeText = `[MCP MODE DIRECTIVE — ${effectiveMode.toUpperCase()}]:\n${modeDirectives[effectiveMode]}`;
+                if (modesControlEnabled && effectiveMode !== 'unrestricted') {
+                    const modeObj = store.getMode(effectiveMode);
+                    if (modeObj) {
+                        modeText = `[MCP MODE DIRECTIVE — ${effectiveMode.toUpperCase()}]:\n${modeObj.structureMandate}`;
+                    }
+                }
+                else {
+                    // Unrestricted mode: provide natural freedom with strict anti-looping & stability from SQLite
+                    const unrestrictedObj = store.getMode('unrestricted');
+                    if (unrestrictedObj) {
+                        modeText = `[MCP NATURAL RESPONSE DIRECTIVE]:\n${unrestrictedObj.structureMandate}`;
+                    }
                 }
                 let warmthText = '';
                 if (warmthControlEnabled && sensInfo) {
                     warmthText = `[MCP SENSITIVITY & TONE DIRECTIVE (Warmth: ${sensInfo.score}%, Level: ${sensInfo.label})]:\n${sensInfo.directive}`;
                 }
+                const tierDirectiveText = tier.systemDirective || '';
+                const groundingHeader = store.getPromptModule('grounding_header') || '[HOLY BIBLE MCP ACTIVE GROUNDING]:';
+                const groundingSource = store.getPromptModule('grounding_source') || '• Grounding Source: SQLite Canonical Scripture Database (5.88 GB, FTS5 Zero-Latency)';
+                const criticalRules = store.getPromptModule('critical_rules');
                 const groundingLines = [
-                    `[HOLY BIBLE MCP ACTIVE GROUNDING]:`,
+                    groundingHeader,
                     `• Model Tier Calibration: ${tierName} (Detected: ${paramSizeB}B parameters)`,
                     supportsThinking ? `• Thinking Protocol (CoT): Active (<think> enabled for ${tierName})` : null,
-                    (warmthControlEnabled && sensInfo) ? `• Active Sensitivity & Warmth: ${sensInfo.score}% (${sensInfo.label})` : null,
-                    (modesControlEnabled && effectiveMode !== 'unrestricted') ? `• Active Detail Mode: ${effectiveMode} (${modeDirectives[effectiveMode] ? effectiveMode : 'auto'})` : null,
-                    `• Grounding Source: SQLite Canonical Scripture Database (5.88 GB, FTS5 Zero-Latency)`
+                    (warmthControlEnabled && sensInfo)
+                        ? `• Active Sensitivity & Warmth: ${sensInfo.score}% (${sensInfo.label})`
+                        : `• Warmth Control: DISABLED / OFF (Status: Inactive. If asked, report that Warmth Control is OFF and no sensitivity percentage applies).`,
+                    (modesControlEnabled && effectiveMode !== 'unrestricted')
+                        ? `• Active Detail Mode: ${effectiveMode} (${requestedMode === 'auto' ? `Auto-Resolved from Complexity ${complexityScoreObj.score}%` : 'Manual'})`
+                        : `• Mode Control: DISABLED / OFF (Status: Inactive / Natural Unrestricted. If asked, report that Mode Control is OFF with zero length or structural caps).`,
+                    groundingSource
                 ].filter(Boolean).join('\n');
                 const fullContextText = [
                     groundingLines,
+                    tierDirectiveText,
                     formattedVerses ? `📜 Вірші з Біблії:\n${formattedVerses}` : `📜 Наведено канонічний контекст для "${question}".`,
                     modeText,
-                    warmthText
+                    warmthText,
+                    criticalRules
                 ].filter(Boolean).join('\n\n');
                 const hasVerses = verses.length > 0;
+                const isTier3 = tier.tierId === 'tier3';
+                const isTier2 = tier.tierId === 'tier2';
+                const isTier1_5 = tier.tierId === 'tier1_5';
                 let accuracyNum = 96.5;
                 const effMode = (effectiveMode || 'medium').toLowerCase();
                 if (hasVerses) {
                     if (effMode === 'verses_only') {
-                        if (isTier3)
-                            accuracyNum = 99.9;
-                        else if (isTier2)
-                            accuracyNum = 99.5;
-                        else if (isTier1_5)
-                            accuracyNum = 99.0;
-                        else
-                            accuracyNum = 98.5;
+                        accuracyNum = isTier3 ? 99.9 : isTier2 ? 99.5 : isTier1_5 ? 99.0 : 98.5;
                     }
                     else if (effMode === 'deep' || effMode === 'detailed') {
-                        if (isTier3)
-                            accuracyNum = 99.9;
-                        else if (isTier2)
-                            accuracyNum = 99.0;
-                        else if (isTier1_5)
-                            accuracyNum = 98.0;
-                        else
-                            accuracyNum = 97.0;
+                        accuracyNum = isTier3 ? 99.9 : isTier2 ? 99.0 : isTier1_5 ? 98.0 : 97.0;
                     }
                     else if (effMode === 'short' || effMode === 'minimal') {
-                        if (isTier3)
-                            accuracyNum = 99.5;
-                        else if (isTier2)
-                            accuracyNum = 98.5;
-                        else if (isTier1_5)
-                            accuracyNum = 97.0;
-                        else
-                            accuracyNum = 95.5;
+                        accuracyNum = isTier3 ? 99.5 : isTier2 ? 98.5 : isTier1_5 ? 97.0 : 95.5;
                     }
                     else {
-                        if (isTier3)
-                            accuracyNum = 99.9;
-                        else if (isTier2)
-                            accuracyNum = 99.0;
-                        else if (isTier1_5)
-                            accuracyNum = 97.5;
-                        else
-                            accuracyNum = 96.5;
+                        accuracyNum = isTier3 ? 99.9 : isTier2 ? 99.0 : isTier1_5 ? 97.5 : 96.5;
                     }
                 }
                 else {
-                    if (isTier3)
-                        accuracyNum = 95.0;
-                    else if (isTier2)
-                        accuracyNum = 92.0;
-                    else if (isTier1_5)
-                        accuracyNum = 90.0;
-                    else
-                        accuracyNum = 88.0;
+                    accuracyNum = isTier3 ? 95.0 : isTier2 ? 92.0 : isTier1_5 ? 90.0 : 88.0;
                 }
                 const accuracyScoreStr = `${accuracyNum}%`;
                 const resultObj = {
@@ -567,11 +551,6 @@ export function registerToolHandlers(server) {
                 };
             }
             if (name === "get_verse") {
-                if (!isDbReady()) {
-                    return {
-                        content: [{ type: "text", text: JSON.stringify({ error: "offline", message: "База даних Біблії не завантажена. Завантажте базу даних (5.88 GB) для роботи зі Scritpure в офлайн режимі." }) }]
-                    };
-                }
                 let book = String(args?.book || "").toUpperCase();
                 let chapter = Number(args?.chapter || 0);
                 let verse = Number(args?.verse || 0);
@@ -587,16 +566,19 @@ export function registerToolHandlers(server) {
                 }
                 const osisCode = OSIS_ALIAS_MAP[book] || book;
                 const detectedLang = resolveLanguageCode(lang, ref || book);
-                // ⚡ Indexed query via idx_verses_lookup (0.5ms)
-                let rows = await queryDb(`SELECT book, chapter, verse, text, language 
-           FROM verses 
-           WHERE language = ? AND UPPER(book) = ? AND chapter = ? AND verse = ? 
-           LIMIT 1`, [detectedLang, osisCode, chapter || 1, verse || 1]);
-                if (rows.length === 0) {
+                let rows = [];
+                if (isDbReady()) {
+                    // ⚡ Indexed query via idx_verses_lookup (0.5ms)
                     rows = await queryDb(`SELECT book, chapter, verse, text, language 
              FROM verses 
-             WHERE UPPER(book) = ? AND chapter = ? AND verse = ? 
-             LIMIT 1`, [osisCode, chapter || 1, verse || 1]);
+             WHERE language = ? AND UPPER(book) = ? AND chapter = ? AND verse = ? 
+             LIMIT 1`, [detectedLang, osisCode, chapter || 1, verse || 1]);
+                    if (rows.length === 0) {
+                        rows = await queryDb(`SELECT book, chapter, verse, text, language 
+               FROM verses 
+               WHERE UPPER(book) = ? AND chapter = ? AND verse = ? 
+               LIMIT 1`, [osisCode, chapter || 1, verse || 1]);
+                    }
                 }
                 if (rows.length > 0) {
                     const v = rows[0];
@@ -728,8 +710,57 @@ export function registerToolHandlers(server) {
                                 defaultWarmth: currentSensitivityScore,
                                 activeMode: currentModeKey,
                                 resolvedEffectiveMode: effectiveMode,
-                                showMetrics: currentShowMetrics, // true / false (ON / OFF)
-                                sensitivityProfile: sensInfo
+                                showMetrics: currentShowMetrics,
+                                sensitivityProfile: sensInfo,
+                                // ─── UI Capability Declarations (read by the client to render controls) ───
+                                isPrimary: true,
+                                hasWarmth: true,
+                                hasModes: true,
+                                settings: [
+                                    {
+                                        id: "warmth",
+                                        type: "slider",
+                                        min: 0,
+                                        max: 100,
+                                        defaultValue: 80,
+                                        iconName: "Flame",
+                                        label: { uk: "Теплота відповіді", en: "Response Warmth", ru: "Теплота ответа" },
+                                        description: { uk: "Рівень душевного тепла та пасторської глибини у відповідях.", en: "Level of warmth and pastoral depth in responses.", ru: "Уровень теплоты и пасторской глубины в ответах." },
+                                        minLabel: { uk: "Академічний", en: "Academic", ru: "Академический" },
+                                        maxLabel: { uk: "Глибока Емпатія", en: "Deep Empathy", ru: "Глубокая Эмпатия" },
+                                        options: [
+                                            { value: 0, iconName: "Snowflake", label: { uk: "Точний", en: "Precise", ru: "Точный" } },
+                                            { value: 50, iconName: "Scale", label: { uk: "Збалансований", en: "Balanced", ru: "Сбалансированный" } },
+                                            { value: 80, iconName: "Flame", label: { uk: "Натхненний", en: "Inspired", ru: "Вдохновенный" } },
+                                            { value: 100, iconName: "Sparkles", label: { uk: "Глибока Любов", en: "Deep Love", ru: "Глубокая Любовь" } }
+                                        ]
+                                    },
+                                    {
+                                        id: "modeKey",
+                                        type: "select",
+                                        defaultValue: "medium",
+                                        iconName: "Sliders",
+                                        label: { uk: "Режим деталізації", en: "Detail Level", ru: "Режим детализации" },
+                                        description: { uk: "Визначає глибину богословського аналізу та кількість цитат.", en: "Sets depth of theological analysis and number of citations.", ru: "Определяет глубину анализа и количество цитат." },
+                                        options: [
+                                            { value: "auto", iconName: "Brain", label: { uk: "Авто", en: "Auto", ru: "Авто" }, description: { uk: "Автоматичний підбір", en: "Auto complexity selection", ru: "Автоматический выбор" } },
+                                            { value: "minimal", iconName: "Zap", label: { uk: "Мінімальний", en: "Minimal", ru: "Минимальный" }, description: { uk: "Коротка суть", en: "Short essence", ru: "Краткая суть" } },
+                                            { value: "short", iconName: "Pencil", label: { uk: "Короткий", en: "Short", ru: "Краткий" }, description: { uk: "1–2 ключових вірші", en: "1–2 key verses", ru: "1–2 ключевых стиха" } },
+                                            { value: "medium", iconName: "Scale", label: { uk: "Збалансований", en: "Medium", ru: "Сбалансированный" }, description: { uk: "Вірші + пояснення", en: "Verses + explanation", ru: "Стихи + объяснение" } },
+                                            { value: "detailed", iconName: "Search", label: { uk: "Детальний", en: "Detailed", ru: "Подробный" }, description: { uk: "Контекст + Strong's", en: "Context + Strongs", ru: "Контекст + Стронг" } },
+                                            { value: "deep", iconName: "Landmark", label: { uk: "Глибокий", en: "Deep", ru: "Глубокий" }, description: { uk: "Повний аналіз", en: "Full analysis", ru: "Полный анализ" } },
+                                            { value: "verses_only", iconName: "Scroll", label: { uk: "Тільки Вірші", en: "Verses Only", ru: "Только Стихи" }, description: { uk: "Лише цитати Письма", en: "Only Scripture citations", ru: "Только цитаты" } }
+                                        ]
+                                    },
+                                    {
+                                        id: "showMetrics",
+                                        type: "toggle",
+                                        defaultValue: true,
+                                        iconName: "Activity",
+                                        label: { uk: "Додаткова інформація (MCP)", en: "Additional Info (MCP)", ru: "Доп. информация (MCP)" },
+                                        description: { uk: "Показувати точність і режими в кінці відповіді.", en: "Show accuracy and modes at the end of responses.", ru: "Показывать точность и режимы в конце ответа." }
+                                    }
+                                ]
                             }, null, 2)
                         }]
                 };

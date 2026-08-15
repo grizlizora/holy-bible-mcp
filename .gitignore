@@ -6,7 +6,8 @@ venv/
 # Non-MCP web & bot components (retained locally, excluded from GitHub MCP repository)
 /client/
 /converter/
-/data/
+/data/*
+!/data/directives.sqlite
 /telegram-bot/
 /mcp-server/
 fix_sqlite.cjs

@@ -13,8 +13,8 @@ const GLOBAL_DIR = path.join(os.homedir(), ".bible-mcp");
 const GLOBAL_DB = path.join(GLOBAL_DIR, "bible_database.sqlite");
 const REMOTE_MIRRORS = [
     process.env.REMOTE_BIBLE_DB_URL,
-    "https://github.com/grizlizora/holy-bible-mcp/releases/download/v1.0.0/bible_database.sqlite",
     "https://huggingface.co/datasets/grizlizora/holy-bible-mcp/resolve/main/bible_database.sqlite",
+    "https://github.com/grizlizora/holy-bible-mcp/releases/download/v1.0.0/bible_database.sqlite",
     "https://cdn.jsdelivr.net/gh/grizlizora/holy-bible-mcp@main/data/processed/bible_database.sqlite"
 ].filter(Boolean);
 export const BIBLE_DB_MAGNET_URI = "magnet:?xt=urn:btih:e221d09e3870ddc23d3e1f62858a12b4152792847b911728371d39fa85279bb3&dn=bible_database.sqlite&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337%2Fannounce&tr=udp%3A%2F%2Ftracker.openbittorrent.com%3A6969%2Fannounce&tr=wss%3A%2F%2Ftracker.webtorrent.dev";
@@ -120,6 +120,8 @@ export async function downloadDatabaseStreamResilient(targetPath) {
 function resolveDbPath() {
     const candidatePaths = [
         ENV_DB,
+        path.join(os.homedir(), ".mcp-hub", "servers", "Holy_Bible_MCP", "data", "bible_database.sqlite"),
+        path.join(os.homedir(), ".holy-bible-mcp", "mcp-storage", "holy-bible", "data", "bible_database.sqlite"),
         MCP_STORAGE_DB,
         path.join(os.homedir(), ".holy-bible-mcp", "servers", "Holy Bible MCP", "data", "bible_database.sqlite"),
         LOCAL_DB,
@@ -165,8 +167,8 @@ else if (totalRamGB < 8) {
 console.log(`[HARDWARE ENGINE] OS: ${process.platform} (${arch}), CPU Cores: ${cpuCores}, RAM: ${totalRamGB}GB. Scaled RAM Cache: ${Math.abs(cacheSizeKb) / 1000}MB, MMAP I/O: ${mmapSizeBytes / (1024 * 1024)}MB`);
 // Open DB: use real file if it exists, otherwise use in-memory stub so the server
 // stays alive and returns graceful empty results instead of crashing.
-let dbHasVersesTable = false;
 const DB_FILE_EXISTS = fs.existsSync(DB_PATH) && fs.statSync(DB_PATH).size > 1_000_000;
+let dbHasVersesTable = DB_FILE_EXISTS;
 export const db = new sqlite3.Database(DB_FILE_EXISTS ? DB_PATH : ':memory:', (err) => {
     if (err) {
         console.error("[DATABASE ENGINE] Warning: SQLite connection error:", err.message);
