@@ -1,28 +1,7 @@
 import sqlite3 from "sqlite3";
-import path from "path";
 import fs from "fs";
-import os from "os";
-import { fileURLToPath } from "url";
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-function resolveDirectivesDbPath() {
-    const candidatePaths = [
-        process.env.DIRECTIVES_DB_PATH ? path.resolve(process.env.DIRECTIVES_DB_PATH) : null,
-        path.resolve(process.cwd(), "data/directives.sqlite"),
-        path.resolve(__dirname, "../../data/directives.sqlite"),
-        path.resolve(__dirname, "../data/directives.sqlite"),
-        path.resolve(__dirname, "data/directives.sqlite"),
-        path.join(os.homedir(), ".mcp-hub", "servers", "Holy_Bible_Mcp", "data", "directives.sqlite"),
-        path.join(os.homedir(), ".mcp-hub", "servers", "Holy_Bible_MCP", "data", "directives.sqlite"),
-        path.join(os.homedir(), ".mcp-hub", "servers", "Holy_Bible_Mcp", "code", "data", "directives.sqlite"),
-        path.join(os.homedir(), ".mcp-hub", "servers", "Holy_Bible_MCP", "code", "data", "directives.sqlite"),
-        path.join(os.homedir(), ".bible-mcp", "directives.sqlite")
-    ].filter(Boolean);
-    for (const p of candidatePaths) {
-        if (fs.existsSync(p))
-            return p;
-    }
-    return path.resolve(process.cwd(), "data/directives.sqlite");
-}
+import { resolveDirectivesDbPath } from "./directive_path_resolver.js";
+import { loadDirectivesFromDb } from "./theological_tables.js";
 export class DirectiveStore {
     static instance = null;
     db = null;
@@ -48,48 +27,22 @@ export class DirectiveStore {
         }
         return DirectiveStore.instance;
     }
-    query(sql, params = []) {
-        return new Promise((resolve, reject) => {
-            if (!this.db)
-                return reject(new Error("Directives DB not initialized"));
-            this.db.all(sql, params, (err, rows) => {
-                if (err)
-                    reject(err);
-                else
-                    resolve(rows || []);
-            });
-        });
-    }
-    /**
-     * ⚡ Pure SQLite Reader: Opens pre-populated directives.sqlite and loads all tables into RAM in <2ms.
-     * Contains ZERO hardcoded prompt strings or text templates.
-     */
     async loadDirectives() {
-        const startTime = performance.now();
+        if (this.isInitialized)
+            return;
         this.dbPath = resolveDirectivesDbPath();
-        await new Promise((resolve, reject) => {
-            this.db = new sqlite3.Database(this.dbPath, sqlite3.OPEN_READONLY, (err) => {
-                if (err) {
-                    // If read-only fails because file doesn't exist, open readwrite
-                    this.db = new sqlite3.Database(this.dbPath, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (e) => {
-                        if (e)
-                            reject(e);
-                        else
-                            resolve();
-                    });
-                }
-                else {
-                    resolve();
-                }
-            });
-        });
+        const startTime = performance.now();
+        if (!fs.existsSync(this.dbPath)) {
+            console.warn(`[DIRECTIVE-ENGINE] ⚠️ Directives SQLite DB not found at: ${this.dbPath}. Running with fallback state.`);
+            this.isInitialized = true;
+            return;
+        }
+        this.db = new sqlite3.Database(this.dbPath, sqlite3.OPEN_READONLY);
         try {
-            // 1. Fetch Model Tiers directly from SQLite
-            const tierRows = (await this.query(`SELECT * FROM model_tier_directives ORDER BY min_param_size_b ASC`));
-            this.tierMap.clear();
-            this.tierRanges = [];
-            for (const r of (tierRows || [])) {
-                const obj = {
+            const data = await loadDirectivesFromDb(this.db);
+            // 1. Model Tier Directives
+            for (const r of data.tierRows) {
+                const item = {
                     tierId: r.tier_id,
                     nameDisplay: r.name_display,
                     minParamSizeB: r.min_param_size_b,
@@ -109,17 +62,15 @@ export class DirectiveStore {
                     systemDirective: r.system_directive,
                     thinkingDirective: r.thinking_directive
                 };
-                this.tierMap.set(obj.tierId, obj);
-                this.tierRanges.push(obj);
+                this.tierMap.set(item.tierId, item);
+                this.tierRanges.push(item);
             }
-            // 2. Fetch Modes directly from SQLite
-            const modeRows = (await this.query(`SELECT * FROM mode_directives`));
-            this.modeMap.clear();
-            for (const r of (modeRows || [])) {
-                const obj = {
+            // 2. Mode Directives
+            for (const r of data.modeRows) {
+                const item = {
                     modeKey: r.mode_key,
-                    displayNames: JSON.parse(r.display_names_json || "{}"),
-                    descriptions: JSON.parse(r.descriptions_json || "{}"),
+                    displayNames: JSON.parse(r.display_names_json || '{}'),
+                    descriptions: JSON.parse(r.descriptions_json || '{}'),
                     iconName: r.icon_name,
                     minWords: r.min_words,
                     maxWords: r.max_words,
@@ -128,177 +79,117 @@ export class DirectiveStore {
                     complexityMax: r.complexity_max,
                     structureMandate: r.structure_mandate,
                     templateBody: r.template_body,
-                    accuracyMatrix: {
-                        tier1: r.accuracy_tier1,
-                        tier1_5: r.accuracy_tier1_5,
-                        tier2: r.accuracy_tier2,
-                        tier3: r.accuracy_tier3
-                    }
+                    accuracyMatrix: JSON.parse(r.accuracy_matrix_json || '{}')
                 };
-                this.modeMap.set(obj.modeKey, obj);
+                this.modeMap.set(item.modeKey, item);
             }
-            // 3. Fetch Warmth Ranges directly from SQLite
-            const warmthRows = (await this.query(`SELECT * FROM warmth_directives ORDER BY min_score ASC`));
-            this.warmthRanges = [];
-            for (const r of (warmthRows || [])) {
-                this.warmthRanges.push({
+            // 3. Warmth Directives
+            for (const r of data.warmthRows) {
+                const item = {
                     levelId: r.level_id,
                     minScore: r.min_score,
                     maxScore: r.max_score,
                     iconName: r.icon_name,
                     tempDeltaBias: r.temp_delta_bias,
-                    labels: JSON.parse(r.labels_json || "{}"),
-                    directives: JSON.parse(r.directive_text_json || "{}")
-                });
+                    labels: JSON.parse(r.labels_json || '{}'),
+                    directives: JSON.parse(r.directives_json || '{}')
+                };
+                this.warmthRanges.push(item);
             }
-            // 4. Fetch Metrics Schemas directly from SQLite
-            const metricsRows = (await this.query(`SELECT * FROM metrics_schemas`));
-            this.metricsMap.clear();
-            for (const r of (metricsRows || [])) {
-                this.metricsMap.set(r.language_code.toLowerCase(), {
+            // 4. Metrics Schemas
+            for (const r of data.metricsRows) {
+                const item = {
                     languageCode: r.language_code,
                     complexityTitle: r.complexity_title,
                     modeTitle: r.mode_title,
                     accuracyTitle: r.accuracy_title,
                     badgeTemplate: r.badge_template
-                });
+                };
+                this.metricsMap.set(item.languageCode, item);
             }
-            // 5. Fetch Prompt Modules directly from SQLite
-            const moduleRows = (await this.query(`SELECT module_id, content FROM prompt_modules WHERE is_active = 1`));
-            this.modulesMap.clear();
-            for (const r of (moduleRows || [])) {
+            // 5. Prompt Modules
+            for (const r of data.moduleRows) {
                 this.modulesMap.set(r.module_id, r.content);
             }
-            // 6. Fetch Translations Catalog directly from SQLite
-            try {
-                const transRows = (await this.query(`SELECT * FROM translations_catalog`));
-                this.translationsMap.clear();
-                for (const r of (transRows || [])) {
-                    this.translationsMap.set(r.id.toUpperCase(), {
-                        id: r.id,
-                        name: r.name,
-                        shortName: r.short_name,
-                        languageCode: r.language_code,
-                        year: r.year,
-                        philosophy: r.philosophy,
-                        textualBasis: r.textual_basis,
-                        description: r.description
-                    });
+            // 6. Translations Catalog
+            for (const r of data.transRows) {
+                let detailsObj = {};
+                if (r.details_json) {
+                    try {
+                        detailsObj = JSON.parse(r.details_json);
+                    }
+                    catch { }
                 }
+                this.translationsMap.set(r.id.toUpperCase(), {
+                    id: r.id,
+                    name: r.name,
+                    language: r.language,
+                    year: r.year,
+                    philosophy: r.philosophy,
+                    textualBasis: r.textual_basis,
+                    notes: r.notes,
+                    ...detailsObj
+                });
             }
-            catch (_) { }
-            // 7. Fetch Trench Synonyms directly from SQLite
-            try {
-                const synRows = (await this.query(`SELECT * FROM trench_synonyms`));
-                this.trenchMap.clear();
-                for (const r of (synRows || [])) {
-                    const entry = {
-                        group: r.synonym_group,
-                        distinction: r.distinction,
-                        theologicalSignificance: r.theological_significance
-                    };
-                    this.trenchMap.set(r.strongs_id.toUpperCase(), entry);
-                    const rawId = r.strongs_id.toUpperCase().replace(/^([GH])0+/, '$1');
-                    this.trenchMap.set(rawId, entry);
-                }
-            }
-            catch (_) { }
-            // 8. Fetch Messianic Prophecies directly from SQLite
-            try {
-                const propRows = (await this.query(`SELECT * FROM messianic_prophecies`));
-                this.propheciesList = (propRows || []).map((r) => ({
-                    topic: r.topic,
-                    topicTitle: r.topic_title,
-                    prophecy: {
-                        osis: r.prophecy_osis,
-                        displayTitle: r.prophecy_display_title,
-                        text: r.prophecy_text,
-                        epochBCE: r.prophecy_epoch_bce
-                    },
-                    fulfillment: {
-                        osis: r.fulfillment_osis,
-                        displayTitle: r.fulfillment_display_title,
-                        text: r.fulfillment_text,
-                        epochCE: r.fulfillment_epoch_ce
-                    },
-                    timeGapYears: r.time_gap_years,
+            // 7. Trench Synonyms
+            for (const r of data.synRows) {
+                this.trenchMap.set(r.strongs_id.toUpperCase(), {
+                    strongsId: r.strongs_id,
+                    greekLemma: r.greek_lemma,
+                    transliteration: r.transliteration,
+                    group: r.synonym_group,
+                    synonymGroup: r.synonym_group,
+                    distinction: r.distinction,
                     theologicalSignificance: r.theological_significance
-                }));
+                });
             }
-            catch (_) { }
-            // 9. Fetch Thematic Chains directly from SQLite
-            try {
-                const chainRows = (await this.query(`SELECT * FROM thematic_chains ORDER BY theme ASC, step_number ASC`));
-                this.thematicChainsMap.clear();
-                for (const r of (chainRows || [])) {
-                    const list = this.thematicChainsMap.get(r.theme.toLowerCase()) || [];
-                    list.push({
-                        step: r.step_number,
-                        osis: r.osis,
-                        displayTitle: r.display_title,
-                        epoch: r.epoch,
-                        textSnippet: r.text_snippet,
-                        theologicalLink: r.theological_link
-                    });
-                    this.thematicChainsMap.set(r.theme.toLowerCase(), list);
+            // 8. Messianic Prophecies
+            this.propheciesList = data.propRows.map((r) => ({
+                id: r.id,
+                topic: r.topic,
+                prophecy_ref: r.prophecy_ref,
+                fulfillment_ref: r.fulfillment_ref,
+                context_description: r.context_description,
+                theological_focus: r.theological_focus,
+                prophecy: { osis: r.prophecy_ref, text: r.context_description },
+                fulfillment: { osis: r.fulfillment_ref, text: r.theological_focus }
+            }));
+            // 9. Thematic Chains
+            for (const r of data.chainRows) {
+                if (!this.thematicChainsMap.has(r.theme)) {
+                    this.thematicChainsMap.set(r.theme, []);
+                }
+                this.thematicChainsMap.get(r.theme).push({
+                    step: r.step_number,
+                    ref: r.scripture_ref,
+                    covenantStage: r.covenant_stage,
+                    significance: r.significance
+                });
+            }
+            // 10. Server Metadata
+            for (const r of data.metaRows) {
+                try {
+                    this.metadataMap.set(r.key, JSON.parse(r.value_json));
+                }
+                catch {
+                    this.metadataMap.set(r.key, r.value_json);
                 }
             }
-            catch (_) { }
-            // 10. Fetch Server Metadata directly from SQLite
-            try {
-                const metaRows = (await this.query(`SELECT key, value_json FROM server_metadata`));
-                this.metadataMap.clear();
-                for (const r of (metaRows || [])) {
-                    this.metadataMap.set(r.key, JSON.parse(r.value_json || "{}"));
-                }
-            }
-            catch (_) { }
-            // 11. Fetch OSIS Book Dictionary and Aliases directly from SQLite
-            try {
-                const osisRows = (await this.query(`SELECT * FROM osis_book_dictionary`));
-                const aliasRows = (await this.query(`SELECT * FROM osis_aliases`));
-                if (osisRows && osisRows.length > 0) {
-                    const { OSIS_BOOK_NAMES, OSIS_ALIAS_MAP, OSIS_BOOK_NUMBER } = await import("../data/osis_dictionary.js");
-                    for (const r of osisRows) {
-                        const osis = r.osis_code.toUpperCase();
-                        OSIS_ALIAS_MAP[osis] = osis;
-                        OSIS_BOOK_NUMBER[osis] = r.book_order;
-                        if (!OSIS_BOOK_NAMES['ukr'])
-                            OSIS_BOOK_NAMES['ukr'] = {};
-                        if (!OSIS_BOOK_NAMES['eng'])
-                            OSIS_BOOK_NAMES['eng'] = {};
-                        if (!OSIS_BOOK_NAMES['rus'])
-                            OSIS_BOOK_NAMES['rus'] = {};
-                        if (r.name_ukr)
-                            OSIS_BOOK_NAMES['ukr'][osis] = r.name_ukr;
-                        if (r.name_eng)
-                            OSIS_BOOK_NAMES['eng'][osis] = r.name_eng;
-                        if (r.name_rus)
-                            OSIS_BOOK_NAMES['rus'][osis] = r.name_rus;
-                    }
-                    for (const a of (aliasRows || [])) {
-                        OSIS_ALIAS_MAP[a.alias.toUpperCase()] = a.osis_code.toUpperCase();
-                    }
-                }
-            }
-            catch (_) { }
             this.isInitialized = true;
             const elapsed = (performance.now() - startTime).toFixed(2);
             console.error(`[DIRECTIVE-ENGINE] ✅ Loaded dedicated Directives DB (${this.dbPath}) in ${elapsed}ms.`);
         }
-        catch (e) {
-            console.error("[DIRECTIVE-ENGINE ERROR]", e);
+        catch (err) {
+            console.error(`[DIRECTIVE-ENGINE] ❌ Failed to load directives from SQLite:`, err);
+            this.isInitialized = true;
         }
     }
-    // ==========================================================================
-    // ZERO-LATENCY RESOLVERS (0.0ms Lookup Time from SQLite Cache)
-    // ==========================================================================
     getTranslations() {
-        const res = {};
+        const result = {};
         for (const [k, v] of this.translationsMap.entries()) {
-            res[k] = v;
+            result[k] = v;
         }
-        return res;
+        return result;
     }
     getTranslation(id) {
         return this.translationsMap.get(id.toUpperCase());
@@ -410,7 +301,7 @@ export class DirectiveStore {
         return {
             name: meta.name || 'Holy Bible MCP',
             description: meta.description || 'Universal Multilingual Bible MCP Server',
-            version: meta.version || '1.1.0',
+            version: meta.version || '2.0.0',
             server: meta.server || 'holy-bible-mcp'
         };
     }

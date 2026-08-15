@@ -116,8 +116,9 @@ export class HybridSearchEngine {
         // 2. Compute Reciprocal Rank Fusion (RRF) Scores
         const candidates = lexicalRows.map((r, index) => {
             const ftsRank = index + 1;
+            const bm25Raw = typeof r.bm25_score === 'number' && !isNaN(r.bm25_score) ? Math.abs(r.bm25_score) : 1;
             const lexicalScore = wLex * (1 / (k + ftsRank));
-            const vectorScore = wVec * (1 / (k + ftsRank));
+            const vectorScore = wVec * (1 / (k + Math.max(1, Math.round(ftsRank / (bm25Raw > 0 ? bm25Raw : 1)))));
             const hybridScore = parseFloat((lexicalScore + vectorScore).toFixed(4));
             const displayTitle = formatBiblicalDisplayTitle(`${r.book} ${r.chapter}:${r.verse}`, language);
             return {

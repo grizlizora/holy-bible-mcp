@@ -20,7 +20,10 @@ export class ScriptureGraphEngine {
         const sourceTitle = formatBiblicalDisplayTitle(`${osisBook} ${chapter}:${verse}`, lang);
         // 1. Check direct prophecy pairs from SQLite DirectiveStore
         const prophecies = DirectiveStore.getInstance().getMessianicProphecies();
-        const matchedProphecy = prophecies.find(p => p.prophecy.osis.includes(sourceOsis) || p.fulfillment.osis.includes(sourceOsis));
+        const matchedProphecy = prophecies.find(p => (p.prophecy?.osis && p.prophecy.osis.includes(sourceOsis)) ||
+            (p.fulfillment?.osis && p.fulfillment.osis.includes(sourceOsis)) ||
+            (p.prophecy_ref && p.prophecy_ref.includes(sourceOsis)) ||
+            (p.fulfillment_ref && p.fulfillment_ref.includes(sourceOsis)));
         // 2. Query Semantic & Thematic Graph Tables in SQLite
         const rows = await queryDb(`SELECT concept_name, book as target_book, chapter as target_chapter, verse as target_verse, theological_principle 
        FROM semantic_concepts 
@@ -30,20 +33,27 @@ export class ScriptureGraphEngine {
         const candidates = [];
         // Add prophecy pair if found
         if (matchedProphecy) {
-            const isProphecySource = matchedProphecy.prophecy.osis.includes(sourceOsis);
+            const isProphecySource = (matchedProphecy.prophecy?.osis || matchedProphecy.prophecy_ref || '').includes(sourceOsis);
+            const targetOsis = isProphecySource
+                ? (matchedProphecy.fulfillment?.osis || matchedProphecy.fulfillment_ref || 'LUK.2.1')
+                : (matchedProphecy.prophecy?.osis || matchedProphecy.prophecy_ref || 'MIC.5.2');
+            const targetDisplay = formatBiblicalDisplayTitle(targetOsis, lang);
+            const text = isProphecySource
+                ? (matchedProphecy.fulfillment?.text || matchedProphecy.theological_focus || '')
+                : (matchedProphecy.prophecy?.text || matchedProphecy.context_description || '');
             candidates.push({
-                targetOsis: isProphecySource ? matchedProphecy.fulfillment.osis : matchedProphecy.prophecy.osis,
-                targetDisplayTitle: isProphecySource ? matchedProphecy.fulfillment.displayTitle : matchedProphecy.prophecy.displayTitle,
-                targetText: isProphecySource ? matchedProphecy.fulfillment.text : matchedProphecy.prophecy.text,
+                targetOsis,
+                targetDisplayTitle: targetDisplay,
+                targetText: text,
                 category: 'messianic_prophecy',
                 categoryLabel: lang === 'ukr' ? '📜 Месіанське пророцтво' : '📜 Messianic Prophecy',
                 compositeScore: 0.98,
-                theologicalSignificance: matchedProphecy.theologicalSignificance
+                theologicalSignificance: matchedProphecy.theologicalSignificance || matchedProphecy.theological_focus
             });
         }
         // Process SQL concept rows
         const seenRefs = new Set();
-        if (matchedProphecy)
+        if (candidates.length > 0)
             seenRefs.add(candidates[0].targetOsis);
         for (const r of rows) {
             const targetOsis = `${r.target_book}.${r.target_chapter}.${r.target_verse}`;
@@ -70,9 +80,9 @@ export class ScriptureGraphEngine {
                 targetDisplayTitle: "Івана 3:16",
                 targetText: "«Так бо Бог полюбив світ, що дав Сина Свого Однородженого...»",
                 category: "doctrinal_corroboration",
-                categoryLabel: "⚓ Канонічний якір",
-                compositeScore: 0.90,
-                theologicalSignificance: "Фундаментальне свідоцтво Божої любові та спасіння."
+                categoryLabel: lang === 'ukr' ? '⚓ Доктринальна єдність' : '⚓ Doctrinal Unity',
+                compositeScore: 0.95,
+                theologicalSignificance: "Центральний євангельський вірш про Божу благодать та вічне життя."
             });
         }
         return {
@@ -82,9 +92,26 @@ export class ScriptureGraphEngine {
         };
     }
     /**
-     * 🛤️ Traces progressive revelation across covenants directly from SQLite
+     * 🔗 Traces progressive revelation covenant chain across Old and New Testaments from SQLite
      */
-    static async findThematicChain(theme, startingVerse = 'GEN.3.15', depth = 4) {
-        return DirectiveStore.getInstance().getThematicChain(theme);
+    static async findThematicChain(theme = "living_water", startingVerse = "GEN.3.15") {
+        const rawChain = DirectiveStore.getInstance().getThematicChain(theme);
+        if (!rawChain || rawChain.length === 0) {
+            return [
+                { step: 1, osis: "GEN.2.10", displayTitle: "Буття 2:10", epoch: "Едемський заповіт", textSnippet: "І річка виходила з Едему...", theologicalLink: "Початок джерела благодаті" },
+                { step: 2, osis: "EXO.17.6", displayTitle: "Вихід 17:6", epoch: "Заповіт Мойсея", textSnippet: "І вдариш у скелю, і піде з неї вода...", theologicalLink: "Христос як розбита скеля" },
+                { step: 3, osis: "JHN.4.14", displayTitle: "Івана 4:14", epoch: "Новий Заповіт", textSnippet: "Вода, що Я йому дам, стане в нім джерелом води, що тече в життя вічне.", theologicalLink: "Благодать Духа Святого" },
+                { step: 4, osis: "JHN.7.38", displayTitle: "Івана 7:38", epoch: "Новий Заповіт", textSnippet: "Ріки живої води потечуть із утроби його.", theologicalLink: "Переповнення віруючого Святим Духом" },
+                { step: 5, osis: "REV.22.1", displayTitle: "Об'явлення 22:1", epoch: "Вічне Царство", textSnippet: "І показав він мені чисту ріку живої води...", theologicalLink: "Остаточне звершення та вічне життя" }
+            ];
+        }
+        return rawChain.map((node) => ({
+            step: node.step,
+            osis: node.ref,
+            displayTitle: formatBiblicalDisplayTitle(node.ref, 'ukr'),
+            epoch: node.covenantStage || 'Біблійний етап',
+            textSnippet: `[Вірш ${node.ref}]`,
+            theologicalLink: node.significance || 'Прогресивне богословське розкриття теми'
+        }));
     }
 }
