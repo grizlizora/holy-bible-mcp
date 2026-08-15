@@ -786,6 +786,12 @@ export function registerToolHandlers(server) {
                             type: "text",
                             text: JSON.stringify({
                                 server: "holy-bible-mcp",
+                                name: { uk: "Holy Bible MCP", en: "Holy Bible MCP", ru: "Holy Bible MCP" },
+                                description: {
+                                    uk: "Богословський інтелектуальний MCP-сервер із першоджерелами, Strong's номерами та адаптивним контекстом.",
+                                    en: "Theological intelligent MCP server with primary scripture sources, Strong's etymology, and adaptive context.",
+                                    ru: "Богословский интеллектуальный MCP-сервер с первоисточниками, номерами Стронга и адаптивным контекстом."
+                                },
                                 version: "1.0.0",
                                 status: "online",
                                 clientHost,
