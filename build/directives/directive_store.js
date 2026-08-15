@@ -7,22 +7,21 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 function resolveDirectivesDbPath() {
     const candidatePaths = [
         process.env.DIRECTIVES_DB_PATH ? path.resolve(process.env.DIRECTIVES_DB_PATH) : null,
+        path.resolve(process.cwd(), "data/directives.sqlite"),
+        path.resolve(__dirname, "../../data/directives.sqlite"),
+        path.resolve(__dirname, "../data/directives.sqlite"),
+        path.resolve(__dirname, "data/directives.sqlite"),
         path.join(os.homedir(), ".mcp-hub", "servers", "Holy_Bible_Mcp", "data", "directives.sqlite"),
         path.join(os.homedir(), ".mcp-hub", "servers", "Holy_Bible_MCP", "data", "directives.sqlite"),
         path.join(os.homedir(), ".mcp-hub", "servers", "Holy_Bible_Mcp", "code", "data", "directives.sqlite"),
         path.join(os.homedir(), ".mcp-hub", "servers", "Holy_Bible_MCP", "code", "data", "directives.sqlite"),
-        path.resolve(__dirname, "../../data/directives.sqlite"),
-        path.resolve(__dirname, "../data/directives.sqlite"),
-        path.resolve(__dirname, "data/directives.sqlite"),
-        path.resolve(process.cwd(), "data/directives.sqlite"),
-        path.resolve(process.cwd(), "../data/directives.sqlite"),
         path.join(os.homedir(), ".bible-mcp", "directives.sqlite")
     ].filter(Boolean);
     for (const p of candidatePaths) {
         if (fs.existsSync(p))
             return p;
     }
-    return path.join(os.homedir(), ".mcp-hub", "servers", "Holy_Bible_Mcp", "data", "directives.sqlite");
+    return path.resolve(process.cwd(), "data/directives.sqlite");
 }
 export class DirectiveStore {
     static instance = null;
@@ -36,6 +35,11 @@ export class DirectiveStore {
     metricsMap = new Map();
     modulesMap = new Map();
     metadataMap = new Map();
+    // Open-Source Theological Knowledge Tables loaded from SQLite
+    translationsMap = new Map();
+    trenchMap = new Map();
+    propheciesList = [];
+    thematicChainsMap = new Map();
     isInitialized = false;
     constructor() { }
     static getInstance() {
@@ -165,7 +169,82 @@ export class DirectiveStore {
             for (const r of (moduleRows || [])) {
                 this.modulesMap.set(r.module_id, r.content);
             }
-            // 6. Fetch Server Metadata directly from SQLite
+            // 6. Fetch Translations Catalog directly from SQLite
+            try {
+                const transRows = (await this.query(`SELECT * FROM translations_catalog`));
+                this.translationsMap.clear();
+                for (const r of (transRows || [])) {
+                    this.translationsMap.set(r.id.toUpperCase(), {
+                        id: r.id,
+                        name: r.name,
+                        shortName: r.short_name,
+                        languageCode: r.language_code,
+                        year: r.year,
+                        philosophy: r.philosophy,
+                        textualBasis: r.textual_basis,
+                        description: r.description
+                    });
+                }
+            }
+            catch (_) { }
+            // 7. Fetch Trench Synonyms directly from SQLite
+            try {
+                const synRows = (await this.query(`SELECT * FROM trench_synonyms`));
+                this.trenchMap.clear();
+                for (const r of (synRows || [])) {
+                    const entry = {
+                        group: r.synonym_group,
+                        distinction: r.distinction,
+                        theologicalSignificance: r.theological_significance
+                    };
+                    this.trenchMap.set(r.strongs_id.toUpperCase(), entry);
+                    const rawId = r.strongs_id.toUpperCase().replace(/^([GH])0+/, '$1');
+                    this.trenchMap.set(rawId, entry);
+                }
+            }
+            catch (_) { }
+            // 8. Fetch Messianic Prophecies directly from SQLite
+            try {
+                const propRows = (await this.query(`SELECT * FROM messianic_prophecies`));
+                this.propheciesList = (propRows || []).map((r) => ({
+                    topic: r.topic,
+                    topicTitle: r.topic_title,
+                    prophecy: {
+                        osis: r.prophecy_osis,
+                        displayTitle: r.prophecy_display_title,
+                        text: r.prophecy_text,
+                        epochBCE: r.prophecy_epoch_bce
+                    },
+                    fulfillment: {
+                        osis: r.fulfillment_osis,
+                        displayTitle: r.fulfillment_display_title,
+                        text: r.fulfillment_text,
+                        epochCE: r.fulfillment_epoch_ce
+                    },
+                    timeGapYears: r.time_gap_years,
+                    theologicalSignificance: r.theological_significance
+                }));
+            }
+            catch (_) { }
+            // 9. Fetch Thematic Chains directly from SQLite
+            try {
+                const chainRows = (await this.query(`SELECT * FROM thematic_chains ORDER BY theme ASC, step_number ASC`));
+                this.thematicChainsMap.clear();
+                for (const r of (chainRows || [])) {
+                    const list = this.thematicChainsMap.get(r.theme.toLowerCase()) || [];
+                    list.push({
+                        step: r.step_number,
+                        osis: r.osis,
+                        displayTitle: r.display_title,
+                        epoch: r.epoch,
+                        textSnippet: r.text_snippet,
+                        theologicalLink: r.theological_link
+                    });
+                    this.thematicChainsMap.set(r.theme.toLowerCase(), list);
+                }
+            }
+            catch (_) { }
+            // 10. Fetch Server Metadata directly from SQLite
             try {
                 const metaRows = (await this.query(`SELECT key, value_json FROM server_metadata`));
                 this.metadataMap.clear();
@@ -173,9 +252,7 @@ export class DirectiveStore {
                     this.metadataMap.set(r.key, JSON.parse(r.value_json || "{}"));
                 }
             }
-            catch {
-                // Table might be absent in older versions
-            }
+            catch (_) { }
             this.isInitialized = true;
             const elapsed = (performance.now() - startTime).toFixed(2);
             console.error(`[DIRECTIVE-ENGINE] ✅ Loaded dedicated Directives DB (${this.dbPath}) in ${elapsed}ms.`);
@@ -185,8 +262,42 @@ export class DirectiveStore {
         }
     }
     // ==========================================================================
-    // ZERO-LATENCY RESOLVERS (0.0ms Lookup Time)
+    // ZERO-LATENCY RESOLVERS (0.0ms Lookup Time from SQLite Cache)
     // ==========================================================================
+    getTranslations() {
+        const res = {};
+        for (const [k, v] of this.translationsMap.entries()) {
+            res[k] = v;
+        }
+        return res;
+    }
+    getTranslation(id) {
+        return this.translationsMap.get(id.toUpperCase());
+    }
+    getTrenchSynonym(strongsId) {
+        const norm = strongsId.trim().toUpperCase();
+        const letter = norm[0] || 'G';
+        const numPart = parseInt(norm.slice(1), 10) || 1;
+        const padded = letter + String(numPart).padStart(4, '0');
+        const raw = letter + String(numPart);
+        return this.trenchMap.get(padded) || this.trenchMap.get(raw) || this.trenchMap.get(norm);
+    }
+    getMessianicProphecies(topic) {
+        if (!topic || topic === 'all')
+            return [...this.propheciesList];
+        const clean = topic.toLowerCase();
+        return this.propheciesList.filter(p => p.topic.toLowerCase().includes(clean) ||
+            p.prophecy.osis.toLowerCase().includes(clean) ||
+            p.fulfillment.osis.toLowerCase().includes(clean));
+    }
+    getThematicChain(theme) {
+        const clean = theme.toLowerCase();
+        for (const [k, list] of this.thematicChainsMap.entries()) {
+            if (clean.includes(k) || k.includes(clean))
+                return list;
+        }
+        return this.thematicChainsMap.get("seed_of_faith") || [];
+    }
     resolveTierByParamSize(paramSizeB) {
         for (const tier of this.tierRanges) {
             if (paramSizeB >= tier.minParamSizeB && (tier.maxParamSizeB === null || paramSizeB < tier.maxParamSizeB)) {
@@ -221,47 +332,56 @@ export class DirectiveStore {
         return selected;
     }
     resolveWarmth(score = 80, lang = 'uk') {
-        const normScore = Math.max(0, Math.min(100, score));
-        const langKey = (lang || 'uk').toLowerCase().slice(0, 2);
-        for (const w of this.warmthRanges) {
-            if (normScore >= w.minScore && normScore <= w.maxScore) {
-                const label = w.labels[langKey] || w.labels['en'] || w.labels['uk'] || 'Custom Warmth';
-                const directive = w.directives[langKey] || w.directives['en'] || w.directives['uk'] || '';
+        const isUkr = lang === 'uk' || lang === 'ukr';
+        const langKey = isUkr ? 'uk' : (lang === 'ru' || lang === 'rus' ? 'ru' : 'en');
+        for (const range of this.warmthRanges) {
+            if (score >= range.minScore && score <= range.maxScore) {
                 return {
-                    score: normScore,
-                    levelId: w.levelId,
-                    label,
-                    directive,
-                    tempDelta: w.tempDeltaBias
+                    score,
+                    label: range.labels[langKey] || range.labels['en'] || 'Warm',
+                    iconName: range.iconName,
+                    tempDelta: range.tempDeltaBias,
+                    directive: range.directives[langKey] || range.directives['en'] || ''
                 };
             }
         }
-        const defaultProfile = this.warmthRanges[2];
+        const fallback = this.warmthRanges[2] || this.warmthRanges[0];
         return {
-            score: normScore,
-            levelId: 'warm',
-            label: defaultProfile?.labels[langKey] || 'Warm',
-            directive: defaultProfile?.directives[langKey] || '',
-            tempDelta: 0.05
+            score,
+            label: fallback?.labels[langKey] || 'Warm',
+            iconName: fallback?.iconName || 'Flame',
+            tempDelta: fallback?.tempDeltaBias || 0,
+            directive: fallback?.directives[langKey] || ''
         };
     }
-    getMetricsTemplate(lang = 'uk') {
-        const langKey = (lang || 'uk').toLowerCase().slice(0, 2);
-        return this.metricsMap.get(langKey) || this.metricsMap.get('en') || this.metricsMap.get('default') || {
+    getMetricsSchema(lang = 'uk') {
+        const isUkr = lang === 'uk' || lang === 'ukr';
+        const langKey = isUkr ? 'uk' : (lang === 'ru' || lang === 'rus' ? 'ru' : 'en');
+        return this.metricsMap.get(langKey) || this.metricsMap.get('uk') || {
             languageCode: 'uk',
             complexityTitle: 'Складність',
             modeTitle: 'Режим',
             accuracyTitle: 'Точність',
-            badgeTemplate: '📊 **{complexityTitle}:** `{complexityScore}/100` | ⚖️ **{modeTitle}:** `{modeValue}` | 🛡️ **{accuracyTitle}:** `{accuracyScore}`'
+            badgeTemplate: '📊 **Складність:** `{complexity}/100` | ⚖️ **Режим:** `{mode}` | 🛡️ **Точність:** `{accuracy}`'
         };
     }
+    getModule(moduleId) {
+        return this.modulesMap.get(moduleId);
+    }
     getPromptModule(moduleId) {
-        return this.modulesMap.get(moduleId) || '';
+        return this.modulesMap.get(moduleId);
     }
     getServerInfo() {
-        return this.metadataMap.get('server_info') || {};
+        const meta = this.metadataMap.get('server_info') || {};
+        return {
+            name: meta.name || 'Holy Bible MCP',
+            description: meta.description || 'Universal Multilingual Bible MCP Server',
+            version: meta.version || '1.1.0',
+            server: meta.server || 'holy-bible-mcp'
+        };
     }
-    getSettingsMetadata(key) {
-        return this.metadataMap.get('settings_metadata')?.[key] || {};
+    getSettingsMetadata(settingId) {
+        const meta = this.metadataMap.get('settings_metadata') || {};
+        return meta[settingId];
     }
 }

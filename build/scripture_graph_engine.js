@@ -1,0 +1,90 @@
+import { queryDb } from "./database.js";
+import { OSIS_ALIAS_MAP } from "./data/osis_dictionary.js";
+import { formatBiblicalDisplayTitle } from "./osis_engine.js";
+import { DirectiveStore } from "./directives/directive_store.js";
+export class ScriptureGraphEngine {
+    static instance;
+    static getInstance() {
+        if (!ScriptureGraphEngine.instance) {
+            ScriptureGraphEngine.instance = new ScriptureGraphEngine();
+        }
+        return ScriptureGraphEngine.instance;
+    }
+    /**
+     * ⚡ Resolves top-ranked cross references with anti-flooding diversity filter
+     */
+    async getRankedCrossReferences(book, chapter, verse, category = 'all', maxResults = 5, lang = 'ukr') {
+        const rawBook = book.trim().toUpperCase().replace(/\s+/g, '');
+        const osisBook = OSIS_ALIAS_MAP[rawBook] || rawBook;
+        const sourceOsis = `${osisBook}.${chapter}.${verse}`;
+        const sourceTitle = formatBiblicalDisplayTitle(`${osisBook} ${chapter}:${verse}`, lang);
+        // 1. Check direct prophecy pairs from SQLite DirectiveStore
+        const prophecies = DirectiveStore.getInstance().getMessianicProphecies();
+        const matchedProphecy = prophecies.find(p => p.prophecy.osis.includes(sourceOsis) || p.fulfillment.osis.includes(sourceOsis));
+        // 2. Query Semantic & Thematic Graph Tables in SQLite
+        const rows = await queryDb(`SELECT concept_name, book as target_book, chapter as target_chapter, verse as target_verse, theological_principle 
+       FROM semantic_concepts 
+       WHERE (UPPER(book) = ? AND chapter = ? AND verse = ?) 
+          OR (concept_name IN (SELECT concept_name FROM semantic_concepts WHERE UPPER(book) = ? AND chapter = ? AND verse = ?))
+       LIMIT 40`, [osisBook, chapter, verse, osisBook, chapter, verse]);
+        const candidates = [];
+        // Add prophecy pair if found
+        if (matchedProphecy) {
+            const isProphecySource = matchedProphecy.prophecy.osis.includes(sourceOsis);
+            candidates.push({
+                targetOsis: isProphecySource ? matchedProphecy.fulfillment.osis : matchedProphecy.prophecy.osis,
+                targetDisplayTitle: isProphecySource ? matchedProphecy.fulfillment.displayTitle : matchedProphecy.prophecy.displayTitle,
+                targetText: isProphecySource ? matchedProphecy.fulfillment.text : matchedProphecy.prophecy.text,
+                category: 'messianic_prophecy',
+                categoryLabel: lang === 'ukr' ? '📜 Месіанське пророцтво' : '📜 Messianic Prophecy',
+                compositeScore: 0.98,
+                theologicalSignificance: matchedProphecy.theologicalSignificance
+            });
+        }
+        // Process SQL concept rows
+        const seenRefs = new Set();
+        if (matchedProphecy)
+            seenRefs.add(candidates[0].targetOsis);
+        for (const r of rows) {
+            const targetOsis = `${r.target_book}.${r.target_chapter}.${r.target_verse}`;
+            if (targetOsis === sourceOsis || seenRefs.has(targetOsis))
+                continue;
+            seenRefs.add(targetOsis);
+            // Fetch target text
+            const targetVerseRows = await queryDb(`SELECT text FROM verses WHERE UPPER(book) = ? AND chapter = ? AND verse = ? LIMIT 1`, [r.target_book, r.target_chapter, r.target_verse]);
+            const text = targetVerseRows[0]?.text || `[Scripture text for ${targetOsis}]`;
+            candidates.push({
+                targetOsis,
+                targetDisplayTitle: formatBiblicalDisplayTitle(`${r.target_book} ${r.target_chapter}:${r.target_verse}`, lang),
+                targetText: text,
+                category: 'doctrinal_corroboration',
+                categoryLabel: lang === 'ukr' ? '⚓ Доктринальна єдність' : '⚓ Doctrinal Unity',
+                compositeScore: 0.85,
+                theologicalSignificance: r.theological_principle || `Тематичний зв'язок з темою ${r.concept_name}`
+            });
+        }
+        // Fallback if no specific rows found
+        if (candidates.length === 0) {
+            candidates.push({
+                targetOsis: "JHN.3.16",
+                targetDisplayTitle: "Івана 3:16",
+                targetText: "«Так бо Бог полюбив світ, що дав Сина Свого Однородженого...»",
+                category: "doctrinal_corroboration",
+                categoryLabel: "⚓ Канонічний якір",
+                compositeScore: 0.90,
+                theologicalSignificance: "Фундаментальне свідоцтво Божої любові та спасіння."
+            });
+        }
+        return {
+            sourceOsis,
+            sourceTitle,
+            results: candidates.slice(0, maxResults)
+        };
+    }
+    /**
+     * 🛤️ Traces progressive revelation across covenants directly from SQLite
+     */
+    static async findThematicChain(theme, startingVerse = 'GEN.3.15', depth = 4) {
+        return DirectiveStore.getInstance().getThematicChain(theme);
+    }
+}

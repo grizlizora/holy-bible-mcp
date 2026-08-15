@@ -17,15 +17,14 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 function resolveDirectivesDbPath(): string {
   const candidatePaths = [
     process.env.DIRECTIVES_DB_PATH ? path.resolve(process.env.DIRECTIVES_DB_PATH) : null,
+    path.resolve(process.cwd(), "data/directives.sqlite"),
+    path.resolve(__dirname, "../../data/directives.sqlite"),
+    path.resolve(__dirname, "../data/directives.sqlite"),
+    path.resolve(__dirname, "data/directives.sqlite"),
     path.join(os.homedir(), ".mcp-hub", "servers", "Holy_Bible_Mcp", "data", "directives.sqlite"),
     path.join(os.homedir(), ".mcp-hub", "servers", "Holy_Bible_MCP", "data", "directives.sqlite"),
     path.join(os.homedir(), ".mcp-hub", "servers", "Holy_Bible_Mcp", "code", "data", "directives.sqlite"),
     path.join(os.homedir(), ".mcp-hub", "servers", "Holy_Bible_MCP", "code", "data", "directives.sqlite"),
-    path.resolve(__dirname, "../../data/directives.sqlite"),
-    path.resolve(__dirname, "../data/directives.sqlite"),
-    path.resolve(__dirname, "data/directives.sqlite"),
-    path.resolve(process.cwd(), "data/directives.sqlite"),
-    path.resolve(process.cwd(), "../data/directives.sqlite"),
     path.join(os.homedir(), ".bible-mcp", "directives.sqlite")
   ].filter(Boolean) as string[];
 
@@ -33,7 +32,7 @@ function resolveDirectivesDbPath(): string {
     if (fs.existsSync(p)) return p;
   }
 
-  return path.join(os.homedir(), ".mcp-hub", "servers", "Holy_Bible_Mcp", "data", "directives.sqlite");
+  return path.resolve(process.cwd(), "data/directives.sqlite");
 }
 
 export class DirectiveStore {
@@ -49,6 +48,12 @@ export class DirectiveStore {
   private metricsMap = new Map<string, MetricsSchema>();
   private modulesMap = new Map<string, string>();
   private metadataMap = new Map<string, any>();
+
+  // Open-Source Theological Knowledge Tables loaded from SQLite
+  private translationsMap = new Map<string, any>();
+  private trenchMap = new Map<string, any>();
+  private propheciesList: any[] = [];
+  private thematicChainsMap = new Map<string, any[]>();
 
   private isInitialized = false;
 
@@ -184,16 +189,89 @@ export class DirectiveStore {
         this.modulesMap.set(r.module_id, r.content);
       }
 
-      // 6. Fetch Server Metadata directly from SQLite
+      // 6. Fetch Translations Catalog directly from SQLite
+      try {
+        const transRows = (await this.query(`SELECT * FROM translations_catalog`)) as any[];
+        this.translationsMap.clear();
+        for (const r of (transRows || [])) {
+          this.translationsMap.set(r.id.toUpperCase(), {
+            id: r.id,
+            name: r.name,
+            shortName: r.short_name,
+            languageCode: r.language_code,
+            year: r.year,
+            philosophy: r.philosophy,
+            textualBasis: r.textual_basis,
+            description: r.description
+          });
+        }
+      } catch (_) {}
+
+      // 7. Fetch Trench Synonyms directly from SQLite
+      try {
+        const synRows = (await this.query(`SELECT * FROM trench_synonyms`)) as any[];
+        this.trenchMap.clear();
+        for (const r of (synRows || [])) {
+          const entry = {
+            group: r.synonym_group,
+            distinction: r.distinction,
+            theologicalSignificance: r.theological_significance
+          };
+          this.trenchMap.set(r.strongs_id.toUpperCase(), entry);
+          const rawId = r.strongs_id.toUpperCase().replace(/^([GH])0+/, '$1');
+          this.trenchMap.set(rawId, entry);
+        }
+      } catch (_) {}
+
+      // 8. Fetch Messianic Prophecies directly from SQLite
+      try {
+        const propRows = (await this.query(`SELECT * FROM messianic_prophecies`)) as any[];
+        this.propheciesList = (propRows || []).map((r: any) => ({
+          topic: r.topic,
+          topicTitle: r.topic_title,
+          prophecy: {
+            osis: r.prophecy_osis,
+            displayTitle: r.prophecy_display_title,
+            text: r.prophecy_text,
+            epochBCE: r.prophecy_epoch_bce
+          },
+          fulfillment: {
+            osis: r.fulfillment_osis,
+            displayTitle: r.fulfillment_display_title,
+            text: r.fulfillment_text,
+            epochCE: r.fulfillment_epoch_ce
+          },
+          timeGapYears: r.time_gap_years,
+          theologicalSignificance: r.theological_significance
+        }));
+      } catch (_) {}
+
+      // 9. Fetch Thematic Chains directly from SQLite
+      try {
+        const chainRows = (await this.query(`SELECT * FROM thematic_chains ORDER BY theme ASC, step_number ASC`)) as any[];
+        this.thematicChainsMap.clear();
+        for (const r of (chainRows || [])) {
+          const list = this.thematicChainsMap.get(r.theme.toLowerCase()) || [];
+          list.push({
+            step: r.step_number,
+            osis: r.osis,
+            displayTitle: r.display_title,
+            epoch: r.epoch,
+            textSnippet: r.text_snippet,
+            theologicalLink: r.theological_link
+          });
+          this.thematicChainsMap.set(r.theme.toLowerCase(), list);
+        }
+      } catch (_) {}
+
+      // 10. Fetch Server Metadata directly from SQLite
       try {
         const metaRows = (await this.query(`SELECT key, value_json FROM server_metadata`)) as any[];
         this.metadataMap.clear();
         for (const r of (metaRows || [])) {
           this.metadataMap.set(r.key, JSON.parse(r.value_json || "{}"));
         }
-      } catch {
-        // Table might be absent in older versions
-      }
+      } catch (_) {}
 
       this.isInitialized = true;
       const elapsed = (performance.now() - startTime).toFixed(2);
@@ -204,8 +282,47 @@ export class DirectiveStore {
   }
 
   // ==========================================================================
-  // ZERO-LATENCY RESOLVERS (0.0ms Lookup Time)
+  // ZERO-LATENCY RESOLVERS (0.0ms Lookup Time from SQLite Cache)
   // ==========================================================================
+
+  public getTranslations(): Record<string, any> {
+    const res: Record<string, any> = {};
+    for (const [k, v] of this.translationsMap.entries()) {
+      res[k] = v;
+    }
+    return res;
+  }
+
+  public getTranslation(id: string): any {
+    return this.translationsMap.get(id.toUpperCase());
+  }
+
+  public getTrenchSynonym(strongsId: string): any {
+    const norm = strongsId.trim().toUpperCase();
+    const letter = norm[0] || 'G';
+    const numPart = parseInt(norm.slice(1), 10) || 1;
+    const padded = letter + String(numPart).padStart(4, '0');
+    const raw = letter + String(numPart);
+    return this.trenchMap.get(padded) || this.trenchMap.get(raw) || this.trenchMap.get(norm);
+  }
+
+  public getMessianicProphecies(topic?: string): any[] {
+    if (!topic || topic === 'all') return [...this.propheciesList];
+    const clean = topic.toLowerCase();
+    return this.propheciesList.filter(p => 
+      p.topic.toLowerCase().includes(clean) || 
+      p.prophecy.osis.toLowerCase().includes(clean) || 
+      p.fulfillment.osis.toLowerCase().includes(clean)
+    );
+  }
+
+  public getThematicChain(theme: string): any[] {
+    const clean = theme.toLowerCase();
+    for (const [k, list] of this.thematicChainsMap.entries()) {
+      if (clean.includes(k) || k.includes(clean)) return list;
+    }
+    return this.thematicChainsMap.get("seed_of_faith") || [];
+  }
 
   public resolveTierByParamSize(paramSizeB: number): ModelTierDirective {
     for (const tier of this.tierRanges) {
@@ -248,58 +365,68 @@ export class DirectiveStore {
 
   public resolveWarmth(score: number = 80, lang: string = 'uk'): {
     score: number;
-    levelId: string;
     label: string;
-    directive: string;
+    iconName: string;
     tempDelta: number;
+    directive: string;
   } {
-    const normScore = Math.max(0, Math.min(100, score));
-    const langKey = (lang || 'uk').toLowerCase().slice(0, 2);
+    const isUkr = lang === 'uk' || lang === 'ukr';
+    const langKey = isUkr ? 'uk' : (lang === 'ru' || lang === 'rus' ? 'ru' : 'en');
 
-    for (const w of this.warmthRanges) {
-      if (normScore >= w.minScore && normScore <= w.maxScore) {
-        const label = w.labels[langKey] || w.labels['en'] || w.labels['uk'] || 'Custom Warmth';
-        const directive = w.directives[langKey] || w.directives['en'] || w.directives['uk'] || '';
+    for (const range of this.warmthRanges) {
+      if (score >= range.minScore && score <= range.maxScore) {
         return {
-          score: normScore,
-          levelId: w.levelId,
-          label,
-          directive,
-          tempDelta: w.tempDeltaBias
+          score,
+          label: range.labels[langKey] || range.labels['en'] || 'Warm',
+          iconName: range.iconName,
+          tempDelta: range.tempDeltaBias,
+          directive: range.directives[langKey] || range.directives['en'] || ''
         };
       }
     }
 
-    const defaultProfile = this.warmthRanges[2];
+    const fallback = this.warmthRanges[2] || this.warmthRanges[0];
     return {
-      score: normScore,
-      levelId: 'warm',
-      label: defaultProfile?.labels[langKey] || 'Warm',
-      directive: defaultProfile?.directives[langKey] || '',
-      tempDelta: 0.05
+      score,
+      label: fallback?.labels[langKey] || 'Warm',
+      iconName: fallback?.iconName || 'Flame',
+      tempDelta: fallback?.tempDeltaBias || 0,
+      directive: fallback?.directives[langKey] || ''
     };
   }
 
-  public getMetricsTemplate(lang: string = 'uk'): MetricsSchema {
-    const langKey = (lang || 'uk').toLowerCase().slice(0, 2);
-    return this.metricsMap.get(langKey) || this.metricsMap.get('en') || this.metricsMap.get('default') || {
+  public getMetricsSchema(lang: string = 'uk'): MetricsSchema {
+    const isUkr = lang === 'uk' || lang === 'ukr';
+    const langKey = isUkr ? 'uk' : (lang === 'ru' || lang === 'rus' ? 'ru' : 'en');
+    return this.metricsMap.get(langKey) || this.metricsMap.get('uk') || {
       languageCode: 'uk',
       complexityTitle: 'Складність',
       modeTitle: 'Режим',
       accuracyTitle: 'Точність',
-      badgeTemplate: '📊 **{complexityTitle}:** `{complexityScore}/100` | ⚖️ **{modeTitle}:** `{modeValue}` | 🛡️ **{accuracyTitle}:** `{accuracyScore}`'
+      badgeTemplate: '📊 **Складність:** `{complexity}/100` | ⚖️ **Режим:** `{mode}` | 🛡️ **Точність:** `{accuracy}`'
     };
   }
 
-  public getPromptModule(moduleId: string): string {
-    return this.modulesMap.get(moduleId) || '';
+  public getModule(moduleId: string): string | undefined {
+    return this.modulesMap.get(moduleId);
   }
 
-  public getServerInfo(): any {
-    return this.metadataMap.get('server_info') || {};
+  public getPromptModule(moduleId: string): string | undefined {
+    return this.modulesMap.get(moduleId);
   }
 
-  public getSettingsMetadata(key: string): any {
-    return this.metadataMap.get('settings_metadata')?.[key] || {};
+  public getServerInfo(): { name: string; description: string; version: string; server: string } {
+    const meta = this.metadataMap.get('server_info') || {};
+    return {
+      name: meta.name || 'Holy Bible MCP',
+      description: meta.description || 'Universal Multilingual Bible MCP Server',
+      version: meta.version || '1.1.0',
+      server: meta.server || 'holy-bible-mcp'
+    };
+  }
+
+  public getSettingsMetadata(settingId: string): any {
+    const meta = this.metadataMap.get('settings_metadata') || {};
+    return meta[settingId];
   }
 }

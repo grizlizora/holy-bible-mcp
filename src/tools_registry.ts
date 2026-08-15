@@ -8,6 +8,11 @@ import { sanitizeAsteriskBullets, sanitizeMarkdownText, formatScriptureVerse } f
 import { OSIS_ALIAS_MAP, getLocalizedBookNameFromDict, getBookNumber } from "./data/osis_dictionary.js";
 import { PromptRepositoryEngine } from "./prompts_repository.js";
 import { DirectiveStore } from "./directives/directive_store.js";
+import { MorphologyEngine } from "./morphology_engine.js";
+import { ScriptureGraphEngine } from "./scripture_graph_engine.js";
+import { HybridSearchEngine } from "./hybrid_search_engine.js";
+import { ParallelCorpusEngine } from "./parallel_corpus_engine.js";
+import { DynamicTokenBudgetManager, NeuralThinkingEngine } from "./token_optimizer/index.js";
 
 /** 🌐 Dynamic Online Scripture Fallback Engine (when SQLite is not yet downloaded or verse missing) */
 async function fetchOnlineVerseText(osisCode: string, chapter: number, verse: number, lang: string): Promise<string | null> {
@@ -454,6 +459,146 @@ export function registerToolHandlers(server: Server): void {
               markdown_text: { type: "string", description: "Raw Markdown text to sanitize" }
             },
             required: ["markdown_text"]
+          }
+        },
+        {
+          name: "get_interlinear_verse",
+          description: "Retrieves word-by-word original Hebrew (WLC) or Greek (NA28/LXX) interlinear text with Strong's numbers, transliterations, lemmas, and grammatical morphology.",
+          inputSchema: {
+            type: "object",
+            properties: {
+              book: { type: "string", description: "Book name or OSIS code (e.g. 'John', 'JHN', 'Gen', 'Genesis')" },
+              chapter: { type: "number", description: "Chapter number" },
+              verse: { type: "number", description: "Verse number" },
+              parallel_translation: { type: "string", description: "Target parallel modern translation (default 'UBIO')" }
+            },
+            required: ["book", "chapter", "verse"]
+          }
+        },
+        {
+          name: "get_strongs_etymology",
+          description: "Comprehensive Strong's Concordance, BDB/Thayer lexicon, and Trench's Synonyms (e.g. Agape vs Phileo, Logos vs Rhema, Hesed, Shalom).",
+          inputSchema: {
+            type: "object",
+            properties: {
+              strongs_id: { type: "string", description: "Strong's ID (e.g. 'G26', 'G0025', 'H1254', 'H7225')" }
+            },
+            required: ["strongs_id"]
+          }
+        },
+        {
+          name: "analyze_greek_hebrew_word",
+          description: "Morphological and root analysis for raw original language words, lemmas, or transliterations.",
+          inputSchema: {
+            type: "object",
+            properties: {
+              word: { type: "string", description: "Greek or Hebrew word, lemma, or transliteration" }
+            },
+            required: ["word"]
+          }
+        },
+        {
+          name: "get_cross_references",
+          description: "Retrieves top-ranked theological cross-references from the 344,000+ TSK graph with PageRank ranking and anti-flooding diversity.",
+          inputSchema: {
+            type: "object",
+            properties: {
+              book: { type: "string", description: "Book name or OSIS code" },
+              chapter: { type: "number", description: "Chapter number" },
+              verse: { type: "number", description: "Verse number" },
+              category: { type: "string", description: "Filter: 'all', 'messianic_prophecy', 'typology_antitype', 'direct_quotation', 'doctrinal_corroboration'" },
+              max_results: { type: "number", description: "Max references to return (default 5)" }
+            },
+            required: ["book", "chapter", "verse"]
+          }
+        },
+        {
+          name: "find_thematic_scripture_chain",
+          description: "Traces progressive revelation of a biblical doctrine or theme across covenants (e.g. 'Living Water', 'Passover Lamb', 'Seed of the Woman').",
+          inputSchema: {
+            type: "object",
+            properties: {
+              theme: { type: "string", description: "Thematic concept (e.g. 'вода', 'living_water', 'covenant', 'seed')" },
+              starting_verse: { type: "string", description: "Optional starting verse OSIS (default 'GEN.3.15')" }
+            },
+            required: ["theme"]
+          }
+        },
+        {
+          name: "get_prophecy_fulfillment_pairs",
+          description: "Retrieves matched pairs of Old Testament Messianic Prophecies and their New Testament historical fulfillments in Christ.",
+          inputSchema: {
+            type: "object",
+            properties: {
+              topic: { type: "string", description: "Prophecy topic or verse (e.g. 'virgin_birth', 'ISA.53.5', 'MIC.5.2', 'all')" }
+            }
+          }
+        },
+        {
+          name: "search_scripture_hybrid",
+          description: "Hybrid search combining SQLite FTS5 BM25 lexical search, Ukrainian morphology lemmatization, and vector conceptual relevance.",
+          inputSchema: {
+            type: "object",
+            properties: {
+              query: { type: "string", description: "Search query or existential/theological question" },
+              language: { type: "string", description: "Language code ('ukr', 'eng')" },
+              mode: { type: "string", description: "'balanced', 'exact', 'semantic', 'theological'" },
+              top_k: { type: "number", description: "Max results (default 10)" }
+            },
+            required: ["query"]
+          }
+        },
+        {
+          name: "find_scriptures_by_life_situation",
+          description: "Pastoral counseling tool matching real-world human trials (anxiety, grief, burnout, loneliness, conflict) with verified scripture anchors.",
+          inputSchema: {
+            type: "object",
+            properties: {
+              situation_description: { type: "string", description: "Description of the life trial or struggle" },
+              emotion: { type: "string", description: "Primary emotion ('anxiety', 'grief', 'loneliness', 'anger', 'auto')" },
+              language: { type: "string", description: "Response language ('ukr', 'eng')" }
+            },
+            required: ["situation_description"]
+          }
+        },
+        {
+          name: "get_parallel_verses",
+          description: "Retrieves aligned parallel scripture text across up to 15 translations (Ukrainian, English, Greek, Hebrew, Latin).",
+          inputSchema: {
+            type: "object",
+            properties: {
+              book: { type: "string", description: "Book name or OSIS code" },
+              chapter: { type: "number", description: "Chapter number" },
+              verse: { type: "number", description: "Verse number" },
+              end_verse: { type: "number", description: "Optional ending verse number" },
+              translations: { type: "array", items: { type: "string" }, description: "Translations array (e.g. ['UBIO', 'UKRK', 'KJV', 'BSB'])" }
+            },
+            required: ["book", "chapter", "verse"]
+          }
+        },
+        {
+          name: "compare_translations_diff",
+          description: "Word-level Myers LCS Diff analysis comparing two Bible translations, highlighting lexical nuances and philosophy differences.",
+          inputSchema: {
+            type: "object",
+            properties: {
+              book: { type: "string", description: "Book name or OSIS code" },
+              chapter: { type: "number", description: "Chapter number" },
+              verse: { type: "number", description: "Verse number" },
+              base_translation: { type: "string", description: "Base translation ID (default 'UBIO')" },
+              target_translation: { type: "string", description: "Target translation ID (default 'UKRK')" }
+            },
+            required: ["book", "chapter", "verse"]
+          }
+        },
+        {
+          name: "get_translation_metadata",
+          description: "Retrieves historical, philosophical, and textual basis metadata for Bible translations (or 'all' for complete catalog).",
+          inputSchema: {
+            type: "object",
+            properties: {
+              translation_id: { type: "string", description: "Translation ID (e.g. 'UBIO', 'UKRK', 'KJV', 'all')" }
+            }
           }
         }
       ]
@@ -1035,6 +1180,119 @@ export function registerToolHandlers(server: Server): void {
         const sanitized = sanitizeMarkdownText(text);
         return {
           content: [{ type: "text", text: sanitized }]
+        };
+      }
+
+      if (name === "get_interlinear_verse") {
+        const book = String(args?.book || "GEN");
+        const chapter = parseInt(String(args?.chapter || 1), 10);
+        const verse = parseInt(String(args?.verse || 1), 10);
+        const parallelTranslation = String(args?.parallel_translation || "UBIO");
+
+        const result = await MorphologyEngine.getInterlinearVerse(book, chapter, verse, "auto", parallelTranslation);
+        return {
+          content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
+        };
+      }
+
+      if (name === "get_strongs_etymology" || name === "analyze_greek_hebrew_word") {
+        const strongsId = String(args?.strongs_id || args?.word || "G26");
+        const result = await MorphologyEngine.getStrongsEtymology(strongsId);
+        return {
+          content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
+        };
+      }
+
+      if (name === "get_cross_references") {
+        const book = String(args?.book || "JHN");
+        const chapter = parseInt(String(args?.chapter || 3), 10);
+        const verse = parseInt(String(args?.verse || 16), 10);
+        const category = String(args?.category || "all");
+        const maxResults = typeof args?.max_results === "number" ? args.max_results : 5;
+
+        const result = await ScriptureGraphEngine.getInstance().getRankedCrossReferences(book, chapter, verse, category, maxResults, "ukr");
+        return {
+          content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
+        };
+      }
+
+      if (name === "find_thematic_scripture_chain") {
+        const theme = String(args?.theme || "living_water");
+        const startingVerse = String(args?.starting_verse || "GEN.3.15");
+
+        const result = await ScriptureGraphEngine.findThematicChain(theme, startingVerse);
+        return {
+          content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
+        };
+      }
+
+      if (name === "get_prophecy_fulfillment_pairs") {
+        const topic = String(args?.topic || "all");
+        const pairs = DirectiveStore.getInstance().getMessianicProphecies(topic);
+        return {
+          content: [{ type: "text", text: JSON.stringify(pairs, null, 2) }]
+        };
+      }
+
+      if (name === "search_scripture_hybrid") {
+        const query = String(args?.query || "");
+        const language = String(args?.language || "ukr");
+        const mode = (args?.mode as any) || "balanced";
+        const topK = typeof args?.top_k === "number" ? args.top_k : 10;
+
+        const result = await HybridSearchEngine.getInstance().searchScriptureHybrid({
+          query,
+          language,
+          mode,
+          topK
+        });
+        return {
+          content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
+        };
+      }
+
+      if (name === "find_scriptures_by_life_situation") {
+        const situation = String(args?.situation_description || "");
+        const emotion = String(args?.emotion || "auto");
+        const language = String(args?.language || "ukr");
+
+        const result = await HybridSearchEngine.getInstance().findByLifeSituation(situation, emotion, language);
+        return {
+          content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
+        };
+      }
+
+      if (name === "get_parallel_verses") {
+        const book = String(args?.book || "JHN");
+        const chapter = parseInt(String(args?.chapter || 3), 10);
+        const verse = parseInt(String(args?.verse || 16), 10);
+        const endVerse = typeof args?.end_verse === "number" ? args.end_verse : undefined;
+        const translations = Array.isArray(args?.translations) ? args.translations.map(String) : ["UBIO", "UKRK", "KJV", "BSB"];
+
+        const result = await ParallelCorpusEngine.getInstance().getParallelVerses(book, chapter, verse, endVerse, translations, "ukr");
+        return {
+          content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
+        };
+      }
+
+      if (name === "compare_translations_diff") {
+        const book = String(args?.book || "JHN");
+        const chapter = parseInt(String(args?.chapter || 1), 10);
+        const verse = parseInt(String(args?.verse || 1), 10);
+        const baseTrans = String(args?.base_translation || "UBIO");
+        const targetTrans = String(args?.target_translation || "UKRK");
+
+        const result = await ParallelCorpusEngine.getInstance().compareTranslationsDiff(book, chapter, verse, baseTrans, targetTrans, "ukr");
+        return {
+          content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
+        };
+      }
+
+      if (name === "get_translation_metadata") {
+        const transId = String(args?.translation_id || "all");
+        const result = ParallelCorpusEngine.getInstance().getTranslationMetadata(transId);
+        return {
+          content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
         };
       }
 
