@@ -259,18 +259,9 @@ export class DirectiveStore {
         return this.modulesMap.get(moduleId) || '';
     }
     getServerInfo() {
-        return this.metadataMap.get('server_info') || {
-            server: "holy-bible-mcp",
-            version: "1.0.1",
-            name: { uk: "Holy Bible MCP", en: "Holy Bible MCP", ru: "Holy Bible MCP" },
-            description: {
-                uk: "Богословський інтелектуальний MCP-сервер із першоджерелами, Strong's номерами та адаптивним контекстом.",
-                en: "Theological intelligent MCP server with primary scripture sources, Strong's etymology, and adaptive context.",
-                ru: "Богословский интеллектуальный MCP-сервер с первоисточниками, номерами Стронга и адаптивным контекстом."
-            }
-        };
+        return this.metadataMap.get('server_info') || {};
     }
     getSettingsMetadata(key) {
-        return this.metadataMap.get('settings_metadata')?.[key] || null;
+        return this.metadataMap.get('settings_metadata')?.[key] || {};
     }
 }

@@ -866,12 +866,8 @@ export function registerToolHandlers(server: Server): void {
             type: "text",
             text: JSON.stringify({
               server: serverInfo.server || "holy-bible-mcp",
-              name: serverInfo.name || { uk: "Holy Bible MCP", en: "Holy Bible MCP", ru: "Holy Bible MCP" },
-              description: serverInfo.description || {
-                uk: "Богословський інтелектуальний MCP-сервер із першоджерелами, Strong's номерами та адаптивним контекстом.",
-                en: "Theological intelligent MCP server with primary scripture sources, Strong's etymology, and adaptive context.",
-                ru: "Богословский интеллектуальный MCP-сервер с первоисточниками, номерами Стронга и адаптивным контекстом."
-              },
+              name: serverInfo.name,
+              description: serverInfo.description,
               version: serverInfo.version || "1.0.1",
               status: "online",
               clientHost,
@@ -893,14 +889,14 @@ export function registerToolHandlers(server: Server): void {
                   max: 100,
                   defaultValue: currentSensitivityScore,
                   iconName: "Flame",
-                  label: warmthMeta?.label || { uk: "Теплота відповіді", en: "Response Warmth", ru: "Теплота ответа" },
-                  description: warmthMeta?.description || { uk: "Рівень душевного тепла та пасторської глибини у відповідях.", en: "Level of warmth and pastoral depth in responses.", ru: "Уровень теплоты и пасторской глубины в ответах." },
-                  minLabel: warmthMeta?.minLabel || { uk: "Академічний", en: "Academic", ru: "Академический" },
-                  maxLabel: warmthMeta?.maxLabel || { uk: "Глибока Емпатія", en: "Deep Empathy", ru: "Глубокая Эмпатия" },
-                  options: (store.getAllWarmthRanges().length > 0 ? store.getAllWarmthRanges() : []).map((w: any) => ({
+                  label: warmthMeta?.label,
+                  description: warmthMeta?.description,
+                  minLabel: warmthMeta?.minLabel,
+                  maxLabel: warmthMeta?.maxLabel,
+                  options: store.getAllWarmthRanges().map((w: any) => ({
                     value: w.minScore,
-                    iconName: w.iconName || "Flame",
-                    label: w.labels || { uk: w.levelId, en: w.levelId, ru: w.levelId }
+                    iconName: w.iconName,
+                    label: w.labels
                   }))
                 },
                 {
@@ -908,8 +904,8 @@ export function registerToolHandlers(server: Server): void {
                   type: "select",
                   defaultValue: currentModeKey,
                   iconName: "Sliders",
-                  label: modeMeta?.label || { uk: "Режим деталізації", en: "Detail Level", ru: "Режим детализации" },
-                  description: modeMeta?.description || { uk: "Визначає глибину богословського аналізу та кількість цитат.", en: "Sets depth of theological analysis and number of citations.", ru: "Определяет глубину анализа и количество цитат." },
+                  label: modeMeta?.label,
+                  description: modeMeta?.description,
                   options: [
                     {
                       value: "auto",
@@ -919,9 +915,9 @@ export function registerToolHandlers(server: Server): void {
                     },
                     ...store.getAllModes().map((m: any) => ({
                       value: m.modeKey,
-                      iconName: m.iconName || "Sliders",
-                      label: m.displayNames || { uk: m.modeKey, en: m.modeKey, ru: m.modeKey },
-                      description: m.descriptions || { uk: "", en: "", ru: "" }
+                      iconName: m.iconName,
+                      label: m.displayNames,
+                      description: m.descriptions
                     }))
                   ]
                 },
@@ -930,8 +926,8 @@ export function registerToolHandlers(server: Server): void {
                   type: "toggle",
                   defaultValue: currentShowMetrics,
                   iconName: "Activity",
-                  label: metricsMeta?.label || { uk: "Додаткова інформація (MCP)", en: "Additional Info (MCP)", ru: "Доп. информация (MCP)" },
-                  description: metricsMeta?.description || { uk: "Показувати точність і режими в кінці відповіді.", en: "Show accuracy and modes at the end of responses.", ru: "Показывать точность и режимы в конце ответа." }
+                  label: metricsMeta?.label,
+                  description: metricsMeta?.description
                 }
               ]
             }, null, 2)
