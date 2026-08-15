@@ -856,18 +856,23 @@ export function registerToolHandlers(server: Server): void {
         const sensInfo = getSensitivityDirective(currentSensitivityScore);
         const effectiveMode = resolveEffectiveMode(currentModeKey, currentSensitivityScore);
         const store = DirectiveStore.getInstance();
+        const serverInfo = store.getServerInfo();
+        const warmthMeta = store.getSettingsMetadata("warmth");
+        const modeMeta = store.getSettingsMetadata("modeKey");
+        const metricsMeta = store.getSettingsMetadata("showMetrics");
+
         return {
           content: [{
             type: "text",
             text: JSON.stringify({
-              server: "holy-bible-mcp",
-              name: { uk: "Holy Bible MCP", en: "Holy Bible MCP", ru: "Holy Bible MCP" },
-              description: {
+              server: serverInfo.server || "holy-bible-mcp",
+              name: serverInfo.name || { uk: "Holy Bible MCP", en: "Holy Bible MCP", ru: "Holy Bible MCP" },
+              description: serverInfo.description || {
                 uk: "Богословський інтелектуальний MCP-сервер із першоджерелами, Strong's номерами та адаптивним контекстом.",
                 en: "Theological intelligent MCP server with primary scripture sources, Strong's etymology, and adaptive context.",
                 ru: "Богословский интеллектуальный MCP-сервер с первоисточниками, номерами Стронга и адаптивным контекстом."
               },
-              version: "1.0.0",
+              version: serverInfo.version || "1.0.1",
               status: "online",
               clientHost,
               autoMode: currentModeKey === "auto",
@@ -888,10 +893,10 @@ export function registerToolHandlers(server: Server): void {
                   max: 100,
                   defaultValue: currentSensitivityScore,
                   iconName: "Flame",
-                  label: { uk: "Теплота відповіді", en: "Response Warmth", ru: "Теплота ответа" },
-                  description: { uk: "Рівень душевного тепла та пасторської глибини у відповідях.", en: "Level of warmth and pastoral depth in responses.", ru: "Уровень теплоты и пасторской глубины в ответах." },
-                  minLabel: { uk: "Академічний", en: "Academic", ru: "Академический" },
-                  maxLabel: { uk: "Глибока Емпатія", en: "Deep Empathy", ru: "Глубокая Эмпатия" },
+                  label: warmthMeta?.label || { uk: "Теплота відповіді", en: "Response Warmth", ru: "Теплота ответа" },
+                  description: warmthMeta?.description || { uk: "Рівень душевного тепла та пасторської глибини у відповідях.", en: "Level of warmth and pastoral depth in responses.", ru: "Уровень теплоты и пасторской глубины в ответах." },
+                  minLabel: warmthMeta?.minLabel || { uk: "Академічний", en: "Academic", ru: "Академический" },
+                  maxLabel: warmthMeta?.maxLabel || { uk: "Глибока Емпатія", en: "Deep Empathy", ru: "Глубокая Эмпатия" },
                   options: (store.getAllWarmthRanges().length > 0 ? store.getAllWarmthRanges() : []).map((w: any) => ({
                     value: w.minScore,
                     iconName: w.iconName || "Flame",
@@ -903,8 +908,8 @@ export function registerToolHandlers(server: Server): void {
                   type: "select",
                   defaultValue: currentModeKey,
                   iconName: "Sliders",
-                  label: { uk: "Режим деталізації", en: "Detail Level", ru: "Режим детализации" },
-                  description: { uk: "Визначає глибину богословського аналізу та кількість цитат.", en: "Sets depth of theological analysis and number of citations.", ru: "Определяет глубину анализа и количество цитат." },
+                  label: modeMeta?.label || { uk: "Режим деталізації", en: "Detail Level", ru: "Режим детализации" },
+                  description: modeMeta?.description || { uk: "Визначає глибину богословського аналізу та кількість цитат.", en: "Sets depth of theological analysis and number of citations.", ru: "Определяет глубину анализа и количество цитат." },
                   options: [
                     {
                       value: "auto",
@@ -925,8 +930,8 @@ export function registerToolHandlers(server: Server): void {
                   type: "toggle",
                   defaultValue: currentShowMetrics,
                   iconName: "Activity",
-                  label: { uk: "Додаткова інформація (MCP)", en: "Additional Info (MCP)", ru: "Доп. информация (MCP)" },
-                  description: { uk: "Показувати точність і режими в кінці відповіді.", en: "Show accuracy and modes at the end of responses.", ru: "Показывать точность и режимы в конце ответа." }
+                  label: metricsMeta?.label || { uk: "Додаткова інформація (MCP)", en: "Additional Info (MCP)", ru: "Доп. информация (MCP)" },
+                  description: metricsMeta?.description || { uk: "Показувати точність і режими в кінці відповіді.", en: "Show accuracy and modes at the end of responses.", ru: "Показывать точность и режимы в конце ответа." }
                 }
               ]
             }, null, 2)

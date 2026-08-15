@@ -48,6 +48,7 @@ export class DirectiveStore {
   private warmthRanges: WarmthDirective[] = [];
   private metricsMap = new Map<string, MetricsSchema>();
   private modulesMap = new Map<string, string>();
+  private metadataMap = new Map<string, any>();
 
   private isInitialized = false;
 
@@ -183,6 +184,17 @@ export class DirectiveStore {
         this.modulesMap.set(r.module_id, r.content);
       }
 
+      // 6. Fetch Server Metadata directly from SQLite
+      try {
+        const metaRows = (await this.query(`SELECT key, value_json FROM server_metadata`)) as any[];
+        this.metadataMap.clear();
+        for (const r of (metaRows || [])) {
+          this.metadataMap.set(r.key, JSON.parse(r.value_json || "{}"));
+        }
+      } catch {
+        // Table might be absent in older versions
+      }
+
       this.isInitialized = true;
       const elapsed = (performance.now() - startTime).toFixed(2);
       console.error(`[DIRECTIVE-ENGINE] ✅ Loaded dedicated Directives DB (${this.dbPath}) in ${elapsed}ms.`);
@@ -281,5 +293,22 @@ export class DirectiveStore {
 
   public getPromptModule(moduleId: string): string {
     return this.modulesMap.get(moduleId) || '';
+  }
+
+  public getServerInfo(): any {
+    return this.metadataMap.get('server_info') || {
+      server: "holy-bible-mcp",
+      version: "1.0.1",
+      name: { uk: "Holy Bible MCP", en: "Holy Bible MCP", ru: "Holy Bible MCP" },
+      description: {
+        uk: "Богословський інтелектуальний MCP-сервер із першоджерелами, Strong's номерами та адаптивним контекстом.",
+        en: "Theological intelligent MCP server with primary scripture sources, Strong's etymology, and adaptive context.",
+        ru: "Богословский интеллектуальный MCP-сервер с первоисточниками, номерами Стронга и адаптивным контекстом."
+      }
+    };
+  }
+
+  public getSettingsMetadata(key: string): any {
+    return this.metadataMap.get('settings_metadata')?.[key] || null;
   }
 }

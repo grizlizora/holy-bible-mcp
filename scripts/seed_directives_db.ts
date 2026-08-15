@@ -100,6 +100,21 @@ function seedDatabase(dbPath: string): Promise<void> {
         );
       `);
 
+      db.run(`
+        CREATE TABLE server_metadata (
+          key TEXT PRIMARY KEY,
+          value_json TEXT NOT NULL,
+          description TEXT
+        );
+      `);
+
+      // 1.1 Insert Server Metadata
+      db.run(`
+        INSERT INTO server_metadata (key, value_json, description) VALUES
+        ('server_info', '{"server":"holy-bible-mcp","version":"1.0.1","name":{"uk":"Holy Bible MCP","en":"Holy Bible MCP","ru":"Holy Bible MCP"},"description":{"uk":"Богословський інтелектуальний MCP-сервер із першоджерелами, Strong''s номерами та адаптивним контекстом.","en":"Theological intelligent MCP server with primary scripture sources, Strong''s etymology, and adaptive context.","ru":"Богословский интеллектуальный MCP-сервер с первоисточниками, номерами Стронга и адаптивным контекстом."}}', 'General MCP server identity and multilingual descriptions'),
+        ('settings_metadata', '{"warmth":{"label":{"uk":"Теплота відповіді","en":"Response Warmth","ru":"Теплота ответа"},"description":{"uk":"Рівень душевного тепла та пасторської глибини у відповідях.","en":"Level of warmth and pastoral depth in responses.","ru":"Уровень теплоты и пасторской глубины в ответах."},"minLabel":{"uk":"Академічний","en":"Academic","ru":"Академический"},"maxLabel":{"uk":"Глибока Емпатія","en":"Deep Empathy","ru":"Глубокая Эмпатия"}},"modeKey":{"label":{"uk":"Режим деталізації","en":"Detail Level","ru":"Режим детализации"},"description":{"uk":"Визначає глибину богословського аналізу та кількість цитат.","en":"Sets depth of theological analysis and number of citations.","ru":"Определяет глубину анализа и количество цитат."}},"showMetrics":{"label":{"uk":"Додаткова інформація (MCP)","en":"Additional Info (MCP)","ru":"Доп. информация (MCP)"},"description":{"uk":"Показувати точність і режими в кінці відповіді.","en":"Show accuracy and modes at the end of responses.","ru":"Показывать точность и режимы в конце ответа."}}}', 'Multilingual labels for top-level MCP settings');
+      `);
+
       // 2. Insert Model Tiers
       db.run(`
         INSERT INTO model_tier_directives 
