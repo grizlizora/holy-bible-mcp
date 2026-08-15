@@ -7,9 +7,13 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 function resolveDirectivesDbPath() {
     const candidatePaths = [
         process.env.DIRECTIVES_DB_PATH ? path.resolve(process.env.DIRECTIVES_DB_PATH) : null,
+        path.join(os.homedir(), ".mcp-hub", "servers", "Holy_Bible_Mcp", "data", "directives.sqlite"),
         path.join(os.homedir(), ".mcp-hub", "servers", "Holy_Bible_MCP", "data", "directives.sqlite"),
+        path.join(os.homedir(), ".mcp-hub", "servers", "Holy_Bible_Mcp", "code", "data", "directives.sqlite"),
+        path.join(os.homedir(), ".mcp-hub", "servers", "Holy_Bible_MCP", "code", "data", "directives.sqlite"),
         path.resolve(__dirname, "../../data/directives.sqlite"),
         path.resolve(__dirname, "../data/directives.sqlite"),
+        path.resolve(__dirname, "data/directives.sqlite"),
         path.resolve(process.cwd(), "data/directives.sqlite"),
         path.resolve(process.cwd(), "../data/directives.sqlite"),
         path.join(os.homedir(), ".bible-mcp", "directives.sqlite")
@@ -18,7 +22,7 @@ function resolveDirectivesDbPath() {
         if (fs.existsSync(p))
             return p;
     }
-    return path.join(os.homedir(), ".mcp-hub", "servers", "Holy_Bible_MCP", "data", "directives.sqlite");
+    return path.join(os.homedir(), ".mcp-hub", "servers", "Holy_Bible_Mcp", "data", "directives.sqlite");
 }
 export class DirectiveStore {
     static instance = null;
