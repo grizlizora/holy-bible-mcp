@@ -9,7 +9,9 @@ import http from "http";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const ENV_DB = process.env.BIBLE_DB_PATH ? path.resolve(process.env.BIBLE_DB_PATH) : null;
+const ENV_DB = (process.env.BIBLE_DB_PATH || process.env.MCP_DB_PATH || process.env.DATABASE_PATH)
+  ? path.resolve(process.env.BIBLE_DB_PATH || process.env.MCP_DB_PATH || process.env.DATABASE_PATH!)
+  : null;
 const MCP_STORAGE_DB = path.join(os.homedir(), ".holy-bible-mcp", "mcp-storage", "holy-bible-local", "data", "bible_database.sqlite");
 const LOCAL_DB = path.resolve(__dirname, "../../data/processed/bible_database.sqlite");
 const GLOBAL_DIR = path.join(os.homedir(), ".bible-mcp");
