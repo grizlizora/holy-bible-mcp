@@ -216,6 +216,10 @@ export class DirectiveStore {
     return Array.from(this.modeMap.values());
   }
 
+  public getAllWarmthRanges(): WarmthDirective[] {
+    return [...this.warmthRanges];
+  }
+
   public resolveModeFromComplexity(complexityScore: number, paramSizeB?: number): ModeKey {
     let selected: ModeKey = 'medium';
     for (const mode of this.modeMap.values()) {

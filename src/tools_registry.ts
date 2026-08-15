@@ -855,6 +855,7 @@ export function registerToolHandlers(server: Server): void {
         const clientHost = String(args?.client_host || args?.client_name || "external-mcp-host");
         const sensInfo = getSensitivityDirective(currentSensitivityScore);
         const effectiveMode = resolveEffectiveMode(currentModeKey, currentSensitivityScore);
+        const store = DirectiveStore.getInstance();
         return {
           content: [{
             type: "text",
@@ -879,40 +880,44 @@ export function registerToolHandlers(server: Server): void {
                   type: "slider",
                   min: 0,
                   max: 100,
-                  defaultValue: 80,
+                  defaultValue: currentSensitivityScore,
                   iconName: "Flame",
                   label: { uk: "Теплота відповіді", en: "Response Warmth", ru: "Теплота ответа" },
                   description: { uk: "Рівень душевного тепла та пасторської глибини у відповідях.", en: "Level of warmth and pastoral depth in responses.", ru: "Уровень теплоты и пасторской глубины в ответах." },
                   minLabel: { uk: "Академічний", en: "Academic", ru: "Академический" },
                   maxLabel: { uk: "Глибока Емпатія", en: "Deep Empathy", ru: "Глубокая Эмпатия" },
-                  options: [
-                    { value: 0,   iconName: "Snowflake", label: { uk: "Точний",       en: "Precise",    ru: "Точный"          } },
-                    { value: 50,  iconName: "Scale",     label: { uk: "Збалансований", en: "Balanced",   ru: "Сбалансированный" } },
-                    { value: 80,  iconName: "Flame",     label: { uk: "Натхненний",   en: "Inspired",   ru: "Вдохновенный"    } },
-                    { value: 100, iconName: "Sparkles",  label: { uk: "Глибока Любов", en: "Deep Love",  ru: "Глубокая Любовь" } }
-                  ]
+                  options: (store.getAllWarmthRanges().length > 0 ? store.getAllWarmthRanges() : []).map((w: any) => ({
+                    value: w.minScore,
+                    iconName: w.iconName || "Flame",
+                    label: w.labels || { uk: w.levelId, en: w.levelId, ru: w.levelId }
+                  }))
                 },
                 {
                   id: "modeKey",
                   type: "select",
-                  defaultValue: "medium",
+                  defaultValue: currentModeKey,
                   iconName: "Sliders",
                   label: { uk: "Режим деталізації", en: "Detail Level", ru: "Режим детализации" },
                   description: { uk: "Визначає глибину богословського аналізу та кількість цитат.", en: "Sets depth of theological analysis and number of citations.", ru: "Определяет глубину анализа и количество цитат." },
                   options: [
-                    { value: "auto",        iconName: "Brain",    label: { uk: "Авто",           en: "Auto",       ru: "Авто"           }, description: { uk: "Автоматичний підбір",  en: "Auto complexity selection", ru: "Автоматический выбор"  } },
-                    { value: "minimal",     iconName: "Zap",      label: { uk: "Мінімальний",    en: "Minimal",    ru: "Минимальный"    }, description: { uk: "Коротка суть",          en: "Short essence",         ru: "Краткая суть"          } },
-                    { value: "short",       iconName: "Pencil",   label: { uk: "Короткий",       en: "Short",      ru: "Краткий"        }, description: { uk: "1–2 ключових вірші",   en: "1–2 key verses",        ru: "1–2 ключевых стиха"    } },
-                    { value: "medium",      iconName: "Scale",    label: { uk: "Збалансований",  en: "Medium",     ru: "Сбалансированный" }, description: { uk: "Вірші + пояснення",   en: "Verses + explanation",  ru: "Стихи + объяснение"    } },
-                    { value: "detailed",    iconName: "Search",   label: { uk: "Детальний",      en: "Detailed",   ru: "Подробный"       }, description: { uk: "Контекст + Strong's",  en: "Context + Strongs",     ru: "Контекст + Стронг"     } },
-                    { value: "deep",        iconName: "Landmark", label: { uk: "Глибокий",       en: "Deep",       ru: "Глубокий"        }, description: { uk: "Повний аналіз",       en: "Full analysis",         ru: "Полный анализ"         } },
-                    { value: "verses_only", iconName: "Scroll",   label: { uk: "Тільки Вірші",   en: "Verses Only", ru: "Только Стихи"    }, description: { uk: "Лише цитати Письма",  en: "Only Scripture citations", ru: "Только цитаты"        } }
+                    {
+                      value: "auto",
+                      iconName: "Brain",
+                      label: { uk: "Авто", en: "Auto", ru: "Авто" },
+                      description: { uk: "Автоматичний підбір", en: "Auto complexity selection", ru: "Автоматический выбор" }
+                    },
+                    ...store.getAllModes().map((m: any) => ({
+                      value: m.modeKey,
+                      iconName: m.iconName || "Sliders",
+                      label: m.displayNames || { uk: m.modeKey, en: m.modeKey, ru: m.modeKey },
+                      description: m.descriptions || { uk: "", en: "", ru: "" }
+                    }))
                   ]
                 },
                 {
                   id: "showMetrics",
                   type: "toggle",
-                  defaultValue: true,
+                  defaultValue: currentShowMetrics,
                   iconName: "Activity",
                   label: { uk: "Додаткова інформація (MCP)", en: "Additional Info (MCP)", ru: "Доп. информация (MCP)" },
                   description: { uk: "Показувати точність і режими в кінці відповіді.", en: "Show accuracy and modes at the end of responses.", ru: "Показывать точность и режимы в конце ответа." }

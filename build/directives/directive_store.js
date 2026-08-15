@@ -192,6 +192,9 @@ export class DirectiveStore {
     getAllModes() {
         return Array.from(this.modeMap.values());
     }
+    getAllWarmthRanges() {
+        return [...this.warmthRanges];
+    }
     resolveModeFromComplexity(complexityScore, paramSizeB) {
         let selected = 'medium';
         for (const mode of this.modeMap.values()) {

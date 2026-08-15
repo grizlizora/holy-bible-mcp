@@ -1,36 +1,22 @@
+import { DirectiveStore } from "./directives/directive_store.js";
 /**
- * 🎛️ Sensitivity & Pastoral Warmth Directive Resolver
+ * 🎛️ Sensitivity & Pastoral Warmth Directive Resolver (Zero-latency SQLite lookup)
  */
-export function getSensitivityDirective(score = 80) {
-    let label = "Висока Чутливість (Любов/Душа)";
-    let directive = "Надавай максимально теплу, підтримуючу та пастирську відповідь, фокусуючись на надії, милосерді та живій вірі.";
-    if (score < 40) {
-        label = "Аналітичний/Строгий Стиль";
-        directive = "Надавай точну, академічну та суху богословську відповідь із чітким етимологічним аналізом без емоційних вступів.";
-    }
-    else if (score < 70) {
-        label = "Збалансований Стиль";
-        directive = "Поєднуй богословську точність із практичним життєвим застосуванням.";
-    }
-    return { score, label, directive };
+export function getSensitivityDirective(score = 80, lang = 'uk') {
+    const store = DirectiveStore.getInstance();
+    const res = store.resolveWarmth(score, lang);
+    return {
+        score: res.score,
+        label: res.label,
+        directive: res.directive
+    };
 }
 /**
- * 🧠 Maps complexity score to optimal response mode with model tier capacity awareness
+ * 🧠 Maps complexity score to optimal response mode with model tier capacity awareness via SQLite
  */
 export function deriveModeFromComplexity(complexityScore, paramSizeB) {
-    if (complexityScore < 30)
-        return "minimal";
-    if (complexityScore < 50)
-        return "short";
-    if (complexityScore < 68)
-        return "medium";
-    if (complexityScore < 80)
-        return "detailed";
-    // Tier 1 safety guard: for compact models (<=8.5B), auto-cap at 'detailed' to prevent context blowout/looping
-    if (typeof paramSizeB === 'number' && paramSizeB <= 8.5) {
-        return "detailed";
-    }
-    return "deep";
+    const store = DirectiveStore.getInstance();
+    return store.resolveModeFromComplexity(complexityScore, paramSizeB);
 }
 /**
  * 🎯 Resolves effective mode taking user prompt semantics, tier limits, and manual overrides into account
