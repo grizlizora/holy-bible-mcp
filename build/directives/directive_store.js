@@ -253,6 +253,35 @@ export class DirectiveStore {
                 }
             }
             catch (_) { }
+            // 11. Fetch OSIS Book Dictionary and Aliases directly from SQLite
+            try {
+                const osisRows = (await this.query(`SELECT * FROM osis_book_dictionary`));
+                const aliasRows = (await this.query(`SELECT * FROM osis_aliases`));
+                if (osisRows && osisRows.length > 0) {
+                    const { OSIS_BOOK_NAMES, OSIS_ALIAS_MAP, OSIS_BOOK_NUMBER } = await import("../data/osis_dictionary.js");
+                    for (const r of osisRows) {
+                        const osis = r.osis_code.toUpperCase();
+                        OSIS_ALIAS_MAP[osis] = osis;
+                        OSIS_BOOK_NUMBER[osis] = r.book_order;
+                        if (!OSIS_BOOK_NAMES['ukr'])
+                            OSIS_BOOK_NAMES['ukr'] = {};
+                        if (!OSIS_BOOK_NAMES['eng'])
+                            OSIS_BOOK_NAMES['eng'] = {};
+                        if (!OSIS_BOOK_NAMES['rus'])
+                            OSIS_BOOK_NAMES['rus'] = {};
+                        if (r.name_ukr)
+                            OSIS_BOOK_NAMES['ukr'][osis] = r.name_ukr;
+                        if (r.name_eng)
+                            OSIS_BOOK_NAMES['eng'][osis] = r.name_eng;
+                        if (r.name_rus)
+                            OSIS_BOOK_NAMES['rus'][osis] = r.name_rus;
+                    }
+                    for (const a of (aliasRows || [])) {
+                        OSIS_ALIAS_MAP[a.alias.toUpperCase()] = a.osis_code.toUpperCase();
+                    }
+                }
+            }
+            catch (_) { }
             this.isInitialized = true;
             const elapsed = (performance.now() - startTime).toFixed(2);
             console.error(`[DIRECTIVE-ENGINE] ✅ Loaded dedicated Directives DB (${this.dbPath}) in ${elapsed}ms.`);
