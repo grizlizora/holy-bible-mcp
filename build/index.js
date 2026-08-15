@@ -5,45 +5,47 @@ import { registerResourceHandlers } from "./resources_repository.js";
 import { registerPromptHandlers } from "./prompts_repository.js";
 import { DirectiveStore } from "./directives/directive_store.js";
 import { TransportManager } from "./transport_manager.js";
-// Initialize Master MCP Server with full triad capabilities (Tools, Resources, Prompts)
-const server = new Server({
-    name: "holy-bible-mcp",
-    version: "1.1.0"
-}, {
-    capabilities: {
-        tools: {},
-        resources: {
-            subscribe: false,
-            listChanged: true
-        },
-        prompts: {
-            listChanged: true
-        }
-    }
+// Global process exception boundaries
+process.on("unhandledRejection", (reason) => {
+    console.error("[MCP PROCESS SAFEGUARD] Unhandled Promise Rejection:", reason);
 });
-// Register All Protocol Subsystems
-registerToolHandlers(server);
-registerResourceHandlers(server);
-registerPromptHandlers(server);
+process.on("uncaughtException", (error) => {
+    console.error("[MCP PROCESS SAFEGUARD] Uncaught Exception:", error);
+});
+export function createServerInstance() {
+    const server = new Server({
+        name: "holy-bible-mcp",
+        version: "2.0.0"
+    }, {
+        capabilities: {
+            tools: {
+                listChanged: true
+            },
+            resources: {
+                subscribe: false,
+                listChanged: true
+            },
+            prompts: {
+                listChanged: true
+            },
+            logging: {}
+        }
+    });
+    registerToolHandlers(server);
+    registerResourceHandlers(server);
+    registerPromptHandlers(server);
+    return server;
+}
 async function main() {
-    console.error("[MCP SERVER] 🚀 Booting Holy Bible MCP v1.1.0...");
-    // 1. Pre-compile in-memory directive tables on boot (0.0ms runtime lookups)
+    console.error("[MCP SERVER] 🚀 Booting Holy Bible MCP v2.0.0...");
     await DirectiveStore.getInstance().loadDirectives();
-    // 2. Resolve Transport Configuration
     const isSseExplicit = process.argv.includes("--sse") || process.env.MCP_TRANSPORT === "sse" || process.env.ENABLE_SSE === "true";
     const isDualExplicit = process.argv.includes("--dual") || process.env.MCP_TRANSPORT === "dual";
     const port = parseInt(process.env.MCP_PORT || process.env.PORT || "3001", 10);
     const host = process.env.MCP_HOST || "0.0.0.0";
-    let mode = "stdio";
-    if (isDualExplicit) {
-        mode = "dual";
-    }
-    else if (isSseExplicit) {
-        mode = "sse";
-    }
-    const transportManager = new TransportManager(server);
+    const mode = isDualExplicit ? "dual" : (isSseExplicit ? "sse" : "stdio");
+    const transportManager = new TransportManager(createServerInstance);
     await transportManager.start({ mode, port, host });
-    // 3. Graceful Shutdown Handlers
     const handleSignal = async (signal) => {
         console.error(`[MCP SERVER] Received ${signal}. Initiating graceful shutdown...`);
         await transportManager.shutdown();

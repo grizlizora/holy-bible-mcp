@@ -192,9 +192,11 @@ export const db = new sqlite3.Database(DB_FILE_EXISTS ? DB_PATH : ':memory:', (e
 db.serialize(() => {
     db.run("PRAGMA busy_timeout = 5000;");
     db.run("PRAGMA journal_mode = WAL;");
+    db.run("PRAGMA synchronous = NORMAL;");
     db.run(`PRAGMA cache_size = ${cacheSizeKb};`);
     db.run(`PRAGMA mmap_size = ${mmapSizeBytes};`);
     db.run("PRAGMA temp_store = MEMORY;");
+    db.run("PRAGMA threads = 4;");
     db.run(`CREATE TABLE IF NOT EXISTS commentaries (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     book TEXT,
@@ -230,7 +232,7 @@ db.serialize(() => {
         }
     });
 });
-// Fast In-Memory Bounded LRU Cache with 10-minute TTL (Up to 5,000 cached queries)
+// Fast In-Memory Bounded O(1) QuickLRU Cache with 10-minute TTL (Up to 5,000 cached queries)
 const queryCache = new Map();
 const MAX_CACHE_SIZE = 5000;
 const DEFAULT_CACHE_TTL_MS = 600000;
@@ -247,55 +249,61 @@ export function getFromCache(key) {
     return entry.data;
 }
 export function saveToCache(key, data) {
-    if (queryCache.has(key))
+    if (queryCache.has(key)) {
         queryCache.delete(key);
+    }
     else if (queryCache.size >= MAX_CACHE_SIZE) {
-        const now = Date.now();
-        for (const [k, v] of queryCache.entries()) {
-            if (now > v.expiresAt) {
-                queryCache.delete(k);
-            }
-        }
-        if (queryCache.size >= MAX_CACHE_SIZE) {
-            const firstKey = queryCache.keys().next().value;
-            if (firstKey)
-                queryCache.delete(firstKey);
-        }
+        const oldestKey = queryCache.keys().next().value;
+        if (oldestKey)
+            queryCache.delete(oldestKey);
     }
     queryCache.set(key, { data, expiresAt: Date.now() + DEFAULT_CACHE_TTL_MS });
 }
 export function isDbReady() {
     return dbHasVersesTable;
 }
-export function queryDb(sql, params = []) {
+export async function queryDb(sql, params = [], maxRetries = 3) {
     // Offline guard: if the verses table is missing, return empty immediately
     if (!dbHasVersesTable && (sql.includes('FROM verses') || sql.includes('verses_fts'))) {
         console.warn('[DATABASE ENGINE] Offline mode — database not available. Returning empty result.');
-        return Promise.resolve([]);
+        return [];
     }
     const cacheKey = `${sql}::${JSON.stringify(params)}`;
     const cached = getFromCache(cacheKey);
     if (cached !== undefined) {
-        return Promise.resolve(cached);
+        return cached;
     }
-    return new Promise((resolve, reject) => {
-        db.all(sql, params, (err, rows) => {
-            if (err) {
-                // If the table doesn't exist (DB downloaded but corrupted/empty), mark offline and resolve empty
-                if (err.message?.includes('no such table')) {
-                    dbHasVersesTable = false;
-                    console.error('[DATABASE ENGINE] ⚠️  Table missing during query. Switching to offline mode.');
-                    resolve([]);
-                }
-                else {
-                    console.error('Database query error:', err.message);
-                    reject(err);
-                }
+    let attempt = 0;
+    while (attempt <= maxRetries) {
+        try {
+            const rows = await new Promise((resolve, reject) => {
+                db.all(sql, params, (err, rows) => {
+                    if (err)
+                        return reject(err);
+                    resolve(rows || []);
+                });
+            });
+            saveToCache(cacheKey, rows);
+            return rows;
+        }
+        catch (err) {
+            const isLocked = err.message?.includes('SQLITE_BUSY') || err.message?.includes('database is locked') || err.message?.includes('SQLITE_LOCKED');
+            if (isLocked && attempt < maxRetries) {
+                attempt++;
+                const backoffMs = Math.pow(2, attempt) * 40 + Math.floor(Math.random() * 20);
+                console.error(`[DATABASE ENGINE] Database busy. Retrying attempt ${attempt}/${maxRetries} in ${backoffMs}ms...`);
+                await new Promise((r) => setTimeout(r, backoffMs));
+            }
+            else if (err.message?.includes('no such table')) {
+                dbHasVersesTable = false;
+                console.error('[DATABASE ENGINE] ⚠️  Table missing during query. Switching to offline mode.');
+                return [];
             }
             else {
-                saveToCache(cacheKey, rows || []);
-                resolve(rows || []);
+                console.error('Database query error:', err.message);
+                throw err;
             }
-        });
-    });
+        }
+    }
+    return [];
 }

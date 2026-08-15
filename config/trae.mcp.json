@@ -12,7 +12,37 @@
         "DEFAULT_MODE": "auto",
         "DEFAULT_WARMTH": "80",
         "BIBLE_DB_PATH": "${workspaceFolder}/data/processed/bible_database.sqlite"
-      }
+      },
+      "autoApprove": [
+        "ask_holy_bible",
+        "search_keyword",
+        "get_verse",
+        "get_chapter_context",
+        "get_commentary",
+        "get_strongs_definition",
+        "get_strongs_etymology",
+        "analyze_greek_hebrew_word",
+        "search_semantic",
+        "search_topic",
+        "search_scripture_hybrid",
+        "get_cross_references",
+        "find_thematic_scripture_chain",
+        "get_prophecy_fulfillment_pairs",
+        "find_scriptures_by_life_situation",
+        "get_parallel_verses",
+        "compare_translations_diff",
+        "get_translation_metadata",
+        "get_interlinear_verse",
+        "set_relevance_sensitivity",
+        "set_response_mode",
+        "set_show_metrics",
+        "get_mcp_capabilities",
+        "get_model_recommendations",
+        "extract_vector_context",
+        "build_biblical_context",
+        "sanitize_scripture_markdown",
+        "get_p2p_swarm_status"
+      ]
     }
   }
 }

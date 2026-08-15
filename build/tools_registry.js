@@ -612,8 +612,12 @@ export function registerToolHandlers(server) {
                 const question = String(args?.question || args?.userMessage || "що таке любов");
                 const lang = String(args?.language || args?.lang || "auto");
                 const settings = args?.settings || {};
-                const warmthControlEnabled = settings.warmthControlEnabled !== false && args?.warmthControlEnabled !== false;
-                const modesControlEnabled = settings.modesControlEnabled !== false && args?.modesControlEnabled !== false;
+                const envModesControl = process.env.MODES_CONTROL || process.env.MCP_MODES_CONTROL;
+                const envWarmthControl = process.env.WARMTH_CONTROL || process.env.MCP_WARMTH_CONTROL;
+                const modesEnvActive = envModesControl ? !["off", "false", "0", "no"].includes(envModesControl.toLowerCase().trim()) : true;
+                const warmthEnvActive = envWarmthControl ? !["off", "false", "0", "no"].includes(envWarmthControl.toLowerCase().trim()) : true;
+                const warmthControlEnabled = warmthEnvActive && settings.warmthControlEnabled !== false && args?.warmthControlEnabled !== false;
+                const modesControlEnabled = modesEnvActive && settings.modesControlEnabled !== false && args?.modesControlEnabled !== false;
                 const warmth = warmthControlEnabled
                     ? (typeof args?.warmth === "number" ? args.warmth : (typeof settings.warmth === "number" ? settings.warmth : currentSensitivityScore))
                     : null;
@@ -812,7 +816,9 @@ export function registerToolHandlers(server) {
                 let endVerse = startVerse;
                 const lang = String(args?.language || "ukr");
                 const ref = String(args?.reference || "").trim();
+                const SINGLE_CHAPTER_BOOKS = new Set(["OBA", "PHM", "2JN", "3JN", "JUD", "MAN", "PS151", "LAO"]);
                 if (ref && (!book || !chapter || !startVerse)) {
+                    // 1. Standard "John 3:16" or "1 Cor 13:4-8"
                     const match = ref.match(/^((?:[1-4]\s*)?[\p{L}\p{N}]+)\s+(\d+)[:.]((\d+)(?:[-–—](\d+))?)$/u);
                     if (match) {
                         book = match[1].toUpperCase();
@@ -820,8 +826,21 @@ export function registerToolHandlers(server) {
                         startVerse = parseInt(match[4], 10);
                         endVerse = match[5] ? parseInt(match[5], 10) : startVerse;
                     }
+                    else {
+                        // 2. Single-chapter books like "Jude 5" or "Юди 5"
+                        const singleMatch = ref.match(/^((?:[1-4]\s*)?[\p{L}\p{N}]+)\s+(\d+)$/u);
+                        if (singleMatch) {
+                            book = singleMatch[1].toUpperCase();
+                            chapter = 1;
+                            startVerse = parseInt(singleMatch[2], 10);
+                            endVerse = startVerse;
+                        }
+                    }
                 }
                 const osisCode = OSIS_ALIAS_MAP[book] || book;
+                if (SINGLE_CHAPTER_BOOKS.has(osisCode) && chapter === 0 && startVerse > 0) {
+                    chapter = 1;
+                }
                 const detectedLang = resolveLanguageCode(lang, ref || book);
                 let rows = [];
                 if (isDbReady() && chapter > 0 && startVerse > 0) {

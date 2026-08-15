@@ -112,7 +112,7 @@ export class DynamicTokenBudgetManager {
   }
 
   /**
-   * ⚖️ Computes exact 40 / 20 / 20 / 20 Token Allocation with Elastic Rebalancing
+    * ⚖️ Computes exact 40 / 20 / 20 / 20 Token Allocation with Elastic Rebalancing
    */
   public static calculateAllocation(params: {
     profile: ContextWindowProfile;
@@ -124,11 +124,13 @@ export class DynamicTokenBudgetManager {
   }): TokenAllocation {
     const { profile, mode, hasStrongs, hasCrossrefs, complexityScore, customBudgetCap } = params;
     
-    let totalUsable = customBudgetCap || profile.defaultMcpBudgetTokens;
+    // 1. Calculate base budget with complexity factor
+    const baseBudget = customBudgetCap || profile.defaultMcpBudgetTokens;
+    const complexityFactor = 0.85 + (Math.max(0, Math.min(100, complexityScore)) / 100) * 0.30;
+    
+    // 2. Bound safely AFTER complexity multiplier (guarantees hardware context envelope)
+    let totalUsable = Math.round(baseBudget * complexityFactor);
     totalUsable = Math.max(profile.minMcpBudgetTokens, Math.min(profile.maxMcpBudgetTokens, totalUsable));
-
-    const complexityFactor = 0.85 + (complexityScore / 100) * 0.30;
-    totalUsable = Math.round(totalUsable * complexityFactor);
 
     let scripture = Math.floor(totalUsable * 0.40);
     let strongs = Math.floor(totalUsable * 0.20);
@@ -158,6 +160,12 @@ export class DynamicTokenBudgetManager {
       crossref = 0;
       scripture += Math.floor(surplus * 0.70);
       strongs += Math.floor(surplus * 0.30);
+    }
+
+    // Zero-drift remainder allocation: assigns integer rounding remainder to scripture
+    const allocated = scripture + strongs + crossref + directive;
+    if (allocated < totalUsable) {
+      scripture += (totalUsable - allocated);
     }
 
     return { scripture, strongs, crossref, directive, totalUsable };

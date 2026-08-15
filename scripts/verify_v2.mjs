@@ -38,13 +38,22 @@ export async function runVerificationTests() {
   console.log("\n🏛️ 2. VERIFYING MORPHOLOGY & SQLITE STRONG'S ENGINE:");
   const greekMorph = MorphologyEngine.parseGreekMorphCode("V-AAI-3S");
   assert(greekMorph.pos === "Verb" && greekMorph.tense === "Aorist" && greekMorph.voice === "Active", "Greek Robinson V-AAI-3S parsed correctly");
+
+  const greekParticiple = MorphologyEngine.parseGreekMorphCode("V-PAP-NSM");
+  assert(greekParticiple.mood === "Participle" && greekParticiple.caseGrammatical === "Nominative", "Greek Robinson Participle V-PAP-NSM parsed correctly");
   
   const hebrewMorph = MorphologyEngine.parseHebrewMorphCode("V-q-3ms");
   assert(hebrewMorph.stem === "Qal", "Hebrew WLC V-q-3ms parsed correctly");
 
+  const hebrewPrefix = MorphologyEngine.parseHebrewMorphCode("HR/Ncfsa");
+  assert(hebrewPrefix.description.includes("Preposition"), "Hebrew WLC Clitic HR/Ncfsa decomposed correctly");
+
   const strongsEtym = await MorphologyEngine.getStrongsEtymology("G26");
   assert(strongsEtym.lemma === "ἀγάπη" || strongsEtym.lemma.length > 0, "Strong's G26 lemma resolved");
   assert(strongsEtym.trenchSynonyms?.group.includes("Agape"), "Trench's Synonyms (Agape vs Phileo) loaded from SQLite");
+
+  const cyrillicAliasEtym = await MorphologyEngine.getStrongsEtymology("агапе");
+  assert(cyrillicAliasEtym.strongsId === "G0026", "Cyrillic Strong's alias 'агапе' -> G0026 resolved");
 
   const interlinear = await MorphologyEngine.getInterlinearVerse("GEN", 1, 1);
   assert(interlinear.wordsCount > 0, `Interlinear generated ${interlinear.wordsCount} words for GEN 1:1`);
@@ -60,10 +69,13 @@ export async function runVerificationTests() {
   const chain = await ScriptureGraphEngine.findThematicChain("living_water");
   assert(chain.length >= 4, `Thematic chain for 'living_water' retrieved ${chain.length} covenantal steps from SQLite`);
 
-  // --- STAGE 4: HYBRID SEARCH & PARALLEL CORPUS ---
+  // --- STAGE 4: HYBRID SEARCH & UKRAINIAN MORPHOLOGY ---
   console.log("\n⚡ 4. VERIFYING HYBRID SEARCH & UKRAINIAN MORPHOLOGY:");
   const stem = UkrainianMorphologyEngine.extractStem("благословеннями");
   assert(stem.length > 0 && stem.length < "благословеннями".length, `Stemmer reduced 'благословеннями' -> '${stem}'`);
+
+  const suppletiveVerb = UkrainianMorphologyEngine.extractStem("буде");
+  assert(suppletiveVerb === "бути", "Ukrainian suppletive verb 'буде' -> 'бути' resolved");
 
   const pastoral = await HybridSearchEngine.getInstance().findByLifeSituation("страх та тривога перед майбутнім", "auto", "ukr");
   assert(pastoral.emotion.includes("anxiety"), `Detected emotion: ${pastoral.emotion}`);

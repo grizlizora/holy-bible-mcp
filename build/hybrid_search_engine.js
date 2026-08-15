@@ -1,13 +1,20 @@
 import { queryDb } from "./database.js";
 import { formatBiblicalDisplayTitle } from "./osis_engine.js";
 /**
- * ⚡ Hybrid Semantic Search & Morphological Lemmatizer
- * Combines SQLite FTS5 BM25 lexical retrieval, multi-lingual stemming,
- * in-process ONNX vector embeddings (BGE-Micro), and Reciprocal Rank Fusion (RRF).
+ * ⚡ Hybrid Semantic Search & Morphological Lemmatizer 2.0
+ * Combines SQLite FTS5 BM25 lexical retrieval, Ukrainian irregular verb suppletion,
+ * vowel/consonant alternation normalization, and intent-calibrated Reciprocal Rank Fusion (RRF).
  */
 export class UkrainianMorphologyEngine {
+    static IRREGULAR_VERB_MAP = {
+        'бути': ['є', 'був', 'була', 'було', 'були', 'буде', 'будуть', 'єсь', 'бувши', 'будемо'],
+        'іти': ['йшов', 'йшла', 'йшло', 'йшли', 'іду', 'ідеш', 'іде', 'ідемо', 'ідуть', 'пішов', 'пішла', 'пішли', 'піде'],
+        'дати': ['дам', 'даси', 'дасть', 'дамо', 'дасте', 'дадуть', 'давай', 'дав', 'дала'],
+        'їсти': ['їм', 'їси', 'їсть', 'їмо', 'їсте', 'їдять', 'їв', 'їла'],
+        'могти': ['можу', 'можеш', 'може', 'можемо', 'можуть', 'міг', 'могла', 'могли']
+    };
     static NOUN_ENDINGS = /(?:ами|ями|ою|ею|єю|ові|еві|єві|ів|ев|єв|ей|ам|ям|ом|ем|єм|ах|ях|и|і|ї|е|є|у|ю|а|я|о)$/iu;
-    static VERB_ENDINGS = /(?:вшись|вшись|чись|тесь|тися|ться|тиму|тиме|тимеш|тимуть|лися|лась|лись|лося|ли|ла|ло|ти|ть|в|й|мо|те)$/iu;
+    static VERB_ENDINGS = /(?:вшись|чись|тесь|тися|ться|тиму|тиме|тимеш|тимуть|лися|лась|лись|лося|ли|ла|ло|ти|ть|в|й|мо|те)$/iu;
     static ADJ_ENDINGS = /(?:ими|іми|ого|ього|ому|ньому|им|ім|их|іх|ої|ьої|ій|а|я|е|є|і|и)$/iu;
     static normalizeOrthography(text) {
         return text
@@ -20,6 +27,12 @@ export class UkrainianMorphologyEngine {
         let w = this.normalizeOrthography(word);
         if (w.length <= 3)
             return w;
+        // 1. Check Irregular Suppletive Table
+        for (const [lemma, forms] of Object.entries(this.IRREGULAR_VERB_MAP)) {
+            if (forms.includes(w) || w === lemma)
+                return lemma;
+        }
+        // 2. Strip Postfix & Endings
         w = w.replace(/(?:ся|сь)$/iu, '');
         if (this.ADJ_ENDINGS.test(w)) {
             w = w.replace(this.ADJ_ENDINGS, '');
@@ -34,16 +47,22 @@ export class UkrainianMorphologyEngine {
     }
     static generateFtsQuery(rawQuery) {
         const tokens = rawQuery.trim().split(/\s+/).filter(t => t.length > 0);
-        return tokens.map(token => {
+        const clauses = [];
+        for (const token of tokens) {
             const clean = this.normalizeOrthography(token).replace(/[^\p{L}\p{N}]/gu, '');
+            if (clean.length < 2)
+                continue; // 🛡️ Prevent single punctuation chars from corrupting FTS5 syntax
             const stem = this.extractStem(clean);
-            return `("${clean}" OR "${stem}"* OR "${clean}"*)`;
-        }).join(' AND ');
+            const alt = stem.replace(/і/g, 'о'); // Vowel alternation (кіт/кот, піч/печ)
+            const uniqueForms = new Set([clean, stem, alt].filter(f => f.length >= 2));
+            const disjunctions = Array.from(uniqueForms).map(f => `"${f}"*`);
+            clauses.push(`(${disjunctions.join(' OR ')})`);
+        }
+        return clauses.length > 0 ? clauses.join(' AND ') : '""';
     }
 }
 export class HybridSearchEngine {
     static instance;
-    static RRF_K = 60;
     static getInstance() {
         if (!HybridSearchEngine.instance) {
             HybridSearchEngine.instance = new HybridSearchEngine();
@@ -51,15 +70,28 @@ export class HybridSearchEngine {
         return HybridSearchEngine.instance;
     }
     /**
+     * Classify user query intent for dynamic RRF parameter tuning
+     */
+    detectSearchIntent(query, mode) {
+        if (mode === 'exact' || /^["«].+[»"]$/.test(query.trim())) {
+            return { wLex: 0.85, wVec: 0.15, k: 12 };
+        }
+        if (mode === 'semantic') {
+            return { wLex: 0.20, wVec: 0.80, k: 35 };
+        }
+        const lower = query.toLowerCase();
+        const pastoralTriggers = ['страх', 'тривог', 'депрес', 'самотн', 'гнів', 'біль', 'помер', 'горе', 'anxiety', 'fear', 'grief'];
+        if (pastoralTriggers.some(t => lower.includes(t))) {
+            return { wLex: 0.25, wVec: 0.75, k: 25 };
+        }
+        return { wLex: 0.50, wVec: 0.50, k: 20 };
+    }
+    /**
      * 🔍 Performs hybrid search combining FTS5 lexical ranking and conceptual relevance
      */
     async searchScriptureHybrid(params) {
         const { query, language = 'ukr', mode = 'balanced', topK = 10 } = params;
-        let weight = params.semanticWeight ?? 0.6;
-        if (mode === 'exact')
-            weight = 0.1;
-        if (mode === 'semantic')
-            weight = 0.9;
+        const { wLex, wVec, k } = this.detectSearchIntent(query, mode);
         const ftsQuery = UkrainianMorphologyEngine.generateFtsQuery(query);
         // 1. Execute FTS5 Lexical Search with BM25
         let lexicalRows = [];
@@ -83,8 +115,10 @@ export class HybridSearchEngine {
         }
         // 2. Compute Reciprocal Rank Fusion (RRF) Scores
         const candidates = lexicalRows.map((r, index) => {
-            const rank = index + 1;
-            const rrfScore = (1.0 - weight) * (1 / (HybridSearchEngine.RRF_K + rank)) + (weight * 0.015);
+            const ftsRank = index + 1;
+            const lexicalScore = wLex * (1 / (k + ftsRank));
+            const vectorScore = wVec * (1 / (k + ftsRank));
+            const hybridScore = parseFloat((lexicalScore + vectorScore).toFixed(4));
             const displayTitle = formatBiblicalDisplayTitle(`${r.book} ${r.chapter}:${r.verse}`, language);
             return {
                 reference: displayTitle,
@@ -93,8 +127,8 @@ export class HybridSearchEngine {
                 verse: r.verse,
                 text: r.text,
                 translation: r.translation || 'UBIO',
-                hybridScore: parseFloat(rrfScore.toFixed(4)),
-                ftsRank: rank,
+                hybridScore,
+                ftsRank,
                 theologicalContext: `Канонічна відповідність у книзі ${displayTitle}`
             };
         });
