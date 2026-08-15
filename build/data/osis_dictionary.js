@@ -16,11 +16,14 @@ catch (e) {
 }
 export const OSIS_BOOK_NAMES = {};
 export const OSIS_ALIAS_MAP = {};
+export const OSIS_BOOK_NUMBER = {};
 const books = dictionaryData.books || {};
+let bookIndex = 1;
 for (const [osisCode, bookDataRaw] of Object.entries(books)) {
     const osis = osisCode.toUpperCase();
     const bookData = bookDataRaw;
     OSIS_ALIAS_MAP[osis] = osis;
+    OSIS_BOOK_NUMBER[osis] = bookIndex++;
     if (Array.isArray(bookData.aliases)) {
         for (const alias of bookData.aliases) {
             OSIS_ALIAS_MAP[alias.toUpperCase()] = osis;
@@ -31,8 +34,17 @@ for (const [osisCode, bookDataRaw] of Object.entries(books)) {
             if (!OSIS_BOOK_NAMES[lang])
                 OSIS_BOOK_NAMES[lang] = {};
             OSIS_BOOK_NAMES[lang][osis] = String(localizedName);
+            // Also register full localized name as alias
+            OSIS_ALIAS_MAP[String(localizedName).toUpperCase()] = osis;
         }
     }
+}
+export function getBookNumber(input) {
+    if (!input)
+        return 0;
+    const clean = input.trim().toUpperCase().replace(/[^A-ZА-ЯІЇЄ0-9]/gi, '');
+    const osis = OSIS_ALIAS_MAP[clean] || OSIS_ALIAS_MAP[clean.slice(0, 4)] || OSIS_ALIAS_MAP[clean.slice(0, 3)] || clean;
+    return OSIS_BOOK_NUMBER[osis] || 0;
 }
 export function getLocalizedBookNameFromDict(osisCode, lang = 'ukr') {
     const code = (osisCode || '').toUpperCase().trim();

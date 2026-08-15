@@ -4,8 +4,57 @@ import { getSensitivityDirective, resolveEffectiveMode } from "./archetypes.js";
 import { computeAdaptiveModelBudget, estimatePromptComplexity } from "./capabilities.js";
 import { extractVectorContext } from "./vector_context.js";
 import { sanitizeMarkdownText, formatScriptureVerse } from "./formatting.js";
-import { OSIS_ALIAS_MAP } from "./data/osis_dictionary.js";
+import { OSIS_ALIAS_MAP, getBookNumber } from "./data/osis_dictionary.js";
 import { DirectiveStore } from "./directives/directive_store.js";
+/** 🌐 Dynamic Online Scripture Fallback Engine (when SQLite is not yet downloaded or verse missing) */
+async function fetchOnlineVerseText(osisCode, chapter, verse, lang) {
+    try {
+        const bookNum = getBookNumber(osisCode);
+        if (bookNum <= 0)
+            return null;
+        const isUkr = lang === 'ukr' || lang === 'uk';
+        const isRu = lang === 'ru' || lang === 'rus';
+        const translation = isUkr ? 'UBIO' : (isRu ? 'SYNOD' : 'KJV');
+        const res = await fetch(`https://bolls.life/get-verse/${translation}/${bookNum}/${chapter}/${verse}/`, {
+            signal: AbortSignal.timeout(4000)
+        });
+        if (res.ok) {
+            const data = await res.json();
+            if (data?.text) {
+                return String(data.text).replace(/<[^>]+>/g, '').trim();
+            }
+        }
+    }
+    catch (_) { }
+    return null;
+}
+async function fetchOnlineChapterVerses(osisCode, chapter, lang) {
+    try {
+        const bookNum = getBookNumber(osisCode);
+        if (bookNum <= 0)
+            return [];
+        const isUkr = lang === 'ukr' || lang === 'uk';
+        const isRu = lang === 'ru' || lang === 'rus';
+        const translation = isUkr ? 'UBIO' : (isRu ? 'SYNOD' : 'KJV');
+        const res = await fetch(`https://bolls.life/get-chapter/${translation}/${bookNum}/${chapter}/`, {
+            signal: AbortSignal.timeout(4000)
+        });
+        if (res.ok) {
+            const data = await res.json();
+            if (Array.isArray(data)) {
+                return data.map((item) => ({
+                    book: osisCode,
+                    chapter,
+                    verse: item.verse,
+                    text: String(item.text || '').replace(/<[^>]+>/g, '').trim(),
+                    language: lang
+                }));
+            }
+        }
+    }
+    catch (_) { }
+    return [];
+}
 function parseInitialConfig() {
     let warmth = 80;
     let mode = "auto";
@@ -553,42 +602,68 @@ export function registerToolHandlers(server) {
             if (name === "get_verse") {
                 let book = String(args?.book || "").toUpperCase();
                 let chapter = Number(args?.chapter || 0);
-                let verse = Number(args?.verse || 0);
+                let startVerse = Number(args?.verse || 0);
+                let endVerse = startVerse;
                 const lang = String(args?.language || "ukr");
                 const ref = String(args?.reference || "").trim();
-                if (ref && (!book || !chapter || !verse)) {
-                    const match = ref.match(/^((?:[1-3]\s*)?[\p{L}\p{N}]+)\s+(\d+)[:\.](\d+)/u);
+                if (ref && (!book || !chapter || !startVerse)) {
+                    const match = ref.match(/^((?:[1-4]\s*)?[\p{L}\p{N}]+)\s+(\d+)[:.]((\d+)(?:[-–—](\d+))?)$/u);
                     if (match) {
                         book = match[1].toUpperCase();
                         chapter = parseInt(match[2], 10);
-                        verse = parseInt(match[3], 10);
+                        startVerse = parseInt(match[4], 10);
+                        endVerse = match[5] ? parseInt(match[5], 10) : startVerse;
                     }
                 }
                 const osisCode = OSIS_ALIAS_MAP[book] || book;
                 const detectedLang = resolveLanguageCode(lang, ref || book);
                 let rows = [];
-                if (isDbReady()) {
+                if (isDbReady() && chapter > 0 && startVerse > 0) {
                     // ⚡ Indexed query via idx_verses_lookup (0.5ms)
                     rows = await queryDb(`SELECT book, chapter, verse, text, language 
              FROM verses 
-             WHERE language = ? AND UPPER(book) = ? AND chapter = ? AND verse = ? 
-             LIMIT 1`, [detectedLang, osisCode, chapter || 1, verse || 1]);
+             WHERE language = ? AND UPPER(book) = ? AND chapter = ? AND verse >= ? AND verse <= ? 
+             ORDER BY verse ASC LIMIT 20`, [detectedLang, osisCode, chapter || 1, startVerse || 1, endVerse || startVerse || 1]);
                     if (rows.length === 0) {
                         rows = await queryDb(`SELECT book, chapter, verse, text, language 
                FROM verses 
-               WHERE UPPER(book) = ? AND chapter = ? AND verse = ? 
-               LIMIT 1`, [osisCode, chapter || 1, verse || 1]);
+               WHERE UPPER(book) = ? AND chapter = ? AND verse >= ? AND verse <= ? 
+               ORDER BY verse ASC LIMIT 20`, [osisCode, chapter || 1, startVerse || 1, endVerse || startVerse || 1]);
+                    }
+                }
+                // 🌐 Online fallback if local SQLite is downloading or returned empty
+                if (rows.length === 0 && chapter > 0 && startVerse > 0) {
+                    if (endVerse > startVerse) {
+                        const chapVerses = await fetchOnlineChapterVerses(osisCode, chapter, detectedLang);
+                        if (chapVerses.length > 0) {
+                            rows = chapVerses.filter(v => v.verse >= startVerse && v.verse <= endVerse);
+                        }
+                    }
+                    if (rows.length === 0) {
+                        for (let v = startVerse; v <= Math.min(startVerse + 10, endVerse); v++) {
+                            const onlineText = await fetchOnlineVerseText(osisCode, chapter, v, detectedLang);
+                            if (onlineText) {
+                                rows.push({
+                                    book: osisCode,
+                                    chapter,
+                                    verse: v,
+                                    text: onlineText,
+                                    language: detectedLang
+                                });
+                            }
+                        }
                     }
                 }
                 if (rows.length > 0) {
-                    const v = rows[0];
-                    const formatted = formatScriptureVerse({ book: v.book, chapter: v.chapter, verse: v.verse, text: v.text, language: detectedLang }).formattedText;
+                    const formatted = rows.map((v) => {
+                        return formatScriptureVerse({ book: v.book, chapter: v.chapter, verse: v.verse, text: v.text, language: detectedLang }).formattedText;
+                    }).join("\n\n");
                     return {
                         content: [{ type: "text", text: formatted }]
                     };
                 }
                 return {
-                    content: [{ type: "text", text: JSON.stringify({ error: "Verse not found", reference: ref || `${book} ${chapter}:${verse}` }, null, 2) }]
+                    content: [{ type: "text", text: JSON.stringify({ error: "Verse not found", reference: ref || `${book} ${chapter}:${startVerse}` }, null, 2) }]
                 };
             }
             if (name === "get_chapter_context") {
@@ -597,16 +672,23 @@ export function registerToolHandlers(server) {
                 const lang = String(args?.language || "ukr");
                 const osisCode = OSIS_ALIAS_MAP[book] || book;
                 const detectedLang = resolveLanguageCode(lang, book);
-                // ⚡ Indexed query via idx_verses_lookup (1ms)
-                let rows = await queryDb(`SELECT book, chapter, verse, text, language 
-           FROM verses 
-           WHERE language = ? AND UPPER(book) = ? AND chapter = ? 
-           ORDER BY verse ASC`, [detectedLang, osisCode, chapter]);
-                if (rows.length === 0) {
+                let rows = [];
+                if (isDbReady()) {
+                    // ⚡ Indexed query via idx_verses_lookup (1ms)
                     rows = await queryDb(`SELECT book, chapter, verse, text, language 
              FROM verses 
-             WHERE UPPER(book) = ? AND chapter = ? 
-             ORDER BY verse ASC`, [osisCode, chapter]);
+             WHERE language = ? AND UPPER(book) = ? AND chapter = ? 
+             ORDER BY verse ASC`, [detectedLang, osisCode, chapter]);
+                    if (rows.length === 0) {
+                        rows = await queryDb(`SELECT book, chapter, verse, text, language 
+               FROM verses 
+               WHERE UPPER(book) = ? AND chapter = ? 
+               ORDER BY verse ASC`, [osisCode, chapter]);
+                    }
+                }
+                // 🌐 Online fallback if local SQLite is downloading or empty
+                if (rows.length === 0) {
+                    rows = await fetchOnlineChapterVerses(osisCode, chapter, detectedLang);
                 }
                 const formattedText = rows.map((v) => {
                     return formatScriptureVerse({ book: v.book || osisCode, chapter: v.chapter || chapter, verse: v.verse, text: v.text, language: detectedLang }).formattedText;
