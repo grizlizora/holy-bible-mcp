@@ -3,7 +3,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const SERVER_PATH = path.resolve(__dirname, "../mcp-server/build/index.js");
+const SERVER_PATH = path.resolve(__dirname, "../build/index.js");
 
 console.log("🚀 Starting local MCP Server test...");
 const child = spawn("node", [SERVER_PATH], {

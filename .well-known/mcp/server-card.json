@@ -5,6 +5,6 @@
   "transport": "stdio",
   "command": "node",
   "args": [
-    "mcp-server/build/index.js"
+    "build/index.js"
   ]
 }

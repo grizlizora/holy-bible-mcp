@@ -31,9 +31,9 @@ if [[ "$CLONE_CHOICE" =~ ^[Yy]$ ]]; then
     git clone --depth 1 https://github.com/grizlizora/holy-bible-mcp.git "$TARGET_DIR" || mkdir -p "$TARGET_DIR"
   fi
 
-  if [ -d "$TARGET_DIR/mcp-server" ]; then
+  if [ -d "$TARGET_DIR" ]; then
     echo "⚙️ Building local MCP Server..."
-    cd "$TARGET_DIR/mcp-server"
+    cd "$TARGET_DIR"
     npm install --silent
     npm run build --silent
     cd - > /dev/null
