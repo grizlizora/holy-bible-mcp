@@ -200,8 +200,8 @@
       "savePath": "~/.holy-bible-mcp/mcp-storage/{mcpId}/data/",
       "sizeBytes": 5881192448,
       "mirrors": [
-        "https://github.com/grizlizora/holy-bible-mcp/releases/download/v1.0.0/bible_database.sqlite",
         "https://huggingface.co/datasets/grizlizora/holy-bible-mcp/resolve/main/bible_database.sqlite",
+        "https://github.com/grizlizora/holy-bible-mcp/releases/download/v1.0.0/bible_database.sqlite",
         "https://cdn.jsdelivr.net/gh/grizlizora/holy-bible-mcp@main/data/processed/bible_database.sqlite"
       ]
     }
