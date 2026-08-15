@@ -140,6 +140,8 @@ export async function downloadDatabaseStreamResilient(targetPath: string): Promi
 function resolveDbPath(): string {
   const candidatePaths = [
     ENV_DB,
+    path.join(os.homedir(), "Projects", "holy", "data", "processed", "bible_database.sqlite"),
+    path.join(os.homedir(), "Downloads", "holy", "data", "processed", "bible_database.sqlite"),
     path.join(os.homedir(), ".mcp-hub", "servers", "Holy_Bible_Mcp", "data", "bible_database.sqlite"),
     path.join(os.homedir(), ".mcp-hub", "servers", "Holy_Bible_MCP", "data", "bible_database.sqlite"),
     path.join(os.homedir(), ".holy-bible-mcp", "mcp-storage", "holy-bible", "data", "bible_database.sqlite"),
