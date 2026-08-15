@@ -138,6 +138,7 @@ export async function downloadDatabaseStreamResilient(targetPath: string): Promi
 function resolveDbPath(): string {
   const candidatePaths = [
     ENV_DB,
+    path.join(os.homedir(), ".mcp-hub", "servers", "Holy_Bible_Mcp", "data", "bible_database.sqlite"),
     path.join(os.homedir(), ".mcp-hub", "servers", "Holy_Bible_MCP", "data", "bible_database.sqlite"),
     path.join(os.homedir(), ".holy-bible-mcp", "mcp-storage", "holy-bible", "data", "bible_database.sqlite"),
     MCP_STORAGE_DB,
@@ -153,19 +154,7 @@ function resolveDbPath(): string {
   const found = candidatePaths.find(p => isValidDb(p));
   if (found) return found;
   
-  if (!fs.existsSync(GLOBAL_DIR)) {
-    fs.mkdirSync(GLOBAL_DIR, { recursive: true });
-  }
-  
-  console.error(`[INFO] Bible Database not found locally. Checking storage paths.`);
-  console.error(`[INFO] Triggering Level 2 Load-Balanced Background Auto-Downloader to ${GLOBAL_DB}...`);
-  
-  // Trigger background auto-download if missing with randomized CDN mirror load distribution
-  downloadDatabaseStreamResilient(GLOBAL_DB).catch((err) => {
-    console.error(`[CDN LOAD BALANCER] Background download error:`, err);
-  });
-
-  return GLOBAL_DB;
+  return path.join(os.homedir(), ".mcp-hub", "servers", "Holy_Bible_Mcp", "data", "bible_database.sqlite");
 }
 
 export const DB_PATH = resolveDbPath();
@@ -189,7 +178,7 @@ if (totalRamGB >= 32) {
   mmapSizeBytes = 0; // Disable MMAP to protect low RAM devices
 }
 
-console.log(`[HARDWARE ENGINE] OS: ${process.platform} (${arch}), CPU Cores: ${cpuCores}, RAM: ${totalRamGB}GB. Scaled RAM Cache: ${Math.abs(cacheSizeKb)/1000}MB, MMAP I/O: ${mmapSizeBytes / (1024*1024)}MB`);
+console.error(`[HARDWARE ENGINE] OS: ${process.platform} (${arch}), CPU Cores: ${cpuCores}, RAM: ${totalRamGB}GB. Scaled RAM Cache: ${Math.abs(cacheSizeKb)/1000}MB, MMAP I/O: ${mmapSizeBytes / (1024*1024)}MB`);
 
 // Open DB: use real file if it exists, otherwise use in-memory stub so the server
 // stays alive and returns graceful empty results instead of crashing.
@@ -213,7 +202,7 @@ export const db = new sqlite3.Database(
     db.get("SELECT name FROM sqlite_master WHERE type='table' AND name='verses'", (e, row: any) => {
       if (!e && row) {
         dbHasVersesTable = true;
-        console.log(`[DATABASE ENGINE] ✅ Verses table verified at: ${DB_PATH}`);
+        console.error(`[DATABASE ENGINE] ✅ Verses table verified at: ${DB_PATH}`);
       } else {
         dbHasVersesTable = false;
         console.error(`[DATABASE ENGINE] ⚠️  'verses' table NOT found. Download the database to enable full functionality.`);

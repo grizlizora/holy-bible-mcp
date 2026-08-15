@@ -120,6 +120,7 @@ export async function downloadDatabaseStreamResilient(targetPath) {
 function resolveDbPath() {
     const candidatePaths = [
         ENV_DB,
+        path.join(os.homedir(), ".mcp-hub", "servers", "Holy_Bible_Mcp", "data", "bible_database.sqlite"),
         path.join(os.homedir(), ".mcp-hub", "servers", "Holy_Bible_MCP", "data", "bible_database.sqlite"),
         path.join(os.homedir(), ".holy-bible-mcp", "mcp-storage", "holy-bible", "data", "bible_database.sqlite"),
         MCP_STORAGE_DB,
@@ -134,16 +135,7 @@ function resolveDbPath() {
     const found = candidatePaths.find(p => isValidDb(p));
     if (found)
         return found;
-    if (!fs.existsSync(GLOBAL_DIR)) {
-        fs.mkdirSync(GLOBAL_DIR, { recursive: true });
-    }
-    console.error(`[INFO] Bible Database not found locally. Checking storage paths.`);
-    console.error(`[INFO] Triggering Level 2 Load-Balanced Background Auto-Downloader to ${GLOBAL_DB}...`);
-    // Trigger background auto-download if missing with randomized CDN mirror load distribution
-    downloadDatabaseStreamResilient(GLOBAL_DB).catch((err) => {
-        console.error(`[CDN LOAD BALANCER] Background download error:`, err);
-    });
-    return GLOBAL_DB;
+    return path.join(os.homedir(), ".mcp-hub", "servers", "Holy_Bible_Mcp", "data", "bible_database.sqlite");
 }
 export const DB_PATH = resolveDbPath();
 // 🧠 Hardware-Aware CPU/RAM/VRAM Optimization Engine (Calibrated for 5.88 GB Database)
@@ -164,7 +156,7 @@ else if (totalRamGB < 8) {
     cacheSizeKb = -32000; // 32MB RAM cache on low memory devices (<8GB)
     mmapSizeBytes = 0; // Disable MMAP to protect low RAM devices
 }
-console.log(`[HARDWARE ENGINE] OS: ${process.platform} (${arch}), CPU Cores: ${cpuCores}, RAM: ${totalRamGB}GB. Scaled RAM Cache: ${Math.abs(cacheSizeKb) / 1000}MB, MMAP I/O: ${mmapSizeBytes / (1024 * 1024)}MB`);
+console.error(`[HARDWARE ENGINE] OS: ${process.platform} (${arch}), CPU Cores: ${cpuCores}, RAM: ${totalRamGB}GB. Scaled RAM Cache: ${Math.abs(cacheSizeKb) / 1000}MB, MMAP I/O: ${mmapSizeBytes / (1024 * 1024)}MB`);
 // Open DB: use real file if it exists, otherwise use in-memory stub so the server
 // stays alive and returns graceful empty results instead of crashing.
 const DB_FILE_EXISTS = fs.existsSync(DB_PATH) && fs.statSync(DB_PATH).size > 1_000_000;
@@ -184,7 +176,7 @@ export const db = new sqlite3.Database(DB_FILE_EXISTS ? DB_PATH : ':memory:', (e
     db.get("SELECT name FROM sqlite_master WHERE type='table' AND name='verses'", (e, row) => {
         if (!e && row) {
             dbHasVersesTable = true;
-            console.log(`[DATABASE ENGINE] ✅ Verses table verified at: ${DB_PATH}`);
+            console.error(`[DATABASE ENGINE] ✅ Verses table verified at: ${DB_PATH}`);
         }
         else {
             dbHasVersesTable = false;
