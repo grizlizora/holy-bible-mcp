@@ -408,13 +408,18 @@ export class DirectiveStore {
       }
     }
 
-    const fallback = this.warmthRanges[2] || this.warmthRanges[0];
+    const fallback = this.warmthRanges[2] || this.warmthRanges[0] || {
+      labels: { uk: 'Теплий', en: 'Warm', ru: 'Теплый' },
+      iconName: 'Flame',
+      tempDeltaBias: 0,
+      directives: { uk: 'Відповідайте з пасторською турботою.', en: 'Respond with pastoral warmth.', ru: 'Отвечайте с пасторской теплотой.' }
+    };
     return {
       score,
-      label: fallback?.labels[langKey] || 'Warm',
-      iconName: fallback?.iconName || 'Flame',
-      tempDelta: fallback?.tempDeltaBias || 0,
-      directive: fallback?.directives[langKey] || ''
+      label: fallback.labels[langKey] || fallback.labels['en'] || 'Warm',
+      iconName: fallback.iconName || 'Flame',
+      tempDelta: fallback.tempDeltaBias || 0,
+      directive: fallback.directives[langKey] || fallback.directives['en'] || ''
     };
   }
 
