@@ -59,6 +59,52 @@ async function fetchOnlineChapterVerses(osisCode: string, chapter: number, lang:
   } catch (_) {}
   return [];
 }
+const BOLLS_BOOK_MAP: Record<number, string> = {
+  1: "Gen", 2: "Exod", 3: "Lev", 4: "Num", 5: "Deut", 6: "Josh", 7: "Judg", 8: "Ruth",
+  9: "1Sam", 10: "2Sam", 11: "1Kgs", 12: "2Kgs", 13: "1Chr", 14: "2Chr", 15: "Ezra",
+  16: "Neh", 17: "Esth", 18: "Job", 19: "Ps", 20: "Prov", 21: "Eccl", 22: "Song",
+  23: "Isa", 24: "Jer", 25: "Lam", 26: "Ezek", 27: "Dan", 28: "Hos", 29: "Joel",
+  30: "Amos", 31: "Obad", 32: "Jonah", 33: "Mic", 34: "Nah", 35: "Hab", 36: "Zeph",
+  37: "Hag", 38: "Zech", 39: "Mal", 40: "Matt", 41: "Mark", 42: "Luke", 43: "John",
+  44: "Acts", 45: "Rom", 46: "1Cor", 47: "2Cor", 48: "Gal", 49: "Eph", 50: "Phil",
+  51: "Col", 52: "1Thess", 53: "2Thess", 54: "1Tim", 55: "2Tim", 56: "Titus", 57: "Phlm",
+  58: "Heb", 59: "Jas", 60: "1Pet", 61: "2Pet", 62: "1John", 63: "2John", 64: "3John",
+  65: "Jude", 66: "Rev"
+};
+
+async function fetchOnlineKeywordSearch(keyword: string, lang: string = "ukr", limit: number = 6): Promise<any[]> {
+  try {
+    const isUkr = lang === "ukr" || lang === "uk";
+    const isRu = lang === "ru" || lang === "rus";
+    const translation = isUkr ? "UBIO" : (isRu ? "SYNOD" : "NIV");
+    const fallbackTranslation = isUkr ? "UKRK" : (isRu ? "RST" : "ESV");
+
+    let res = await fetch(`https://bolls.life/search/${translation}/?search=${encodeURIComponent(keyword)}`, {
+      headers: { "User-Agent": "HolyBibleMCP/1.0" },
+      signal: AbortSignal.timeout(4000)
+    });
+    if (!res.ok) {
+      res = await fetch(`https://bolls.life/search/${fallbackTranslation}/?search=${encodeURIComponent(keyword)}`, {
+        headers: { "User-Agent": "HolyBibleMCP/1.0" },
+        signal: AbortSignal.timeout(4000)
+      });
+    }
+
+    if (res.ok) {
+      const data: any = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        return data.slice(0, limit).map((item: any) => ({
+          book: BOLLS_BOOK_MAP[item.book] || `Book${item.book}`,
+          chapter: item.chapter,
+          verse: item.verse,
+          text: String(item.text || "").replace(/<[^>]+>/g, "").trim(),
+          language: lang
+        }));
+      }
+    }
+  } catch (_) {}
+  return [];
+}
 
 function parseInitialConfig() {
   let warmth = 80;
@@ -476,6 +522,21 @@ export function registerToolHandlers(server: Server): void {
           }
         }
 
+        // 🌐 Online Fallback Search if local SQLite DB returned 0 verses
+        if (verses.length === 0) {
+          for (const kw of keywords) {
+            const onlineResults = await fetchOnlineKeywordSearch(kw, detectedLang, 6);
+            if (onlineResults && onlineResults.length > 0) {
+              for (const r of onlineResults) {
+                if (!verses.some(v => v.book === r.book && v.chapter === r.chapter && v.verse === r.verse)) {
+                  verses.push(r);
+                }
+              }
+              if (verses.length >= 6) break;
+            }
+          }
+        }
+
         const store = DirectiveStore.getInstance();
         const tier = store.resolveTierByParamSize(paramSizeB);
         const tierName = tier.nameDisplay;
@@ -616,6 +677,10 @@ export function registerToolHandlers(server: Server): void {
           }
         } catch (ftsErr) {
           rows = [];
+        }
+
+        if (rows.length === 0) {
+          rows = await fetchOnlineKeywordSearch(rawKeyword, detectedLang, limit);
         }
 
         const formattedText = rows.map((v: any) => {
