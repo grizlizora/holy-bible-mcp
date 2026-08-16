@@ -4,11 +4,6 @@ import { resolveLanguageCode } from "../../services/language_resolver.js";
 import { fetchOnlineKeywordSearch } from "../../services/online_bible_fallback.js";
 import { HybridSearchEngine } from "../../hybrid_search_engine.js";
 export async function handleSearchKeyword(args) {
-    if (!isDbReady()) {
-        return {
-            content: [{ type: "text", text: "" }]
-        };
-    }
     const rawKeyword = String(args?.keyword || "").trim();
     const lang = String(args?.language || "ukr");
     const limit = typeof args?.limit === "number" ? args.limit : 10;
@@ -16,22 +11,24 @@ export async function handleSearchKeyword(args) {
     const cleanKey = rawKeyword.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
     const matchQuery = `${cleanKey}*`;
     let rows = [];
-    try {
-        rows = await queryDb(`SELECT v.book, v.chapter, v.verse, v.text, v.language 
-       FROM verses_fts f 
-       JOIN verses v ON f.rowid = v.rowid 
-       WHERE verses_fts MATCH ? AND v.language = ? 
-       LIMIT ?`, [matchQuery, detectedLang, limit]);
-        if (!rows || rows.length === 0) {
+    if (isDbReady()) {
+        try {
             rows = await queryDb(`SELECT v.book, v.chapter, v.verse, v.text, v.language 
          FROM verses_fts f 
          JOIN verses v ON f.rowid = v.rowid 
-         WHERE verses_fts MATCH ? 
-         LIMIT ?`, [matchQuery, limit]);
+         WHERE verses_fts MATCH ? AND v.language = ? 
+         LIMIT ?`, [matchQuery, detectedLang, limit]);
+            if (!rows || rows.length === 0) {
+                rows = await queryDb(`SELECT v.book, v.chapter, v.verse, v.text, v.language 
+           FROM verses_fts f 
+           JOIN verses v ON f.rowid = v.rowid 
+           WHERE verses_fts MATCH ? 
+           LIMIT ?`, [matchQuery, limit]);
+            }
         }
-    }
-    catch {
-        rows = [];
+        catch {
+            rows = [];
+        }
     }
     if (rows.length === 0) {
         rows = await fetchOnlineKeywordSearch(rawKeyword, detectedLang, limit);

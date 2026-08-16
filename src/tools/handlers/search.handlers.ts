@@ -5,11 +5,6 @@ import { fetchOnlineKeywordSearch } from "../../services/online_bible_fallback.j
 import { HybridSearchEngine } from "../../hybrid_search_engine.js";
 
 export async function handleSearchKeyword(args: any) {
-  if (!isDbReady()) {
-    return {
-      content: [{ type: "text", text: "" }]
-    };
-  }
   const rawKeyword = String(args?.keyword || "").trim();
   const lang = String(args?.language || "ukr");
   const limit = typeof args?.limit === "number" ? args.limit : 10;
@@ -18,27 +13,29 @@ export async function handleSearchKeyword(args: any) {
   const matchQuery = `${cleanKey}*`;
 
   let rows: any[] = [];
-  try {
-    rows = await queryDb(
-      `SELECT v.book, v.chapter, v.verse, v.text, v.language 
-       FROM verses_fts f 
-       JOIN verses v ON f.rowid = v.rowid 
-       WHERE verses_fts MATCH ? AND v.language = ? 
-       LIMIT ?`,
-      [matchQuery, detectedLang, limit]
-    );
-    if (!rows || rows.length === 0) {
+  if (isDbReady()) {
+    try {
       rows = await queryDb(
         `SELECT v.book, v.chapter, v.verse, v.text, v.language 
          FROM verses_fts f 
          JOIN verses v ON f.rowid = v.rowid 
-         WHERE verses_fts MATCH ? 
+         WHERE verses_fts MATCH ? AND v.language = ? 
          LIMIT ?`,
-        [matchQuery, limit]
+        [matchQuery, detectedLang, limit]
       );
+      if (!rows || rows.length === 0) {
+        rows = await queryDb(
+          `SELECT v.book, v.chapter, v.verse, v.text, v.language 
+           FROM verses_fts f 
+           JOIN verses v ON f.rowid = v.rowid 
+           WHERE verses_fts MATCH ? 
+           LIMIT ?`,
+          [matchQuery, limit]
+        );
+      }
+    } catch {
+      rows = [];
     }
-  } catch {
-    rows = [];
   }
 
   if (rows.length === 0) {
