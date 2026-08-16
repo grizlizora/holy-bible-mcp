@@ -5,70 +5,115 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Languages: 800+](https://img.shields.io/badge/Languages-800%2B-green.svg)](#supported-languages)
 [![Verses: 11.9M](https://img.shields.io/badge/Verses-11.9M-brightgreen.svg)](#database-specifications)
-[![Platform: macOS | Windows | Linux](https://img.shields.io/badge/Platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey.svg)](#cross-platform-installation)
+[![Platform: macOS | Windows | Linux | WSL](https://img.shields.io/badge/Platform-macOS%20%7C%20Windows%20%7C%20Linux%20%7C%20WSL-lightgrey.svg)](#-cross-platform--architecture-support)
+[![Architecture: ARM64 | x86_64](https://img.shields.io/badge/Arch-ARM64%20%7C%20x86__64-orange.svg)](#-cross-platform--architecture-support)
 
-A high-performance, **100% offline**, zero-latency **Model Context Protocol (MCP) Server** that connects any LLM (Claude, GPT-4o, Gemini, DeepSeek-R1, Llama 3, Qwen) to **11,907,047 Biblical verses** across **1,081 translations** in **800+ languages**.
+A high-performance, **100% offline**, zero-latency **Model Context Protocol (MCP) Server** and **CLI Database Manager** that connects any LLM (Claude 3.7, GPT-4o, Gemini 2.0, DeepSeek-R1, Llama 3, Qwen) to **11,907,047 Biblical verses** across **1,081 translations** in **800+ languages**.
 
 Equipped with the complete **MCP Protocol Triad** (`Tools`, `Resources`, `Prompts`), dual transport (`Stdio` + `SSE`), **100% SQLite-driven architecture**, Hebrew/Greek Robinson morphology, 344k+ TSK cross-reference graph, Trench's synonyms, and 15-translation parallel corpus diff engine.
 
 ---
 
-## 🌟 Key Features
+## 🖥️ CLI Database Manager (Universal Terminal Commands)
 
-* **🏛 Complete MCP Protocol Triad**:
-  * **Resources (`bible://...`)**: Canonical chapters, Strong's entries, cross-reference networks, and word-by-word interlinear text via standard RFC 6570 URI templates.
-  * **Prompts**: Built-in workflows for Theological Exegesis, Pastoral Devotionals, Parallel Translation Comparison, and Original Languages Deep Dive.
-  * **Tools (16+ Handlers)**: Advanced semantic, morphological, graph, and parallel translation tools.
-* **🗄 100% SQLite-Driven Knowledge Engine**: All translation metadata, Trench's synonyms, Messianic prophecies, thematic chains, and prompts are stored in `data/directives.sqlite` and cached in memory (0.0ms lookup time).
-* **⚡️ Zero-Latency FTS5 & Hybrid Search**: SQLite FTS5 with Memory-Mapped I/O, Ukrainian morphology lemmatizer, and Reciprocal Rank Fusion (RRF).
-* **🔗 344,000+ Cross-Reference Graph**: Treasury of Scripture Knowledge (TSK) graph with PageRank ranking and anti-flooding diversity filter.
-* **📜 Original Languages & Morphology**: Westminster Leningrad Codex (Hebrew WLC) + NA28 / Berean Greek NT + Septuagint (LXX) with full Robinson grammatical codes.
-* **🌐 Dual Transport Architecture**: Local high-speed `Stdio` IPC transport and multi-session `SSE` / HTTP streaming transport (`/sse`, `/messages`, `/health`).
-* **🧠 Context Token Optimizer & CoT Protocol**: 40/20/20/20 mathematical token allocation across 4K, 8K, 32K, and 128K+ context windows with `<think>` Chain-of-Thought reasoning rules for DeepSeek-R1 and Claude 3.7.
+Manage the offline 5.88 GB SQLite Bible database directly from your terminal across any OS. The database is stored globally in `~/.bible-mcp/` and shared across **all** your IDEs (Trae, Cursor, Claude Desktop, Claude Code) with zero duplicate storage.
+
+| Command | NPX (Zero-Install) | Local Monorepo | Description |
+|:---|:---|:---|:---|
+| **Download Database** | `npx @grizlizora/holy-bible-mcp download-db` | `npm run db:download` | Resumable download with HTTP Range header, EMA progress bar & multi-mirror race |
+| **Clean / Delete Database** | `npx @grizlizora/holy-bible-mcp delete-db` | `npm run db:clean` | Safely removes `.sqlite`, `-wal`, `-shm`, `.part`, `.tmp` with disk space freed report |
+| **Check Database Status** | `npx @grizlizora/holy-bible-mcp db-status` | `npm run db:status` | Validates SQLite integrity, size, canonical verses, and tests mirror latency |
+| **Verify Integrity** | `npx @grizlizora/holy-bible-mcp verify-db` | `npm run db:verify` | Performs deep `PRAGMA quick_check(1)` and schema verification |
+
+### CLI Options & Flags:
+```bash
+# Force fresh download or overwrite existing corrupted files
+npx @grizlizora/holy-bible-mcp download-db --force
+
+# Specify a custom target directory
+npx @grizlizora/holy-bible-mcp download-db --dir /Volumes/ExternalSSD/bible-data
+
+# Delete database without interactive confirmation (CI/CD / automation)
+npx @grizlizora/holy-bible-mcp delete-db --yes
+```
 
 ---
 
-## 🚀 Quick Start — AI Editors (Trae IDE, Cursor, Claude Desktop, VS Code)
+## 💻 Cross-Platform & Architecture Support
 
-### 1. Trae IDE Configuration (`.trae/trae.mcp.json`)
+Holy Bible MCP 2.0 is built with pure standard Node.js APIs and pre-compiled native SQLite binaries. It runs seamlessly with **0 configuration** across:
+
+* **Operating Systems**:
+  * 🍏 **macOS** (macOS 12+ Monterey, Ventura, Sonoma, Sequoia)
+  * 🐧 **Linux** (Ubuntu, Debian, Fedora, Arch, Alpine, RHEL)
+  * 🪟 **Windows** (Windows 10, 11, Server via PowerShell / CMD / WSL2)
+* **CPU Architectures**:
+  * ⚡ **ARM64 / AArch64** (Apple Silicon M1/M2/M3/M4, AWS Graviton, Raspberry Pi 4/5)
+  * ⚡ **x86_64 / AMD64** (Intel Core / Xeon, AMD Ryzen / EPYC)
+
+### Global Database Path Resolution:
+1. **macOS / Linux**: `/Users/<user>/.bible-mcp/bible_database.sqlite` (or `/home/<user>/.bible-mcp/bible_database.sqlite`)
+2. **Windows**: `C:\Users\<user>\.bible-mcp\bible_database.sqlite` (via `%USERPROFILE%`)
+3. **Custom Env**: Set `BIBLE_DB_PATH=/path/to/bible_database.sqlite` to override globally.
+
+> **💡 Hot-Mounting Support:** If your IDE is already running when you execute `download-db`, the server automatically detects the new database on disk within 2.5s and hot-mounts it without restarting the IDE.
+
+---
+
+## 🚀 Quick Start — IDE & Agent Configurations
+
+Add the server to your MCP client configuration file:
+
+### 1. Trae IDE (`.trae/trae.mcp.json` or Global Settings)
 ```json
 {
   "mcpServers": {
     "holy-bible-mcp": {
-      "command": "node",
-      "args": ["${workspaceFolder}/build/index.js"],
+      "command": "npx",
+      "args": ["-y", "@grizlizora/holy-bible-mcp"],
       "env": {
         "MODES_CONTROL": "on",
         "WARMTH_CONTROL": "on",
         "SHOW_METRICS": "on",
         "DEFAULT_MODE": "auto",
         "DEFAULT_WARMTH": "80"
-      }
+      },
+      "autoApprove": [
+        "ask_holy_bible",
+        "search_keyword",
+        "get_verse",
+        "get_chapter_context",
+        "get_commentary",
+        "get_strongs_definition",
+        "get_strongs_etymology",
+        "analyze_greek_hebrew_word",
+        "search_semantic",
+        "search_topic",
+        "search_scripture_hybrid",
+        "get_cross_references",
+        "find_thematic_scripture_chain",
+        "get_prophecy_fulfillment_pairs",
+        "find_scriptures_by_life_situation",
+        "get_parallel_verses",
+        "compare_translations_diff",
+        "get_translation_metadata",
+        "get_interlinear_verse",
+        "set_relevance_sensitivity",
+        "set_response_mode",
+        "set_show_metrics",
+        "get_mcp_capabilities",
+        "get_model_recommendations",
+        "extract_vector_context",
+        "build_biblical_context",
+        "sanitize_scripture_markdown",
+        "get_p2p_swarm_status"
+      ]
     }
   }
 }
 ```
 
-### 2. Cursor IDE Configuration (`.cursor/mcp.json`)
-```json
-{
-  "mcpServers": {
-    "holy-bible-mcp": {
-      "command": "node",
-      "args": ["${workspaceFolder}/build/index.js"],
-      "env": {
-        "MODES_CONTROL": "on",
-        "WARMTH_CONTROL": "on",
-        "SHOW_METRICS": "on",
-        "DEFAULT_MODE": "auto",
-        "DEFAULT_WARMTH": "80"
-      }
-    }
-  }
-}
-```
-
-### 3. Claude Desktop Configuration (`claude_desktop_config.json`)
+### 2. Cursor IDE (`.cursor/mcp.json`)
 ```json
 {
   "mcpServers": {
@@ -86,6 +131,42 @@ Equipped with the complete **MCP Protocol Triad** (`Tools`, `Resources`, `Prompt
   }
 }
 ```
+
+### 3. Claude Desktop (`claude_desktop_config.json`)
+* **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
+* **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
+```json
+{
+  "mcpServers": {
+    "holy-bible-mcp": {
+      "command": "npx",
+      "args": ["-y", "@grizlizora/holy-bible-mcp"],
+      "env": {
+        "MODES_CONTROL": "on",
+        "WARMTH_CONTROL": "on",
+        "SHOW_METRICS": "on",
+        "DEFAULT_MODE": "auto",
+        "DEFAULT_WARMTH": "80"
+      }
+    }
+  }
+}
+```
+
+---
+
+## ⚙️ Environment Variables & Tuning
+
+Customize server behavior by passing environment variables in the `env` block:
+
+| Variable | Values | Default | Description |
+|:---|:---|:---|:---|
+| **`DEFAULT_MODE`** | `"auto"`, `"deep"`, `"detailed"`, `"verses_only"`, `"minimal"`, `"off"` | `"auto"` | **Analytical Depth:** Controls response structure. Set to `"off"` to disable forced formatting directives. |
+| **`DEFAULT_WARMTH`** | `0`–`100` or `"off"` | `"80"` | **Pastoral Warmth:** `80-100` (Pastoral empathy), `40-79` (Balanced), `0-39` or `"off"` (Strict academic neutrality). |
+| **`SHOW_METRICS`** | `"on"`, `"off"` | `"on"` | **Telemetry Badge:** Shows/hides the accuracy and complexity badge at the bottom of responses. |
+| **`MODES_CONTROL`** | `"on"`, `"off"` | `"on"` | Allows LLMs to dynamically switch modes via `set_response_mode`. Set to `"off"` to lock mode. |
+| **`WARMTH_CONTROL`** | `"on"`, `"off"` | `"on"` | Allows LLMs to dynamically adjust warmth via `set_relevance_sensitivity`. Set to `"off"` to lock warmth. |
+| **`BIBLE_DB_PATH`** | File Path | `~/.bible-mcp/...` | Optional explicit path to the 5.88 GB SQLite database file. |
 
 ---
 
@@ -141,6 +222,7 @@ cd holy-bible-mcp
 npm install
 npm run build
 npm test
+npm run test:stress
 ```
 
 ---
