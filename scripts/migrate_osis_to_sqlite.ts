@@ -43,7 +43,7 @@ db.serialize(() => {
   const stmtAlias = db.prepare(`INSERT OR REPLACE INTO osis_aliases (alias, osis_code) VALUES (?, ?)`);
 
   let order = 1;
-  for (const [osisRaw, bookData] of Object.entries(books)) {
+  for (const [osisRaw, bookData] of Object.entries<any>(books)) {
     const osis = osisRaw.toUpperCase();
     const nameUkr = bookData.names?.ukr || bookData.names?.uk || '';
     const nameEng = bookData.names?.eng || bookData.names?.en || '';

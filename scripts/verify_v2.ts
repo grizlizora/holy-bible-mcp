@@ -5,7 +5,7 @@ import { UkrainianMorphologyEngine, HybridSearchEngine } from "../build/hybrid_s
 import { ParallelCorpusEngine } from "../build/parallel_corpus_engine.js";
 import { DynamicTokenBudgetManager, NeuralThinkingEngine } from "../build/token_optimizer/index.js";
 
-export async function runVerificationTests() {
+export async function runVerificationTests(): Promise<void> {
   console.log("=================================================================");
   console.log("🧪 RUNNING COMPREHENSIVE VERIFICATION FOR HOLY BIBLE MCP 2.0 (SQLITE-DRIVEN)");
   console.log("=================================================================\n");
@@ -16,7 +16,7 @@ export async function runVerificationTests() {
   let passed = 0;
   let failed = 0;
 
-  function assert(condition, name) {
+  function assert(condition: boolean, name: string): void {
     if (condition) {
       console.log(`  ✅ [PASS] ${name}`);
       passed++;
@@ -30,9 +30,9 @@ export async function runVerificationTests() {
   console.log("📦 1. VERIFYING SQLITE TRANSLATION CATALOG (15 Translations from SQLite):");
   const translations = DirectiveStore.getInstance().getTranslations();
   assert(Object.keys(translations).length >= 15, "15 Canonical translations loaded from SQLite");
-  assert(translations["UBIO"]?.name.includes("Огієнк"), "UBIO Ogienko loaded from SQLite");
+  assert(translations["UBIO"]?.name.includes("Огієнк") ?? false, "UBIO Ogienko loaded from SQLite");
   assert(translations["WLC"]?.philosophy === "INTERLINEAR", "WLC Hebrew Interlinear loaded from SQLite");
-  assert(translations["NA28"]?.textualBasis.includes("Critical"), "NA28 Critical Greek loaded from SQLite");
+  assert(translations["NA28"]?.textualBasis.includes("Critical") ?? false, "NA28 Critical Greek loaded from SQLite");
 
   // --- STAGE 2: SQLITE TRENCH SYNONYMS & MORPHOLOGY ---
   console.log("\n🏛️ 2. VERIFYING MORPHOLOGY & SQLITE STRONG'S ENGINE:");
@@ -50,7 +50,7 @@ export async function runVerificationTests() {
 
   const strongsEtym = await MorphologyEngine.getStrongsEtymology("G26");
   assert(strongsEtym.lemma === "ἀγάπη" || strongsEtym.lemma.length > 0, "Strong's G26 lemma resolved");
-  assert(strongsEtym.trenchSynonyms?.group.includes("Agape"), "Trench's Synonyms (Agape vs Phileo) loaded from SQLite");
+  assert(strongsEtym.trenchSynonyms?.group.includes("Agape") ?? false, "Trench's Synonyms (Agape vs Phileo) loaded from SQLite");
 
   const cyrillicAliasEtym = await MorphologyEngine.getStrongsEtymology("агапе");
   assert(cyrillicAliasEtym.strongsId === "G0026", "Cyrillic Strong's alias 'агапе' -> G0026 resolved");

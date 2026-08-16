@@ -1,6 +1,5 @@
 import sqlite3 from "sqlite3";
 import path from "path";
-import fs from "fs";
 
 const dbPath = path.resolve("./data/directives.sqlite");
 console.log("📦 Migrating all text and knowledge databases into SQLite:", dbPath);
@@ -84,7 +83,7 @@ db.serialize(() => {
   `);
 
   // Insert Translations
-  const translations = [
+  const translations: [string, string, string, string, number, string, string, string][] = [
     ["UBIO", "Біблія Івана Огієнка", "Огієнко", "ukr", 1962, "FORMAL", "Masoretic / Textus Receptus", "Канонічний український переклад: урочистий, точний, літургійний стиль."],
     ["UKRK", "Римська Біблія Івана Хоменка", "Хоменко", "ukr", 1963, "OPTIMAL", "Masoretic / Critical Greek", "Літературний переклад оо. Василіян, поетична мова, повний канон."],
     ["UTT", "Українське Біблійне Товариство (Рафаїл Турконяк)", "Турконяк", "ukr", 2011, "FORMAL", "Septuagint LXX / NA28", "Сучасний академічний переклад УБТ з мов оригіналу."],
@@ -109,12 +108,12 @@ db.serialize(() => {
   insertTransStmt.finalize();
 
   // Insert Trench Synonyms
-  const synonyms = [
-    ["G0025", "Love: Agape (ἀγαπάω/ἀγάπη) vs Phileo (φιλέω)", "ἀγαπάω (agapao) expresses intentional, selfless, unconditional choice of the will seeking the highest eternal good of the beloved. φιλέω (phileo) expresses natural affection, kinship, emotional fondness, and mutual friendship.", "In John 21:15-17, Christ asks Peter twice 'ἀγαπᾷς με;' (Do you love Me with total devotion?). Peter responds 'φιλῶ σε' (You know I am fondly devoted to You). In the 3rd question, Jesus graciously descends to meet Peter at his level: 'φιλεῖς με;'."],
+  const synonyms: [string, string, string, string][] = [
+    ["G0025", "Love: Agape (ἀγαπάω/ἀγάπη) vs Phileo (φιλέω)", "ἀγαπάω (agapao) expresses intentional, selfless, unconditional choice of the will seeking the highest eternal good of the beloved. φιλέω (phileo) expresses natural affection, kinship, emotional fondness, and mutual friendship.", "In John 21:15-17, Christ asks Peter twice 'ἀγαпᾷς με;' (Do you love Me with total devotion?). Peter responds 'φιλῶ σε' (You know I am fondly devoted to You). In the 3rd question, Jesus graciously descends to meet Peter at his level: 'φιλεῖς με;'."],
     ["G0026", "Love: Agape (ἀγάπη) vs Phileo (φιλία)", "ἀγάπη (agape) is divine covenantal love rooted in God's nature (1 John 4:8). It gives itself even when unmerited or rejected (Rom 5:8).", "The supreme ethical virtue of the New Covenant (1 Cor 13). It is the fruit of the Holy Spirit, not human effort."],
     ["G5368", "Love: Phileo (φιλέω) vs Agape (ἀγαπάω)", "φιλέω denotes personal attachment, warmth, and brotherly affection.", "Used for the Father's tender affection for the Son (John 5:20) and for mutual affection among believers (Philadelphia, Rom 12:10)."],
     ["G2222", "Life: Zoe (ζωή) vs Bios (βίος) vs Psyche (ψυχή)", "ζωή (zoe) is uncreated, eternal, divine life in Christ (John 1:4, 10:10). βίος (bios) is biological/physical lifespan and material goods (1 John 3:17). ψυχή (psyche) is the psychological self, soul, and consciousness.", "Believers transition from physical existence (bios) into eternal divine participation (zoe aionios)."],
-    ["G1097", "Knowledge: Ginosko (γινώскω) vs Oida (οἶδα)", "γινώσκω (ginosko) is experiential, relational, progressive knowledge gained through encounter. οἶδα (oida) is intuitive, complete, absolute factual perception.", "Eternal life is to 'know' (γινώσκωσιν) the only true God relationally (John 17:3)."],
+    ["G1097", "Knowledge: Ginosko (γινώσκω) vs Oida (οἶδα)", "γινώσκω (ginosko) is experiential, relational, progressive knowledge gained through encounter. οἶδα (oida) is intuitive, complete, absolute factual perception.", "Eternal life is to 'know' (γινώσκωσιν) the only true God relationally (John 17:3)."],
     ["G3056", "Word: Logos (λόγος) vs Rhema (ῥῆμα)", "λόγος (logos) is the eternal divine Reason, plan, and incarnate Person of the Son (John 1:1). ῥῆма (rhema) is the specific spoken utterance, dynamic living word for a moment (Rom 10:17).", "Christ is the eternal Logos; Scripture spoken to the heart by the Spirit is the sword of the Spirit, the rhema of God (Eph 6:17)."],
     ["H7225", "Beginning: Reshit (רֵאשִׁית) vs Rosh (רֹאשׁ)", "רֵאשִׁית (reshit) denotes first in time, chief in dignity, or firstfruits of harvest. Derived from רֹאשׁ (rosh - head).", "In Genesis 1:1, God initiates creation 'in the firstfruits / headship' which Paul links to Christ as the Head of creation and firstborn from the dead (Col 1:18)."],
     ["H1254", "Creation: Bara (בָּרָא) vs Asah (עָשָׂה) vs Yatsar (יָצַר)", "בָּרָא (bara) is exclusive to divine creation ex-nihilo (out of nothing) with no preexisting materials. עָשָׂה (asah) is fashioning from materials. יָצַר (yatsar) is pottery-like shaping (e.g. Adam from dust).", "Bara signifies God's sovereign transcendence: calling into existence things that were not."],
@@ -129,7 +128,7 @@ db.serialize(() => {
   insertSynStmt.finalize();
 
   // Insert Messianic Prophecies
-  const prophecies = [
+  const prophecies: [string, string, string, string, string, string, string, string, string, string, number, string][] = [
     ["seed_of_the_woman", "Протоєвангеліє: Насіння Жінки, що розчавить змія", "GEN.3.15", "Буття 3:15", "«І Я покладу ворожнечу між тобою й між жінкою... воно зітре тобі голову, а ти будеш жалити його в п'яту.»", "c. 1440 BCE (Мойсей)", "GAL.4.4", "Галатів 4:4 / 1 Івана 3:8", "«Як настала ж повнота часу, Бог послав Свого Сина, що родився від жони... щоб знищити справи диявола.»", "c. 49–90 CE", 1450, "Перша обітниця спасіння в Едемі: Христос перемагає сатану через Свою хресну смерть та воскресіння."],
     ["virgin_birth", "Народження від Діви: Еммануїл (З нами Бог)", "ISA.7.14", "Ісая 7:14", "«Ось Діва в утробі зачне, і Сина породить, і назвеш ім'я Йому: Еммануїл!»", "c. 734 BCE", "MAT.1.22-23", "Матвія 1:22-23 / Луки 1:34-35", "«А все це сталося, щоб збулося сказане від Господа через пророка: Ось діва в утробі зачне... Еммануїл, що значить: З нами Бог.»", "c. 5 BCE / 60 CE", 730, "Божественне втілення: Христос є істинним Богом і безгрішною Людиною."],
     ["birthplace_bethlehem", "Місце народження: Віфлеєм Юдейський", "MIC.5.2", "Михей 5:2", "«А ти, Віфлеєме-Єфрато... з тебе Мені вийде Той, що буде Владикою в Ізраїлі, і віддавна постання Його, від днів віковічних.»", "c. 710 BCE", "MAT.2.1", "Матвія 2:1-6 / Луки 2:4-7", "«Коли ж народився Ісус у Віфлеємі Юдейськім... прибули мудреці зі сходу.»", "c. 5 BCE", 705, "Підтверджує вічне передвічне походження Сина Божого та Давидову царську лінію."],
@@ -148,7 +147,7 @@ db.serialize(() => {
   insertProphetStmt.finalize();
 
   // Insert Thematic Chains
-  const chains = [
+  const chains: [string, number, string, string, string, string, string][] = [
     ["living_water", 1, "EXO.17.6", "Вихід 17:6", "Мойсеєвий Заповіт", "«І вдариш у скелю, і вийде з неї вода, і питиме народ!»", "Скеля у пустелі як фізичне джерело життя."],
     ["living_water", 2, "ISA.55.1", "Ісая 55:1", "Пророча доба", "«О всі спраглі, йдіть до води, а ви, що не маєте срібла, ідіть...»", "Пророче запрошення до благодаті без плати."],
     ["living_water", 3, "JHN.4.14", "Івана 4:14", "Втілення Христа", "«А хто питиме воду, що Я йому дам, прагнути не буде повік...»", "Христос відкриває джерело живої води вічного життя."],
