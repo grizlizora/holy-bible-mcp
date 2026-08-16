@@ -1,11 +1,41 @@
 import fs from "fs";
 import path from "path";
 import { getServerDir, getExactDiskUsage, formatBytes } from "./disk-analyzer";
-import { remoteCodeSizeCache, fetchRemoteCodeSizeAsync } from "./remote-size-resolver";
+import { remoteCodeSizeCache, remoteManifestCache, fetchRemoteCodeSizeAsync } from "./remote-size-resolver";
+
+export function resolveServerManifest(c: any, serverDir: string): any {
+  const rootManifestPath = path.resolve(process.cwd(), '../mcp-manifest.json');
+  const localManifestPath = path.join(serverDir, 'code', 'mcp-manifest.json');
+
+  if (fs.existsSync(rootManifestPath) && (c.id === 'holy-bible-mcp' || c.name?.toLowerCase().includes('holy') || !c.dbManifest)) {
+    try {
+      const parsed = JSON.parse(fs.readFileSync(rootManifestPath, 'utf8'));
+      c.dbManifest = parsed;
+      return parsed;
+    } catch (_) {}
+  }
+
+  if (fs.existsSync(localManifestPath)) {
+    try {
+      const parsed = JSON.parse(fs.readFileSync(localManifestPath, 'utf8'));
+      c.dbManifest = parsed;
+      return parsed;
+    } catch (_) {}
+  }
+
+  if (c.githubRepo && remoteManifestCache.has(c.githubRepo)) {
+    const cached = remoteManifestCache.get(c.githubRepo);
+    c.dbManifest = cached;
+    return cached;
+  }
+
+  return c.dbManifest;
+}
 
 export function detectInstalledCode(c: any): { installed: boolean; sizeBytes: number; sizeFormatted: string } {
   const serverDir = getServerDir(c.name || c.id);
-  const targetManifestSize = c.dbManifest?.code?.sizeBytes ? Number(c.dbManifest.code.sizeBytes) : 0;
+  const manifest = resolveServerManifest(c, serverDir);
+  const targetManifestSize = manifest?.code?.sizeBytes ? Number(manifest.code.sizeBytes) : 0;
   const dedicatedCode = path.join(serverDir, 'code');
 
   // 1. Check dedicated server code directory (~/.mcp-hub/servers/<id>/code)
