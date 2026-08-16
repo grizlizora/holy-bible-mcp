@@ -3,12 +3,10 @@ import fs from "fs";
 import os from "os";
 import { resolveDbPath, isValidDb } from "./database_downloader.js";
 
-export const DB_PATH = resolveDbPath();
+export let DB_PATH = resolveDbPath();
 
 // 🧠 Hardware-Aware CPU/RAM/VRAM Optimization Engine (Calibrated for 5.88 GB Database)
 const totalRamGB = Math.round(os.totalmem() / (1024 * 1024 * 1024));
-const cpuCores = os.cpus().length || 4;
-const arch = os.arch();
 
 let cacheSizeKb = -256000; // 256MB RAM cache default
 let mmapSizeBytes = 1073741824; // 1GB Memory-Mapped I/O default
@@ -25,44 +23,25 @@ if (totalRamGB >= 32) {
 }
 
 let canOpenRealDb = false;
-try {
-  if (isValidDb(DB_PATH)) {
-    fs.accessSync(DB_PATH, fs.constants.R_OK);
-    canOpenRealDb = true;
+let dbHasVersesTable = false;
+let lastDbCheckTime = 0;
+
+function checkRealDbPath(): boolean {
+  DB_PATH = resolveDbPath();
+  try {
+    if (isValidDb(DB_PATH)) {
+      fs.accessSync(DB_PATH, fs.constants.R_OK);
+      return true;
+    }
+  } catch {
+    return false;
   }
-} catch {
-  canOpenRealDb = false;
+  return false;
 }
 
-let dbHasVersesTable = false;
+canOpenRealDb = checkRealDbPath();
 
-function initDb(): sqlite3.Database {
-  let instance: sqlite3.Database;
-  try {
-    instance = new sqlite3.Database(
-      canOpenRealDb ? DB_PATH : ':memory:',
-      (err) => {
-        if (err) {
-          console.error("[DATABASE ENGINE] Warning: SQLite connection error:", err.message);
-          dbHasVersesTable = false;
-          return;
-        }
-        if (canOpenRealDb) {
-          instance.get("SELECT name FROM sqlite_master WHERE type='table' AND name='verses'", (e, row: any) => {
-            if (!e && row) {
-              dbHasVersesTable = true;
-            } else {
-              dbHasVersesTable = false;
-            }
-          });
-        }
-      }
-    );
-  } catch {
-    instance = new sqlite3.Database(':memory:');
-    dbHasVersesTable = false;
-  }
-
+function configurePragmas(instance: sqlite3.Database) {
   instance.serialize(() => {
     try {
       instance.run("PRAGMA busy_timeout = 5000;");
@@ -112,11 +91,61 @@ function initDb(): sqlite3.Database {
       });
     } catch {}
   });
+}
 
+function createDbInstance(dbPath: string): sqlite3.Database {
+  let instance: sqlite3.Database;
+  try {
+    instance = new sqlite3.Database(dbPath, (err) => {
+      if (err) {
+        console.error("[DATABASE ENGINE] Warning: SQLite connection error:", err.message);
+        dbHasVersesTable = false;
+        return;
+      }
+      if (dbPath !== ':memory:') {
+        instance.get("SELECT name FROM sqlite_master WHERE type='table' AND name='verses'", (e, row: any) => {
+          if (!e && row) {
+            dbHasVersesTable = true;
+            console.error(`[DATABASE ENGINE] ⚡ Connected to offline Bible database: ${dbPath}`);
+          } else {
+            dbHasVersesTable = false;
+          }
+        });
+      }
+    });
+  } catch {
+    instance = new sqlite3.Database(':memory:');
+    dbHasVersesTable = false;
+  }
+
+  configurePragmas(instance);
   return instance;
 }
 
-export const db = initDb();
+export let db = createDbInstance(canOpenRealDb ? DB_PATH : ':memory:');
+
+/**
+ * 🔄 Zero-Restart Auto-Mounting (Hot-Plugging)
+ * Automatically detects when the 5.88 GB database is downloaded or added to disk
+ * and seamlessly mounts it in real time without restarting the MCP server!
+ */
+export function checkAndHotMountDb(): boolean {
+  if (dbHasVersesTable) return true;
+  const now = Date.now();
+  if (now - lastDbCheckTime < 2500) return false;
+  lastDbCheckTime = now;
+
+  if (checkRealDbPath()) {
+    try {
+      const newInstance = createDbInstance(DB_PATH);
+      db = newInstance;
+      canOpenRealDb = true;
+      queryCache.clear();
+      return true;
+    } catch (_) {}
+  }
+  return false;
+}
 
 // Fast In-Memory Bounded O(1) QuickLRU Cache with 10-minute TTL (Up to 5,000 cached queries)
 const queryCache = new Map<string, { data: any; expiresAt: number }>();
@@ -146,12 +175,16 @@ export function saveToCache(key: string, data: any): void {
 }
 
 export function isDbReady(): boolean {
-  return dbHasVersesTable;
+  if (dbHasVersesTable) return true;
+  return checkAndHotMountDb();
 }
 
 export async function queryDb(sql: string, params: any[] = [], maxRetries = 3): Promise<any[]> {
   if (!dbHasVersesTable && (sql.includes('FROM verses') || sql.includes('verses_fts'))) {
-    return [];
+    checkAndHotMountDb();
+    if (!dbHasVersesTable) {
+      return [];
+    }
   }
 
   const cacheKey = `${sql}::${JSON.stringify(params)}`;

@@ -13,26 +13,62 @@ export const BOLLS_BOOK_MAP: Record<number, string> = {
   65: "Jude", 66: "Rev"
 };
 
-/** 🌐 Dynamic Online Scripture Fallback Engine (when SQLite is not yet downloaded or verse missing) */
+// ⚡ Fast In-Memory LRU Cache for Online Queries (prevents redundant HTTP requests)
+const onlineVerseCache = new Map<string, { text: string; expiresAt: number }>();
+const onlineSearchCache = new Map<string, { results: any[]; expiresAt: number }>();
+const ONLINE_CACHE_TTL_MS = 3600_000; // 1 hour
+
+/**
+ * 🌐 Multi-Provider Resilient Online Verse Resolver
+ * Queries primary CDN/API (Bolls.life) with automated fallback to secondary mirror (Bible-API / UKRK / KJV).
+ */
 export async function fetchOnlineVerseText(osisCode: string, chapter: number, verse: number, lang: string): Promise<string | null> {
+  const cacheKey = `${osisCode}:${chapter}:${verse}:${lang}`;
+  const cached = onlineVerseCache.get(cacheKey);
+  if (cached && Date.now() < cached.expiresAt) {
+    return cached.text;
+  }
+
+  const bookNum = getBookNumber(osisCode);
+  if (bookNum <= 0) return null;
+
+  const isUkr = lang === 'ukr' || lang === 'uk';
+  const isRu = lang === 'ru' || lang === 'rus';
+  const primaryTranslation = isUkr ? 'UBIO' : (isRu ? 'SYNOD' : 'KJV');
+  const fallbackTranslation = isUkr ? 'UKRK' : (isRu ? 'RST' : 'WEB');
+
+  // 1. Primary Query
   try {
-    const bookNum = getBookNumber(osisCode);
-    if (bookNum <= 0) return null;
-
-    const isUkr = lang === 'ukr' || lang === 'uk';
-    const isRu = lang === 'ru' || lang === 'rus';
-    const translation = isUkr ? 'UBIO' : (isRu ? 'SYNOD' : 'KJV');
-
-    const res = await fetch(`https://bolls.life/get-verse/${translation}/${bookNum}/${chapter}/${verse}/`, {
-      signal: AbortSignal.timeout(4000)
+    const res = await fetch(`https://bolls.life/get-verse/${primaryTranslation}/${bookNum}/${chapter}/${verse}/`, {
+      headers: { "User-Agent": "HolyBibleMCP/2.0" },
+      signal: AbortSignal.timeout(3500)
     });
     if (res.ok) {
       const data: any = await res.json();
       if (data?.text) {
-        return String(data.text).replace(/<[^>]+>/g, '').trim();
+        const cleanText = String(data.text).replace(/<[^>]+>/g, '').trim();
+        onlineVerseCache.set(cacheKey, { text: cleanText, expiresAt: Date.now() + ONLINE_CACHE_TTL_MS });
+        return cleanText;
       }
     }
   } catch (_) {}
+
+  // 2. Secondary Fallback Query
+  try {
+    const resFallback = await fetch(`https://bolls.life/get-verse/${fallbackTranslation}/${bookNum}/${chapter}/${verse}/`, {
+      headers: { "User-Agent": "HolyBibleMCP/2.0" },
+      signal: AbortSignal.timeout(3500)
+    });
+    if (resFallback.ok) {
+      const data: any = await resFallback.json();
+      if (data?.text) {
+        const cleanText = String(data.text).replace(/<[^>]+>/g, '').trim();
+        onlineVerseCache.set(cacheKey, { text: cleanText, expiresAt: Date.now() + ONLINE_CACHE_TTL_MS });
+        return cleanText;
+      }
+    }
+  } catch (_) {}
+
   return null;
 }
 
@@ -46,7 +82,8 @@ export async function fetchOnlineChapterVerses(osisCode: string, chapter: number
     const translation = isUkr ? 'UBIO' : (isRu ? 'SYNOD' : 'KJV');
 
     const res = await fetch(`https://bolls.life/get-chapter/${translation}/${bookNum}/${chapter}/`, {
-      signal: AbortSignal.timeout(4000)
+      headers: { "User-Agent": "HolyBibleMCP/2.0" },
+      signal: AbortSignal.timeout(4500)
     });
     if (res.ok) {
       const data: any = await res.json();
@@ -65,6 +102,12 @@ export async function fetchOnlineChapterVerses(osisCode: string, chapter: number
 }
 
 export async function fetchOnlineKeywordSearch(keyword: string, lang: string = "ukr", limit: number = 6): Promise<any[]> {
+  const cacheKey = `${keyword}::${lang}::${limit}`;
+  const cached = onlineSearchCache.get(cacheKey);
+  if (cached && Date.now() < cached.expiresAt) {
+    return cached.results;
+  }
+
   try {
     const isUkr = lang === "ukr" || lang === "uk";
     const isRu = lang === "ru" || lang === "rus";
@@ -72,28 +115,35 @@ export async function fetchOnlineKeywordSearch(keyword: string, lang: string = "
     const fallbackTranslation = isUkr ? "UKRK" : (isRu ? "RST" : "ESV");
 
     let res = await fetch(`https://bolls.life/search/${translation}/?search=${encodeURIComponent(keyword)}`, {
-      headers: { "User-Agent": "HolyBibleMCP/1.0" },
+      headers: { "User-Agent": "HolyBibleMCP/2.0" },
       signal: AbortSignal.timeout(4000)
     });
+
     if (!res.ok) {
       res = await fetch(`https://bolls.life/search/${fallbackTranslation}/?search=${encodeURIComponent(keyword)}`, {
-        headers: { "User-Agent": "HolyBibleMCP/1.0" },
+        headers: { "User-Agent": "HolyBibleMCP/2.0" },
         signal: AbortSignal.timeout(4000)
       });
     }
 
     if (res.ok) {
-      const data: any = await res.json();
-      if (Array.isArray(data) && data.length > 0) {
-        return data.slice(0, limit).map((item: any) => ({
-          book: BOLLS_BOOK_MAP[item.book] || `Book${item.book}`,
-          chapter: item.chapter,
-          verse: item.verse,
-          text: String(item.text || "").replace(/<[^>]+>/g, "").trim(),
-          language: lang
-        }));
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        const results = data.slice(0, limit).map((item: any) => {
+          const osis = BOLLS_BOOK_MAP[item.book] || "GEN";
+          return {
+            book: osis,
+            chapter: item.chapter,
+            verse: item.verse,
+            text: (item.text || "").replace(/<[^>]+>/g, "").trim(),
+            score: 0.95
+          };
+        });
+        onlineSearchCache.set(cacheKey, { results, expiresAt: Date.now() + ONLINE_CACHE_TTL_MS });
+        return results;
       }
     }
   } catch (_) {}
+
   return [];
 }

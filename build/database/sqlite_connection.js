@@ -2,11 +2,9 @@ import sqlite3 from "sqlite3";
 import fs from "fs";
 import os from "os";
 import { resolveDbPath, isValidDb } from "./database_downloader.js";
-export const DB_PATH = resolveDbPath();
+export let DB_PATH = resolveDbPath();
 // 🧠 Hardware-Aware CPU/RAM/VRAM Optimization Engine (Calibrated for 5.88 GB Database)
 const totalRamGB = Math.round(os.totalmem() / (1024 * 1024 * 1024));
-const cpuCores = os.cpus().length || 4;
-const arch = os.arch();
 let cacheSizeKb = -256000; // 256MB RAM cache default
 let mmapSizeBytes = 1073741824; // 1GB Memory-Mapped I/O default
 if (totalRamGB >= 32) {
@@ -22,41 +20,23 @@ else if (totalRamGB < 8) {
     mmapSizeBytes = 0; // Disable MMAP to protect low RAM devices
 }
 let canOpenRealDb = false;
-try {
-    if (isValidDb(DB_PATH)) {
-        fs.accessSync(DB_PATH, fs.constants.R_OK);
-        canOpenRealDb = true;
-    }
-}
-catch {
-    canOpenRealDb = false;
-}
 let dbHasVersesTable = false;
-function initDb() {
-    let instance;
+let lastDbCheckTime = 0;
+function checkRealDbPath() {
+    DB_PATH = resolveDbPath();
     try {
-        instance = new sqlite3.Database(canOpenRealDb ? DB_PATH : ':memory:', (err) => {
-            if (err) {
-                console.error("[DATABASE ENGINE] Warning: SQLite connection error:", err.message);
-                dbHasVersesTable = false;
-                return;
-            }
-            if (canOpenRealDb) {
-                instance.get("SELECT name FROM sqlite_master WHERE type='table' AND name='verses'", (e, row) => {
-                    if (!e && row) {
-                        dbHasVersesTable = true;
-                    }
-                    else {
-                        dbHasVersesTable = false;
-                    }
-                });
-            }
-        });
+        if (isValidDb(DB_PATH)) {
+            fs.accessSync(DB_PATH, fs.constants.R_OK);
+            return true;
+        }
     }
     catch {
-        instance = new sqlite3.Database(':memory:');
-        dbHasVersesTable = false;
+        return false;
     }
+    return false;
+}
+canOpenRealDb = checkRealDbPath();
+function configurePragmas(instance) {
     instance.serialize(() => {
         try {
             instance.run("PRAGMA busy_timeout = 5000;");
@@ -103,9 +83,61 @@ function initDb() {
         }
         catch { }
     });
+}
+function createDbInstance(dbPath) {
+    let instance;
+    try {
+        instance = new sqlite3.Database(dbPath, (err) => {
+            if (err) {
+                console.error("[DATABASE ENGINE] Warning: SQLite connection error:", err.message);
+                dbHasVersesTable = false;
+                return;
+            }
+            if (dbPath !== ':memory:') {
+                instance.get("SELECT name FROM sqlite_master WHERE type='table' AND name='verses'", (e, row) => {
+                    if (!e && row) {
+                        dbHasVersesTable = true;
+                        console.error(`[DATABASE ENGINE] ⚡ Connected to offline Bible database: ${dbPath}`);
+                    }
+                    else {
+                        dbHasVersesTable = false;
+                    }
+                });
+            }
+        });
+    }
+    catch {
+        instance = new sqlite3.Database(':memory:');
+        dbHasVersesTable = false;
+    }
+    configurePragmas(instance);
     return instance;
 }
-export const db = initDb();
+export let db = createDbInstance(canOpenRealDb ? DB_PATH : ':memory:');
+/**
+ * 🔄 Zero-Restart Auto-Mounting (Hot-Plugging)
+ * Automatically detects when the 5.88 GB database is downloaded or added to disk
+ * and seamlessly mounts it in real time without restarting the MCP server!
+ */
+export function checkAndHotMountDb() {
+    if (dbHasVersesTable)
+        return true;
+    const now = Date.now();
+    if (now - lastDbCheckTime < 2500)
+        return false;
+    lastDbCheckTime = now;
+    if (checkRealDbPath()) {
+        try {
+            const newInstance = createDbInstance(DB_PATH);
+            db = newInstance;
+            canOpenRealDb = true;
+            queryCache.clear();
+            return true;
+        }
+        catch (_) { }
+    }
+    return false;
+}
 // Fast In-Memory Bounded O(1) QuickLRU Cache with 10-minute TTL (Up to 5,000 cached queries)
 const queryCache = new Map();
 const MAX_CACHE_SIZE = 5000;
@@ -134,11 +166,16 @@ export function saveToCache(key, data) {
     queryCache.set(key, { data, expiresAt: Date.now() + DEFAULT_CACHE_TTL_MS });
 }
 export function isDbReady() {
-    return dbHasVersesTable;
+    if (dbHasVersesTable)
+        return true;
+    return checkAndHotMountDb();
 }
 export async function queryDb(sql, params = [], maxRetries = 3) {
     if (!dbHasVersesTable && (sql.includes('FROM verses') || sql.includes('verses_fts'))) {
-        return [];
+        checkAndHotMountDb();
+        if (!dbHasVersesTable) {
+            return [];
+        }
     }
     const cacheKey = `${sql}::${JSON.stringify(params)}`;
     const cached = getFromCache(cacheKey);
