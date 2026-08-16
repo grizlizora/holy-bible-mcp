@@ -3,15 +3,19 @@ node_modules/
 venv/
 .venv/
 
-# Non-MCP web & bot components (retained locally, excluded from GitHub MCP repository)
+# Non-MCP web components (retained locally, excluded from npm package release)
 /client/
-/converter/
 /data/*
 !/data/directives.sqlite
-/telegram-bot/
-/mcp-server/
-fix_sqlite.cjs
-start.sh
+liquid_ai.db*
+data/liquid_ai.db*
+*.db
+*.db-wal
+*.db-shm
+*.sqlite-wal
+*.sqlite-shm
+.app_secret_key
+data/.app_secret_key
 
 # IDE & Editor Temporary Folders
 .trae/

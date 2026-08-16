@@ -5,21 +5,27 @@ export function parseInitialConfig() {
     // 1. Check environment variables
     const envWarmth = process.env.DEFAULT_WARMTH || process.env.MCP_WARMTH;
     if (envWarmth) {
-        const parsed = parseInt(envWarmth, 10);
-        if (!isNaN(parsed) && parsed >= 0 && parsed <= 100)
-            warmth = parsed;
+        const raw = String(envWarmth).toLowerCase().trim();
+        if (raw === "off" || raw === "none" || raw === "disabled" || raw === "false") {
+            warmth = 0;
+        }
+        else {
+            const parsed = parseInt(envWarmth, 10);
+            if (!isNaN(parsed) && parsed >= 0 && parsed <= 100)
+                warmth = parsed;
+        }
     }
     const envMode = process.env.DEFAULT_MODE || process.env.MCP_MODE;
     if (envMode) {
         const rawMode = String(envMode).toLowerCase().trim();
-        if (['auto', 'verses_only', 'minimal', 'short', 'medium', 'detailed', 'deep'].includes(rawMode)) {
-            mode = rawMode;
+        if (['auto', 'verses_only', 'minimal', 'short', 'medium', 'detailed', 'deep', 'off', 'none', 'disabled'].includes(rawMode)) {
+            mode = (rawMode === 'off' || rawMode === 'none' || rawMode === 'disabled') ? 'off' : rawMode;
         }
     }
     const envMetrics = process.env.SHOW_METRICS || process.env.DEFAULT_SHOW_METRICS || process.env.MCP_SHOW_METRICS;
     if (envMetrics) {
         const norm = String(envMetrics).toLowerCase().trim();
-        if (norm === 'false' || norm === 'off' || norm === '0' || norm === 'no') {
+        if (norm === 'false' || norm === 'off' || norm === '0' || norm === 'no' || norm === 'none' || norm === 'disabled') {
             showMetrics = false;
         }
         else if (norm === 'true' || norm === 'on' || norm === '1' || norm === 'yes') {
@@ -30,19 +36,25 @@ export function parseInitialConfig() {
     const args = process.argv.slice(2);
     for (const arg of args) {
         if (arg.startsWith('--warmth=')) {
-            const parsed = parseInt(arg.split('=')[1], 10);
-            if (!isNaN(parsed) && parsed >= 0 && parsed <= 100)
-                warmth = parsed;
+            const val = arg.split('=')[1].toLowerCase().trim();
+            if (val === 'off' || val === 'none' || val === 'disabled') {
+                warmth = 0;
+            }
+            else {
+                const parsed = parseInt(val, 10);
+                if (!isNaN(parsed) && parsed >= 0 && parsed <= 100)
+                    warmth = parsed;
+            }
         }
         else if (arg.startsWith('--mode=')) {
             const rawMode = arg.split('=')[1].toLowerCase().trim();
-            if (['auto', 'verses_only', 'minimal', 'short', 'medium', 'detailed', 'deep'].includes(rawMode)) {
-                mode = rawMode;
+            if (['auto', 'verses_only', 'minimal', 'short', 'medium', 'detailed', 'deep', 'off', 'none', 'disabled'].includes(rawMode)) {
+                mode = (rawMode === 'off' || rawMode === 'none' || rawMode === 'disabled') ? 'off' : rawMode;
             }
         }
         else if (arg.startsWith('--show-metrics=')) {
             const val = arg.split('=')[1].toLowerCase().trim();
-            showMetrics = !(val === 'off' || val === 'false' || val === '0' || val === 'no');
+            showMetrics = !(val === 'off' || val === 'false' || val === '0' || val === 'no' || val === 'none' || val === 'disabled');
         }
     }
     return { warmth, mode, showMetrics };

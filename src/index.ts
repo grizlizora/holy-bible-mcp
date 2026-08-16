@@ -5,6 +5,7 @@ import { registerResourceHandlers } from "./resources_repository.js";
 import { registerPromptHandlers } from "./prompts_repository.js";
 import { DirectiveStore } from "./directives/directive_store.js";
 import { TransportManager } from "./transport_manager.js";
+import { isCliCommand, runCli } from "./cli/index.js";
 
 // Global process exception boundaries
 process.on("unhandledRejection", (reason: any) => {
@@ -46,6 +47,15 @@ export function createServerInstance(): Server {
 }
 
 async function main() {
+  const cliArgs = process.argv.slice(2);
+
+  // 🚀 1. Check if invoked as CLI command (e.g. download-db, delete-db, db-status, --help)
+  if (isCliCommand(cliArgs)) {
+    const exitCode = await runCli(cliArgs);
+    process.exit(exitCode);
+  }
+
+  // 🚀 2. Boot MCP Server Mode (stdio / sse / dual)
   console.error("[MCP SERVER] 🚀 Booting Holy Bible MCP v2.0.0...");
   await DirectiveStore.getInstance().loadDirectives();
 

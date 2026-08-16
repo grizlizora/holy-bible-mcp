@@ -48,10 +48,21 @@ export function extractModelParamSizeB(modelName: string, details?: any): number
     return Math.round((rawParams / 1e9) * 10) / 10;
   }
 
+  const strParams = details?.parameter_size || details?.parameterSizeB;
+  if (typeof strParams === 'number' && strParams > 0) {
+    return strParams;
+  }
+  if (typeof strParams === 'string' && strParams) {
+    const parsed = parseFloat(strParams);
+    if (!isNaN(parsed) && parsed > 0) {
+      return strParams.toLowerCase().includes('m') ? Math.round((parsed / 1000) * 100) / 100 : parsed;
+    }
+  }
+
   const name = (modelName || '').toLowerCase().trim();
   if (!name) return 14.0;
 
-  // Layer 2A: MoE (Mixture-of-Experts) Architecture Resolver (e.g., "8x7b", "16x3.5b")
+  // Layer 2A: MoE (Mixture-of-Experts) Architecture Resolver (e.g., "8x7b", "16x3.5b", "8x22b")
   const moeMatch = name.match(/(\d+)\s*x\s*(\d+(?:\.\d+)?)\s*[bB]\b/);
   if (moeMatch) {
     const experts = parseInt(moeMatch[1], 10);
@@ -61,44 +72,72 @@ export function extractModelParamSizeB(modelName: string, details?: any): number
     }
   }
 
-  // Layer 2B: Generic Universal Parameter Pattern Regex (Matches "70b", "70-b", "3.5b", "0.5b", "120b", "350m")
-  const bMatch = name.match(/(?:^|[^a-z0-9.])(\d+(?:\.\d+)?)\s*[-_]?\s*[bB](?:[^a-z0-9.]|$)/);
-  if (bMatch) {
-    const val = parseFloat(bMatch[1]);
-    if (!isNaN(val) && val > 0) return val;
+  // Layer 2B: Explicit Parameter Pattern Regex in Model Identifier (Matches "405b", "70b", "32b", "14b", "8b", "7b", "3b", "1.5b")
+  const allMatches = Array.from(name.matchAll(/(?:^|[\s\-_/:])(\d+(?:\.\d+)?)\s*[bB](?:[\s\-_/:.]|$)/g));
+  if (allMatches.length > 0) {
+    const values = allMatches.map(m => parseFloat(m[1])).filter(v => !isNaN(v) && v > 0);
+    if (values.length > 0) {
+      return Math.max(...values);
+    }
   }
 
-  const mMatch = name.match(/(?:^|[^a-z0-9.])(\d+(?:\.\d+)?)\s*[-_]?\s*[mM](?:[^a-z0-9.]|$)/);
+  // Layer 2C: Million Parameter Suffix (e.g. "350m", "500m")
+  const mMatch = name.match(/(?:^|[\s\-_/:])(\d+(?:\.\d+)?)\s*[mM](?:[\s\-_/:.]|$)/);
   if (mMatch) {
     const val = parseFloat(mMatch[1]);
     if (!isNaN(val) && val > 0) return Math.round((val / 1000) * 100) / 100;
   }
 
-  const tagMatch = name.match(/:(?:q\d+_[a-z0-9_]+-)?(\d+(?:\.\d+)?)[bB]\b/);
-  if (tagMatch) {
-    const val = parseFloat(tagMatch[1]);
-    if (!isNaN(val) && val > 0) return val;
+  // Layer 3: Known Architecture & Cloud Flagship Slugs (when no explicit B suffix in name)
+  if (
+    name.includes('deepseek-r1') || 
+    name.includes('deepseek-v3') || 
+    name.includes('deepseek/deepseek-chat') || 
+    name.includes('deepseek-chat') || 
+    name === 'r1' ||
+    name === 'v3'
+  ) {
+    return 671.0;
   }
 
-  // Layer 3A: Algorithmic Compact/Mini Variant Detector (maps mini/flash/haiku/nano variants -> Tier 1.5: 10.0B)
-  const isCompactVariant = /(?:^|[^a-z])(mini|nano|micro|pico|tiny|small|lite|flash|haiku|compact|mobile|edge|turbo-mini)(?:[^a-z]|$)/.test(name);
-  if (isCompactVariant) {
-    return 10.0;
-  }
+  if (name.includes('claude-3-opus') || name.includes('claude-opus')) return 175.0;
+  if (name.includes('claude-3-7-sonnet') || name.includes('claude-3-5-sonnet') || name.includes('claude-3-sonnet') || name.includes('sonnet')) return 70.0;
+  if (name.includes('claude-3-5-haiku') || name.includes('claude-3-haiku') || name.includes('haiku')) return 10.0;
 
-  // Layer 3B: Algorithmic High-Capacity & Frontier Model Detector (maps pro/plus/ultra/sonnet/opus/deepseek -> Tier 3: 70.0B)
-  const isHighCapacityVariant = /(?:^|[^a-z])(pro|plus|ultra|max|large|xl|xxl|huge|giant|mega|deepseek|sonnet|opus|reasoning|thinking|frontier|heavy|cot|o1|o3|gpt-4|claude-3|gemini-1|gemini-2)(?:[^a-z]|$)/.test(name);
-  if (isHighCapacityVariant) {
-    return 70.0;
-  }
+  if (name.includes('gpt-4o-mini') || name.includes('gpt-4.1-mini') || name.includes('gpt-3.5-turbo')) return 10.0;
+  if (name.includes('gpt-4.5')) return 100.0;
+  if (name.includes('gpt-4o') || name.includes('gpt-4-turbo') || name.includes('gpt-4')) return 70.0;
+  if (name.includes('o1-mini') || name.includes('o3-mini') || name.includes('o4-mini')) return 10.0;
+  if (name.includes('o1') || name.includes('o3') || name.includes('o4')) return 70.0;
 
-  // Layer 3C: Context Window Capacity Heuristic (if context >= 128K -> Tier 3: 70.0B)
+  if (name.includes('gemini-2.5-flash') || name.includes('gemini-2.0-flash') || name.includes('gemini-1.5-flash') || (name.includes('gemini') && name.includes('flash'))) return 14.0;
+  if (name.includes('gemini-1.5-pro') || name.includes('gemini-2.0-pro') || name.includes('gemini-ultra') || (name.includes('gemini') && name.includes('pro'))) return 70.0;
+  if (name.includes('grok-2') || name.includes('grok-vision') || name.includes('grok-beta') || name.includes('grok')) return 70.0;
+
+  if (name.includes('command-r-plus') || name.includes('command-r+')) return 104.0;
+  if (name.includes('command-r')) return 35.0;
+  if (name.includes('dbrx')) return 132.0;
+  if (name.includes('mistral-large') || name.includes('pixtral-large')) return 123.0;
+  if (name.includes('codestral')) return 22.0;
+  if (name.includes('mistral-small') || name.includes('mistral-nemo') || name.includes('nemo')) return 12.0;
+
+  // Layer 4: Dynamic Semantic Tier Clustering Fallback
+  const isCompactTier = /(?:^|[\s\-_/:])(mini|nano|micro|pico|tiny|small|lite|compact|mobile|edge)(?:[\s\-_/:]|$)/i.test(name);
+  if (isCompactTier) return 10.0;
+
+  const isMidTier = /(?:^|[\s\-_/:])(flash|medium|mid|standard)(?:[\s\-_/:]|$)/i.test(name);
+  if (isMidTier) return 14.0;
+
+  const isFrontierTier = /(?:^|[\s\-_/:])(ultra|max|plus|large|xl|xxl|huge|giant|mega|frontier|heavy|reasoner|reasoning|thinking)(?:[\s\-_/:]|$)/i.test(name);
+  if (isFrontierTier) return 70.0;
+
+  // Layer 4B: Context Window Capacity Heuristic (if context >= 128K -> Tier 3: 70.0B)
   const ctxLength = details?.context_length || details?.num_ctx;
   if (typeof ctxLength === 'number' && ctxLength >= 128000) {
     return 70.0;
   }
 
-  // Universal Default Baseline: Safe high-capability resolution (14.0B -> Tier 3)
+  // Universal Default Baseline
   return 14.0;
 }
 

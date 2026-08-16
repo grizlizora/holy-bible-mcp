@@ -1,59 +1,16 @@
 import path from "path";
 import fs from "fs";
-import os from "os";
 import https from "https";
 import http from "http";
 import { fileURLToPath } from "url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const BIBLE_DB_MAGNET_URI = "magnet:?xt=urn:btih:e221d09e3870ddc23d3e1f62858a12b4152792847b911728371d39fa85279bb3&dn=bible_database.sqlite&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337%2Fannounce&tr=udp%3A%2F%2Ftracker.openbittorrent.com%3A6969%2Fannounce&tr=wss%3A%2F%2Ftracker.webtorrent.dev";
-export const REMOTE_MIRRORS = [
-    process.env.REMOTE_BIBLE_DB_URL,
-    "https://huggingface.co/datasets/grizlizora/holy-bible-mcp/resolve/main/bible_database.sqlite",
-    "https://github.com/grizlizora/holy-bible-mcp/releases/download/v1.0.0/bible_database.sqlite",
-    "https://cdn.jsdelivr.net/gh/grizlizora/holy-bible-mcp@main/data/processed/bible_database.sqlite"
-].filter(Boolean);
-export const REMOTE_DB_PRIMARY = REMOTE_MIRRORS[0];
-export const REMOTE_DB_FALLBACK = REMOTE_MIRRORS[1] || REMOTE_MIRRORS[0];
-export function isValidDb(dbPath) {
-    if (!dbPath)
-        return false;
-    try {
-        return fs.existsSync(dbPath) && fs.statSync(dbPath).size > 1000000;
-    }
-    catch {
-        return false;
-    }
-}
-export function resolveDbPath() {
-    const ENV_DB = (process.env.BIBLE_DB_PATH || process.env.MCP_DB_PATH || process.env.DATABASE_PATH)
-        ? path.resolve(process.env.BIBLE_DB_PATH || process.env.MCP_DB_PATH || process.env.DATABASE_PATH)
-        : null;
-    const MCP_STORAGE_DB = path.join(os.homedir(), ".holy-bible-mcp", "mcp-storage", "holy-bible-local", "data", "bible_database.sqlite");
-    const LOCAL_DB = path.resolve(__dirname, "../../data/processed/bible_database.sqlite");
-    const GLOBAL_DIR = path.join(os.homedir(), ".bible-mcp");
-    const GLOBAL_DB = path.join(GLOBAL_DIR, "bible_database.sqlite");
-    const candidatePaths = [
-        ENV_DB,
-        path.resolve(process.cwd(), "data/processed/bible_database.sqlite"),
-        path.resolve(process.cwd(), "../data/processed/bible_database.sqlite"),
-        path.resolve(process.cwd(), "../../data/processed/bible_database.sqlite"),
-        path.resolve(__dirname, "../../data/processed/bible_database.sqlite"),
-        path.resolve(__dirname, "../data/processed/bible_database.sqlite"),
-        path.join(os.homedir(), "Downloads", "holy", "data", "processed", "bible_database.sqlite"),
-        path.join(os.homedir(), ".mcp-hub", "servers", "Holy_Bible_Mcp", "data", "bible_database.sqlite"),
-        path.join(os.homedir(), ".mcp-hub", "servers", "Holy_Bible_MCP", "data", "bible_database.sqlite"),
-        path.join(os.homedir(), ".mcp-hub", "servers", "Holy_Bible_Mcp", "code", "data", "bible_database.sqlite"),
-        path.join(os.homedir(), ".mcp-hub", "servers", "Holy_Bible_MCP", "code", "data", "bible_database.sqlite"),
-        path.join(os.homedir(), "Projects", "holy", "data", "processed", "bible_database.sqlite"),
-        MCP_STORAGE_DB,
-        LOCAL_DB,
-        GLOBAL_DB
-    ].filter(Boolean);
-    const found = candidatePaths.find(p => isValidDb(p));
-    if (found)
-        return found;
-    return path.join(os.homedir(), ".mcp-hub", "servers", "Holy_Bible_Mcp", "data", "bible_database.sqlite");
-}
+import { REMOTE_MIRRORS, EXPECTED_DB_SIZE, downloadDatabaseResumable, raceFastestMirrors } from "./resilient_downloader.js";
+export { getGlobalDbDir, getGlobalDbPath, isValidDb, resolveDbPath } from "./path_resolver.js";
+export { REMOTE_MIRRORS, EXPECTED_DB_SIZE, downloadDatabaseResumable, raceFastestMirrors };
+export { verifyDatabaseIntegrity, checkSqliteHeader } from "./integrity_checker.js";
+export const REMOTE_DB_PRIMARY = "https://huggingface.co/datasets/grizlizora/holy-bible-mcp/resolve/main/bible_database.sqlite";
+export const REMOTE_DB_FALLBACK = "https://github.com/grizlizora/holy-bible-mcp/releases/download/v1.0.0/bible_database.sqlite";
 export async function downloadDatabaseStream(targetPath, url = REMOTE_DB_PRIMARY) {
     console.error(`[AUTO-DOWNLOADER] Starting automatic download of Holy Bible SQLite DB to ${targetPath}...`);
     const targetDir = path.dirname(targetPath);

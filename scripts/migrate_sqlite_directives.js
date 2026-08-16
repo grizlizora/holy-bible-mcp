@@ -8,6 +8,14 @@ console.log("📦 Migrating all text and knowledge databases into SQLite:", dbPa
 const db = new sqlite3.Database(dbPath);
 
 db.serialize(() => {
+  // Configure high-concurrency WAL & Memory PRAGMAs
+  db.run("PRAGMA busy_timeout = 5000;");
+  db.run("PRAGMA journal_mode = WAL;");
+  db.run("PRAGMA synchronous = NORMAL;");
+  db.run("PRAGMA temp_store = MEMORY;");
+  db.run("PRAGMA mmap_size = 30000000000;");
+  db.run("PRAGMA cache_size = -64000;");
+
   // 1. Translations Catalog Table
   db.run(`
     CREATE TABLE IF NOT EXISTS translations_catalog (

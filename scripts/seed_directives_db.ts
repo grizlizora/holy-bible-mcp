@@ -24,6 +24,14 @@ function seedDatabase(dbPath: string): Promise<void> {
     });
 
     db.serialize(() => {
+      // Configure high-concurrency WAL & Memory PRAGMAs
+      db.run("PRAGMA busy_timeout = 5000;");
+      db.run("PRAGMA journal_mode = WAL;");
+      db.run("PRAGMA synchronous = NORMAL;");
+      db.run("PRAGMA temp_store = MEMORY;");
+      db.run("PRAGMA mmap_size = 30000000000;");
+      db.run("PRAGMA cache_size = -64000;");
+
       // 1. Create Tables
       db.run(`
         CREATE TABLE model_tier_directives (

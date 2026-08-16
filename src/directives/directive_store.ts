@@ -54,7 +54,20 @@ export class DirectiveStore {
       return;
     }
 
-    this.db = new sqlite3.Database(this.dbPath, sqlite3.OPEN_READONLY);
+    this.db = new sqlite3.Database(this.dbPath, (err) => {
+      if (err) {
+        console.error(`[DIRECTIVE-ENGINE] ⚠️ Error opening SQLite database:`, err.message);
+      }
+    });
+
+    this.db.serialize(() => {
+      this.db?.run("PRAGMA busy_timeout = 5000;");
+      this.db?.run("PRAGMA journal_mode = WAL;");
+      this.db?.run("PRAGMA synchronous = NORMAL;");
+      this.db?.run("PRAGMA temp_store = MEMORY;");
+      this.db?.run("PRAGMA mmap_size = 30000000000;");
+      this.db?.run("PRAGMA cache_size = -64000;");
+    });
 
     try {
       const data = await loadDirectivesFromDb(this.db);

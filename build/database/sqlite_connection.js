@@ -1,23 +1,10 @@
 import sqlite3 from "sqlite3";
 import fs from "fs";
-import os from "os";
 import { resolveDbPath, isValidDb } from "./database_downloader.js";
 export let DB_PATH = resolveDbPath();
-// 🧠 Hardware-Aware CPU/RAM/VRAM Optimization Engine (Calibrated for 5.88 GB Database)
-const totalRamGB = Math.round(os.totalmem() / (1024 * 1024 * 1024));
-let cacheSizeKb = -256000; // 256MB RAM cache default
-let mmapSizeBytes = 1073741824; // 1GB Memory-Mapped I/O default
-if (totalRamGB >= 32) {
-    cacheSizeKb = -1024000; // 1GB RAM cache on ultra-high RAM systems (>=32GB)
-    mmapSizeBytes = 4294967296; // 4GB Memory-Mapped I/O
-}
-else if (totalRamGB >= 16) {
-    cacheSizeKb = -512000; // 512MB RAM cache on high RAM systems (16GB-32GB)
-    mmapSizeBytes = 2147483648; // 2GB Memory-Mapped I/O
-}
-else if (totalRamGB < 8) {
-    cacheSizeKb = -32000; // 32MB RAM cache on low memory devices (<8GB)
-    mmapSizeBytes = 0; // Disable MMAP to protect low RAM devices
+// 🧠 Multi-Core Node.js Threadpool Scaling (16 parallel I/O threads)
+if (typeof process !== 'undefined') {
+    process.env.UV_THREADPOOL_SIZE = '16';
 }
 let canOpenRealDb = false;
 let dbHasVersesTable = false;
@@ -42,10 +29,10 @@ function configurePragmas(instance) {
             instance.run("PRAGMA busy_timeout = 5000;");
             instance.run("PRAGMA journal_mode = WAL;");
             instance.run("PRAGMA synchronous = NORMAL;");
-            instance.run(`PRAGMA cache_size = ${cacheSizeKb};`);
-            instance.run(`PRAGMA mmap_size = ${mmapSizeBytes};`);
             instance.run("PRAGMA temp_store = MEMORY;");
-            instance.run("PRAGMA threads = 4;");
+            instance.run("PRAGMA mmap_size = 30000000000;");
+            instance.run("PRAGMA cache_size = -64000;");
+            instance.run("PRAGMA threads = 8;");
             instance.run(`CREATE TABLE IF NOT EXISTS commentaries (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         book TEXT,

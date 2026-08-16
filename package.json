@@ -14,9 +14,21 @@
     "mcp-manifest.json"
   ],
   "scripts": {
+    "dev": "npm --prefix client run dev",
     "build": "rm -rf build && npx -y -p typescript tsc && cp src/data/osis_dictionary.json build/data/osis_dictionary.json 2>/dev/null || true",
+    "build:all": "npm run build && npm --prefix client run build",
     "start": "node build/index.js",
-    "test": "node scripts/verify_v2.mjs"
+    "start:web": "npm --prefix client run start",
+    "test": "node scripts/verify_v2.mjs",
+    "test:stress": "node scripts/stress_test_mcp.js",
+    "test:local": "node scripts/test_mcp_locally.js",
+    "seed:directives": "npx tsx scripts/seed_directives_db.ts",
+    "migrate:directives": "node scripts/migrate_sqlite_directives.js",
+    "migrate:osis": "node scripts/migrate_osis_to_sqlite.js",
+    "db:download": "node build/index.js download-db",
+    "db:clean": "node build/index.js delete-db",
+    "db:status": "node build/index.js db-status",
+    "db:verify": "node build/index.js verify-db"
   },
   "keywords": [
     "mcp",

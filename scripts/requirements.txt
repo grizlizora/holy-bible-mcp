@@ -1,6 +1,0 @@
-sentence-transformers
-duckdb
-tqdm
-torch
-torchvision
-torchaudio

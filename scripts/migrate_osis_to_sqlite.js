@@ -14,6 +14,13 @@ console.log(`[OSIS-MIGRATION] Migrating OSIS dictionary from ${jsonPath} to SQLi
 const db = new sqlite3.Database(dbPath);
 
 db.serialize(() => {
+  db.run("PRAGMA busy_timeout = 5000;");
+  db.run("PRAGMA journal_mode = WAL;");
+  db.run("PRAGMA synchronous = NORMAL;");
+  db.run("PRAGMA temp_store = MEMORY;");
+  db.run("PRAGMA mmap_size = 30000000000;");
+  db.run("PRAGMA cache_size = -64000;");
+
   db.run(`CREATE TABLE IF NOT EXISTS osis_book_dictionary (
     osis_code TEXT PRIMARY KEY,
     book_order INTEGER,

@@ -10,8 +10,7 @@
         "WARMTH_CONTROL": "on",
         "SHOW_METRICS": "on",
         "DEFAULT_MODE": "auto",
-        "DEFAULT_WARMTH": "80",
-        "BIBLE_DB_PATH": "${workspaceFolder}/data/processed/bible_database.sqlite"
+        "DEFAULT_WARMTH": "80"
       },
       "autoApprove": [
         "ask_holy_bible",
