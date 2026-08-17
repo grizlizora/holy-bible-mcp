@@ -6,7 +6,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export function resolveDirectivesDbPath() {
     const candidatePaths = [
         process.env.DIRECTIVES_DB_PATH ? path.resolve(process.env.DIRECTIVES_DB_PATH) : null,
+        process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR, "directives.sqlite") : null,
         path.resolve(process.cwd(), "data/directives.sqlite"),
+        path.resolve(process.cwd(), "../data/directives.sqlite"),
         path.resolve(__dirname, "../../data/directives.sqlite"),
         path.resolve(__dirname, "../data/directives.sqlite"),
         path.resolve(__dirname, "data/directives.sqlite"),

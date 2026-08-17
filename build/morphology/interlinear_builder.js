@@ -115,7 +115,7 @@ export async function getStrongsEtymology(strongsInput) {
     const rawKey = letter + String(numPart);
     const rows = await queryDb(`SELECT strongs_id, lemma, transliteration, pronunciation, definition 
      FROM strongs_dictionary 
-     WHERE UPPER(strongs_id) = ? OR UPPER(id) = ? OR UPPER(strongs_id) = ? LIMIT 1`, [normalizedId, paddedKey, rawKey]);
+     WHERE strongs_id IN (?, ?, ?) OR id IN (?, ?, ?) LIMIT 1`, [normalizedId, paddedKey, rawKey, normalizedId, paddedKey, rawKey]);
     const row = rows[0] || {};
     const lemma = row.lemma || (isGreek ? 'ἀγάπη' : 'בָּרָא');
     const translit = row.transliteration || (isGreek ? 'agape' : 'bara');

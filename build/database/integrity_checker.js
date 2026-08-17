@@ -9,8 +9,12 @@ export function checkSqliteHeader(filePath) {
             return { valid: false, error: `File too small to be a database (${stat.size} bytes).` };
         const fd = fs.openSync(filePath, "r");
         const buffer = Buffer.alloc(100);
-        fs.readSync(fd, buffer, 0, 100, 0);
-        fs.closeSync(fd);
+        try {
+            fs.readSync(fd, buffer, 0, 100, 0);
+        }
+        finally {
+            fs.closeSync(fd);
+        }
         const header = buffer.toString("utf8", 0, 15);
         if (header !== "SQLite format 3") {
             const preview = buffer.toString("utf8", 0, 80).trim();
@@ -48,10 +52,14 @@ export async function verifyDatabaseIntegrity(filePath, minSize = 1_000_000) {
     // 2. Check Trailing page readability
     try {
         const fd = fs.openSync(filePath, "r");
-        const tailBuffer = Buffer.alloc(512);
-        const offset = Math.max(0, stat.size - 512);
-        fs.readSync(fd, tailBuffer, 0, 512, offset);
-        fs.closeSync(fd);
+        try {
+            const tailBuffer = Buffer.alloc(512);
+            const offset = Math.max(0, stat.size - 512);
+            fs.readSync(fd, tailBuffer, 0, 512, offset);
+        }
+        finally {
+            fs.closeSync(fd);
+        }
     }
     catch (err) {
         return { valid: false, error: `Truncated or unreadable trailing page: ${err.message}` };

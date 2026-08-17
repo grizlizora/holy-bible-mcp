@@ -23,81 +23,85 @@ function checkRealDbPath() {
     return false;
 }
 canOpenRealDb = checkRealDbPath();
-function configurePragmas(instance) {
+// Auxiliary in-memory database for dynamic commentaries & concepts
+const auxDb = new sqlite3.Database(':memory:');
+auxDb.serialize(() => {
+    auxDb.run(`CREATE TABLE IF NOT EXISTS commentaries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    book TEXT,
+    chapter INTEGER,
+    verse INTEGER,
+    author TEXT,
+    commentary_text TEXT
+  );`);
+    auxDb.run(`CREATE TABLE IF NOT EXISTS semantic_concepts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    concept_name TEXT,
+    keywords TEXT,
+    book TEXT,
+    chapter INTEGER,
+    verse INTEGER,
+    theological_principle TEXT
+  );`);
+    auxDb.run(`INSERT INTO commentaries (book, chapter, verse, author, commentary_text) VALUES 
+  ('JN', 3, 16, 'John Chrysostom', 'God so loved the world that He gave His only begotten Son. This is the supreme demonstration of sacrificial covenantal love (Agape).'),
+  ('JN', 3, 16, 'Matthew Henry', 'Faith in Christ is the single divine means of salvation from eternal ruin and receiving everlasting life.'),
+  ('PS', 23, 1, 'Ivan Ohiyenko', 'The Pastoral Psalm expresses absolute trust in God as the Caring Shepherd during times of testing.');`);
+    auxDb.run(`INSERT INTO semantic_concepts (concept_name, keywords, book, chapter, verse, theological_principle) VALUES 
+  ('anxiety', 'anxiety fear worry care distress', 'PHP', 4, 6, 'Be anxious for nothing, but in everything by prayer and supplication with thanksgiving let your requests be made known to God.'),
+  ('loneliness', 'lonely abandoned isolated alone', 'PS', 27, 10, 'When my father and my mother forsake me, then the Lord will take me up.'),
+  ('financial trials', 'money debt poverty scarcity risk', 'PROV', 13, 11, 'Wealth gained hastily will dwindle, but whoever gathers little by little will increase it.'),
+  ('forgiveness', 'offense anger forgive enemy grudge', 'EPH', 4, 32, 'Be kind to one another, tenderhearted, forgiving one another, even as God in Christ forgave you.');`);
+});
+function configurePragmas(instance, isReadOnly) {
     instance.serialize(() => {
         try {
             instance.run("PRAGMA busy_timeout = 5000;");
-            instance.run("PRAGMA journal_mode = WAL;");
             instance.run("PRAGMA synchronous = NORMAL;");
             instance.run("PRAGMA temp_store = MEMORY;");
             instance.run("PRAGMA mmap_size = 30000000000;");
             instance.run("PRAGMA cache_size = -64000;");
             instance.run("PRAGMA threads = 8;");
-            instance.run(`CREATE TABLE IF NOT EXISTS commentaries (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        book TEXT,
-        chapter INTEGER,
-        verse INTEGER,
-        author TEXT,
-        commentary_text TEXT
-      );`);
-            instance.run(`CREATE TABLE IF NOT EXISTS semantic_concepts (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        concept_name TEXT,
-        keywords TEXT,
-        book TEXT,
-        chapter INTEGER,
-        verse INTEGER,
-        theological_principle TEXT
-      );`);
-            instance.get("SELECT COUNT(*) as cnt FROM commentaries", (err, row) => {
-                if (!err && row && row.cnt === 0) {
-                    instance.run(`INSERT INTO commentaries (book, chapter, verse, author, commentary_text) VALUES 
-          ('JN', 3, 16, 'John Chrysostom', 'God so loved the world that He gave His only begotten Son. This is the supreme demonstration of sacrificial covenantal love (Agape).'),
-          ('JN', 3, 16, 'Matthew Henry', 'Faith in Christ is the single divine means of salvation from eternal ruin and receiving everlasting life.'),
-          ('PS', 23, 1, 'Ivan Ohiyenko', 'The Pastoral Psalm expresses absolute trust in God as the Caring Shepherd during times of testing.');`);
-                }
-            });
-            instance.get("SELECT COUNT(*) as cnt FROM semantic_concepts", (err, row) => {
-                if (!err && row && row.cnt === 0) {
-                    instance.run(`INSERT INTO semantic_concepts (concept_name, keywords, book, chapter, verse, theological_principle) VALUES 
-          ('anxiety', 'anxiety fear worry care distress', 'PHP', 4, 6, 'Be anxious for nothing, but in everything by prayer and supplication with thanksgiving let your requests be made known to God.'),
-          ('loneliness', 'lonely abandoned isolated alone', 'PS', 27, 10, 'When my father and my mother forsake me, then the Lord will take me up.'),
-          ('financial trials', 'money debt poverty scarcity risk', 'PROV', 13, 11, 'Wealth gained hastily will dwindle, but whoever gathers little by little will increase it.'),
-          ('forgiveness', 'offense anger forgive enemy grudge', 'EPH', 4, 32, 'Be kind to one another, tenderhearted, forgiving one another, even as God in Christ forgave you.');`);
-                }
-            });
+            if (isReadOnly) {
+                instance.run("PRAGMA query_only = ON;");
+            }
         }
         catch { }
     });
 }
 function createDbInstance(dbPath) {
     let instance;
+    const isReal = dbPath !== ':memory:' && isValidDb(dbPath);
     try {
-        instance = new sqlite3.Database(dbPath, (err) => {
-            if (err) {
-                console.error("[DATABASE ENGINE] Warning: SQLite connection error:", err.message);
-                dbHasVersesTable = false;
-                return;
-            }
-            if (dbPath !== ':memory:') {
+        if (isReal) {
+            instance = new sqlite3.Database(dbPath, sqlite3.OPEN_READONLY, (err) => {
+                if (err) {
+                    console.error("[DATABASE ENGINE] Warning: SQLite read-only connection error:", err.message);
+                    dbHasVersesTable = false;
+                    return;
+                }
                 instance.get("SELECT name FROM sqlite_master WHERE type='table' AND name='verses'", (e, row) => {
                     if (!e && row) {
                         dbHasVersesTable = true;
-                        console.error(`[DATABASE ENGINE] ⚡ Connected to offline Bible database: ${dbPath}`);
+                        console.error(`[DATABASE ENGINE] ⚡ Connected to offline Read-Only Bible database: ${dbPath}`);
                     }
                     else {
                         dbHasVersesTable = false;
                     }
                 });
-            }
-        });
+            });
+            configurePragmas(instance, true);
+        }
+        else {
+            instance = new sqlite3.Database(':memory:');
+            dbHasVersesTable = false;
+            configurePragmas(instance, false);
+        }
     }
     catch {
         instance = new sqlite3.Database(':memory:');
         dbHasVersesTable = false;
     }
-    configurePragmas(instance);
     return instance;
 }
 export let db = createDbInstance(canOpenRealDb ? DB_PATH : ':memory:');
@@ -115,10 +119,17 @@ export function checkAndHotMountDb() {
     lastDbCheckTime = now;
     if (checkRealDbPath()) {
         try {
+            const oldInstance = db;
             const newInstance = createDbInstance(DB_PATH);
             db = newInstance;
             canOpenRealDb = true;
             queryCache.clear();
+            if (oldInstance && typeof oldInstance.close === 'function') {
+                try {
+                    oldInstance.close();
+                }
+                catch (_) { }
+            }
             return true;
         }
         catch (_) { }
@@ -158,7 +169,9 @@ export function isDbReady() {
     return checkAndHotMountDb();
 }
 export async function queryDb(sql, params = [], maxRetries = 3) {
-    if (!dbHasVersesTable && (sql.includes('FROM verses') || sql.includes('verses_fts'))) {
+    const isAuxQuery = sql.includes('commentaries') || sql.includes('semantic_concepts');
+    const targetDb = isAuxQuery ? auxDb : db;
+    if (!isAuxQuery && !dbHasVersesTable && (sql.includes('FROM verses') || sql.includes('verses_fts'))) {
         checkAndHotMountDb();
         if (!dbHasVersesTable) {
             return [];
@@ -173,7 +186,7 @@ export async function queryDb(sql, params = [], maxRetries = 3) {
     while (attempt <= maxRetries) {
         try {
             const rows = await new Promise((resolve, reject) => {
-                db.all(sql, params, (err, rows) => {
+                targetDb.all(sql, params, (err, rows) => {
                     if (err)
                         return reject(err);
                     resolve(rows || []);

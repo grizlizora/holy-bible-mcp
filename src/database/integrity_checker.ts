@@ -18,8 +18,11 @@ export function checkSqliteHeader(filePath: string): { valid: boolean; error?: s
 
     const fd = fs.openSync(filePath, "r");
     const buffer = Buffer.alloc(100);
-    fs.readSync(fd, buffer, 0, 100, 0);
-    fs.closeSync(fd);
+    try {
+      fs.readSync(fd, buffer, 0, 100, 0);
+    } finally {
+      fs.closeSync(fd);
+    }
 
     const header = buffer.toString("utf8", 0, 15);
     if (header !== "SQLite format 3") {
@@ -59,13 +62,17 @@ export async function verifyDatabaseIntegrity(filePath: string, minSize: number 
   // 2. Check Trailing page readability
   try {
     const fd = fs.openSync(filePath, "r");
-    const tailBuffer = Buffer.alloc(512);
-    const offset = Math.max(0, stat.size - 512);
-    fs.readSync(fd, tailBuffer, 0, 512, offset);
-    fs.closeSync(fd);
+    try {
+      const tailBuffer = Buffer.alloc(512);
+      const offset = Math.max(0, stat.size - 512);
+      fs.readSync(fd, tailBuffer, 0, 512, offset);
+    } finally {
+      fs.closeSync(fd);
+    }
   } catch (err: any) {
     return { valid: false, error: `Truncated or unreadable trailing page: ${err.message}` };
   }
+
 
   // 3. Engine-level verification via sqlite3 PRAGMA quick_check
   return new Promise((resolve) => {

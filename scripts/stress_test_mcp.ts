@@ -51,13 +51,22 @@ interface TestCase {
 }
 
 async function runStressTest(): Promise<void> {
+  // 1. Initialize MCP handshake
+  await sendRequest("initialize", {
+    protocolVersion: "2024-11-05",
+    capabilities: {},
+    clientInfo: { name: "stress-tester", version: "2.0.0" }
+  });
+  child.stdin.write(JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }) + "\n");
+
   const testCases: TestCase[] = [
     { name: "Canonical Ukrainian Verse (JHN 3:16)", tool: "get_verse", args: { book: "JHN", chapter: 3, verse: 16, language: "ukr" } },
     { name: "Canonical English Verse (GEN 1:1)", tool: "get_verse", args: { book: "GEN", chapter: 1, verse: 1, language: "eng" } },
-    { name: "Ukrainian Keyword Search ('любов')", tool: "search_keyword", args: { query: "любов", language: "ukr" } },
-    { name: "English Keyword Search ('faith AND hope')", tool: "search_keyword", args: { query: "faith AND hope", language: "eng" } },
-    { name: "FTS Wildcard Search ('god*')", tool: "search_keyword", args: { query: "god*", language: "eng" } },
-    { name: "Spanish Keyword Search ('amor')", tool: "search_keyword", args: { query: "amor", language: "spa" } },
+    { name: "Ukrainian Keyword Search ('любов')", tool: "search_keyword", args: { keyword: "любов", language: "ukr" } },
+    { name: "English Keyword Search ('faith AND hope')", tool: "search_keyword", args: { keyword: "faith AND hope", language: "eng" } },
+    { name: "FTS Wildcard Search ('god*')", tool: "search_keyword", args: { keyword: "god*", language: "eng" } },
+    { name: "Spanish Keyword Search ('amor')", tool: "search_keyword", args: { keyword: "amor", language: "spa" } },
+
     { name: "Chapter Context (PS 23)", tool: "get_chapter_context", args: { book: "PS", chapter: 23, language: "eng" } },
     { name: "SQL Injection Test (' OR 1=1)", tool: "get_verse", args: { book: "' OR 1=1 --", chapter: 1, verse: 1 } },
     { name: "Invalid FTS Syntax Test (AND AND)", tool: "search_keyword", args: { query: "AND AND" } },

@@ -19,10 +19,12 @@ export const EXPECTED_DB_SIZE = 6_313_418_752; // ~5.88 GB
 export async function raceFastestMirrors(mirrors: string[], signal?: AbortSignal): Promise<string[]> {
   const checkPromises = mirrors.map(async (url) => {
     const start = Date.now();
+    const c = new AbortController();
+    let t: NodeJS.Timeout | null = null;
+    const onAbort = () => c.abort();
     try {
-      const c = new AbortController();
-      const t = setTimeout(() => c.abort(), 4000);
-      if (signal) signal.addEventListener("abort", () => c.abort(), { once: true });
+      t = setTimeout(() => c.abort(), 4000);
+      if (signal) signal.addEventListener("abort", onAbort, { once: true });
 
       const res = await fetch(url, {
         method: "HEAD",
@@ -30,11 +32,14 @@ export async function raceFastestMirrors(mirrors: string[], signal?: AbortSignal
         redirect: "follow",
         signal: c.signal
       });
-      clearTimeout(t);
       if (res.ok || res.status === 200 || res.status === 206) {
         return { url, latency: Date.now() - start, ok: true };
       }
-    } catch (_) {}
+    } catch (_) {
+    } finally {
+      if (t) clearTimeout(t);
+      if (signal) signal.removeEventListener("abort", onAbort);
+    }
     return { url, latency: 99999, ok: false };
   });
 
@@ -46,6 +51,7 @@ export async function raceFastestMirrors(mirrors: string[], signal?: AbortSignal
 
   return valid.length > 0 ? valid : mirrors;
 }
+
 
 export interface DownloadOptions {
   targetPath?: string;
@@ -151,14 +157,18 @@ export async function downloadDatabaseResumable(options: DownloadOptions = {}): 
       activeReader = reader;
 
       while (!isAborted) {
-        const readWithTimeout = Promise.race([
-          reader.read(),
-          new Promise<{ done: boolean; value?: any }>((_, reject) =>
-            setTimeout(() => reject(new Error("Socket stalled (chunk timeout)")), 15000)
-          )
-        ]);
+        let chunkTimer: NodeJS.Timeout | null = null;
+        let readResult: { done: boolean; value?: any };
+        try {
+          const timeoutPromise = new Promise<{ done: boolean; value?: any }>((_, reject) => {
+            chunkTimer = setTimeout(() => reject(new Error("Socket stalled (chunk timeout)")), 15000);
+          });
+          readResult = await Promise.race([reader.read(), timeoutPromise]);
+        } finally {
+          if (chunkTimer) clearTimeout(chunkTimer);
+        }
 
-        const { done, value } = await readWithTimeout;
+        const { done, value } = readResult;
         if (done) {
           success = true;
           break;
@@ -171,12 +181,20 @@ export async function downloadDatabaseResumable(options: DownloadOptions = {}): 
         }
       }
 
-      currentStream.end();
-      await new Promise<void>((resolve) => currentStream!.on("finish", () => resolve()));
+      if (currentStream && !currentStream.destroyed && !currentStream.closed) {
+        currentStream.end();
+        await new Promise<void>((resolve) => {
+          if (!currentStream || currentStream.writableEnded || currentStream.closed) return resolve();
+          currentStream.once("finish", () => resolve());
+          currentStream.once("close", () => resolve());
+          currentStream.once("error", () => resolve());
+        });
+      }
       currentStream = null;
       activeReader = null;
 
       if (success) break;
+
 
     } catch (err: any) {
       if (isAborted) break;

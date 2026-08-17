@@ -10,27 +10,25 @@ import {
 } from "./types.js";
 import { resolveDirectivesDbPath } from "./directive_path_resolver.js";
 import { loadDirectivesFromDb } from "./theological_tables.js";
+import { TheologicalKnowledgeStore } from "./theological_knowledge_store.js";
+import { TierResolver } from "./tier_resolver.js";
+import { WarmthResolver } from "./warmth_resolver.js";
+
+export * from "./theological_knowledge_store.js";
+export * from "./tier_resolver.js";
+export * from "./warmth_resolver.js";
 
 export class DirectiveStore {
   private static instance: DirectiveStore | null = null;
   private db: sqlite3.Database | null = null;
   public dbPath: string = "";
 
-  // In-Memory O(1) Index Maps for 0.0ms lookup
-  private tierMap = new Map<ModelTierKey, ModelTierDirective>();
-  private tierRanges: ModelTierDirective[] = [];
+  private tierResolver = new TierResolver();
+  private warmthResolver = new WarmthResolver();
+  private theologyStore = new TheologicalKnowledgeStore();
   private modeMap = new Map<ModeKey, ModeDirective>();
-  private warmthRanges: WarmthDirective[] = [];
   private metricsMap = new Map<string, MetricsSchema>();
   private modulesMap = new Map<string, string>();
-  private metadataMap = new Map<string, any>();
-
-  // Open-Source Theological Knowledge Tables loaded from SQLite
-  private translationsMap = new Map<string, any>();
-  private trenchMap = new Map<string, any>();
-  private propheciesList: any[] = [];
-  private thematicChainsMap = new Map<string, any[]>();
-
   private isInitialized = false;
 
   private constructor() {}
@@ -94,8 +92,8 @@ export class DirectiveStore {
           systemDirective: r.system_directive,
           thinkingDirective: r.thinking_directive
         };
-        this.tierMap.set(item.tierId, item);
-        this.tierRanges.push(item);
+        this.tierResolver.tierMap.set(item.tierId, item);
+        this.tierResolver.tierRanges.push(item);
       }
 
       // 2. Mode Directives
@@ -126,9 +124,9 @@ export class DirectiveStore {
           iconName: r.icon_name,
           tempDeltaBias: r.temp_delta_bias,
           labels: JSON.parse(r.labels_json || '{}'),
-          directives: JSON.parse(r.directives_json || '{}')
+          directives: JSON.parse(r.directive_text_json || r.directives_json || '{}')
         };
-        this.warmthRanges.push(item);
+        this.warmthResolver.warmthRanges.push(item);
       }
 
       // 4. Metrics Schemas
@@ -141,6 +139,8 @@ export class DirectiveStore {
           badgeTemplate: r.badge_template
         };
         this.metricsMap.set(item.languageCode, item);
+        if (item.languageCode === 'uk') this.metricsMap.set('ukr', item);
+        if (item.languageCode === 'en') this.metricsMap.set('eng', item);
       }
 
       // 5. Prompt Modules
@@ -154,7 +154,7 @@ export class DirectiveStore {
         if (r.details_json) {
           try { detailsObj = JSON.parse(r.details_json); } catch {}
         }
-        this.translationsMap.set(r.id.toUpperCase(), {
+        this.theologyStore.translationsMap.set(r.id.toUpperCase(), {
           id: r.id,
           name: r.name,
           language: r.language,
@@ -168,7 +168,7 @@ export class DirectiveStore {
 
       // 7. Trench Synonyms
       for (const r of data.synRows) {
-        this.trenchMap.set(r.strongs_id.toUpperCase(), {
+        this.theologyStore.trenchMap.set(r.strongs_id.toUpperCase(), {
           strongsId: r.strongs_id,
           greekLemma: r.greek_lemma,
           transliteration: r.transliteration,
@@ -180,36 +180,42 @@ export class DirectiveStore {
       }
 
       // 8. Messianic Prophecies
-      this.propheciesList = data.propRows.map((r: any) => ({
-        id: r.id,
-        topic: r.topic,
-        prophecy_ref: r.prophecy_ref,
-        fulfillment_ref: r.fulfillment_ref,
-        context_description: r.context_description,
-        theological_focus: r.theological_focus,
-        prophecy: { osis: r.prophecy_ref, text: r.context_description },
-        fulfillment: { osis: r.fulfillment_ref, text: r.theological_focus }
-      }));
+      this.theologyStore.propheciesList = data.propRows.map((r: any) => {
+        const pOsis = r.prophecy_osis || r.prophecy_ref || '';
+        const fOsis = r.fulfillment_osis || r.fulfillment_ref || '';
+        const pText = r.prophecy_text || r.context_description || '';
+        const fText = r.theological_significance || r.theological_focus || '';
+        return {
+          id: r.id,
+          topic: r.topic,
+          prophecy_ref: pOsis,
+          fulfillment_ref: fOsis,
+          context_description: pText,
+          theological_focus: fText,
+          prophecy: { osis: pOsis, text: pText },
+          fulfillment: { osis: fOsis, text: fText }
+        };
+      });
 
       // 9. Thematic Chains
       for (const r of data.chainRows) {
-        if (!this.thematicChainsMap.has(r.theme)) {
-          this.thematicChainsMap.set(r.theme, []);
+        if (!this.theologyStore.thematicChainsMap.has(r.theme)) {
+          this.theologyStore.thematicChainsMap.set(r.theme, []);
         }
-        this.thematicChainsMap.get(r.theme)!.push({
+        this.theologyStore.thematicChainsMap.get(r.theme)!.push({
           step: r.step_number,
-          ref: r.scripture_ref,
-          covenantStage: r.covenant_stage,
-          significance: r.significance
+          ref: r.osis || r.scripture_ref || '',
+          covenantStage: r.epoch || r.covenant_stage || '',
+          significance: r.theological_link || r.significance || ''
         });
       }
 
       // 10. Server Metadata
       for (const r of data.metaRows) {
         try {
-          this.metadataMap.set(r.key, JSON.parse(r.value_json));
+          this.theologyStore.metadataMap.set(r.key, JSON.parse(r.value_json));
         } catch {
-          this.metadataMap.set(r.key, r.value_json);
+          this.theologyStore.metadataMap.set(r.key, r.value_json);
         }
       }
 
@@ -219,133 +225,94 @@ export class DirectiveStore {
     } catch (err) {
       console.error(`[DIRECTIVE-ENGINE] ❌ Failed to load directives from SQLite:`, err);
       this.isInitialized = true;
+    } finally {
+      if (this.db) {
+        try {
+          this.db.close();
+          this.db = null;
+        } catch {}
+      }
     }
   }
 
   public getTranslations(): Record<string, any> {
-    const result: Record<string, any> = {};
-    for (const [k, v] of this.translationsMap.entries()) {
-      result[k] = v;
-    }
-    return result;
+    return this.theologyStore.getTranslations();
   }
 
   public getTranslation(id: string): any {
-    return this.translationsMap.get(id.toUpperCase());
+    return this.theologyStore.getTranslation(id);
   }
 
   public getTrenchSynonym(strongsId: string): any {
-    const norm = strongsId.trim().toUpperCase();
-    const letter = norm[0] || 'G';
-    const numPart = parseInt(norm.slice(1), 10) || 1;
-    const padded = letter + String(numPart).padStart(4, '0');
-    const raw = letter + String(numPart);
-    return this.trenchMap.get(padded) || this.trenchMap.get(raw) || this.trenchMap.get(norm);
+    return this.theologyStore.getTrenchSynonym(strongsId);
   }
 
   public getMessianicProphecies(topic?: string): any[] {
-    if (!topic || topic === 'all') return [...this.propheciesList];
-    const clean = topic.toLowerCase();
-    return this.propheciesList.filter(p => 
-      p.topic.toLowerCase().includes(clean) || 
-      p.prophecy.osis.toLowerCase().includes(clean) || 
-      p.fulfillment.osis.toLowerCase().includes(clean)
-    );
+    return this.theologyStore.getMessianicProphecies(topic);
   }
 
   public getThematicChain(theme: string): any[] {
-    const clean = theme.toLowerCase();
-    for (const [k, list] of this.thematicChainsMap.entries()) {
-      if (clean.includes(k) || k.includes(clean)) return list;
-    }
-    return this.thematicChainsMap.get("seed_of_faith") || [];
+    return this.theologyStore.getThematicChain(theme);
+  }
+
+  public getServerMetadata(key: string): any {
+    return this.theologyStore.getServerMetadata(key);
+  }
+
+  public getServerInfo(): any {
+    return this.theologyStore.getServerMetadata('server_info') || {};
+  }
+
+  public getSettingsMetadata(key: string): any {
+    return this.theologyStore.getServerMetadata(key);
+  }
+
+  public getTierDirective(tierKey: ModelTierKey): ModelTierDirective | undefined {
+    return this.tierResolver.getTierDirective(tierKey);
   }
 
   public resolveTierByParamSize(paramSizeB: number): ModelTierDirective {
-    for (const tier of this.tierRanges) {
-      if (paramSizeB >= tier.minParamSizeB && (tier.maxParamSizeB === null || paramSizeB < tier.maxParamSizeB)) {
-        return tier;
-      }
-    }
-    return this.tierMap.get('tier3') || this.tierRanges[this.tierRanges.length - 1];
+    return this.tierResolver.resolveTierByParamSize(paramSizeB);
   }
 
-  public getTier(tierId: ModelTierKey): ModelTierDirective | undefined {
-    return this.tierMap.get(tierId);
-  }
-
-  public getMode(modeKey: ModeKey): ModeDirective | undefined {
+  public getModeDirective(modeKey: ModeKey): ModeDirective | undefined {
     return this.modeMap.get(modeKey);
+  }
+
+  public getMode(modeKey: string): ModeDirective | undefined {
+    return this.modeMap.get(modeKey as ModeKey);
   }
 
   public getAllModes(): ModeDirective[] {
     return Array.from(this.modeMap.values());
   }
 
+  public resolveModeFromComplexity(complexityScore: number, paramSizeB?: number): string {
+    const sorted = Array.from(this.modeMap.values()).sort((a, b) => a.complexityMin - b.complexityMin);
+    for (const m of sorted) {
+      if (complexityScore >= m.complexityMin && complexityScore <= m.complexityMax) {
+        return m.modeKey;
+      }
+    }
+    return 'medium';
+  }
+
   public getAllWarmthRanges(): WarmthDirective[] {
-    return [...this.warmthRanges];
+    return this.warmthResolver.warmthRanges;
   }
 
-  public resolveModeFromComplexity(complexityScore: number, paramSizeB?: number): ModeKey {
-    let selected: ModeKey = 'medium';
-    for (const mode of this.modeMap.values()) {
-      if (complexityScore >= mode.complexityMin && complexityScore <= mode.complexityMax) {
-        selected = mode.modeKey;
-        break;
-      }
-    }
-    if (typeof paramSizeB === 'number' && paramSizeB <= 8.5 && selected === 'deep') {
-      return 'detailed';
-    }
-    return selected;
+  public resolveWarmth(score: number, lang = 'ukr') {
+    return this.warmthResolver.resolveWarmth(score, lang);
   }
 
-  public resolveWarmth(score: number = 80, lang: string = 'uk'): {
-    score: number;
-    label: string;
-    iconName: string;
-    tempDelta: number;
-    directive: string;
-  } {
-    const isUkr = lang === 'uk' || lang === 'ukr';
-    const langKey = isUkr ? 'uk' : (lang === 'ru' || lang === 'rus' ? 'ru' : 'en');
-
-    for (const range of this.warmthRanges) {
-      if (score >= range.minScore && score <= range.maxScore) {
-        return {
-          score,
-          label: range.labels[langKey] || range.labels['en'] || 'Warm',
-          iconName: range.iconName,
-          tempDelta: range.tempDeltaBias,
-          directive: range.directives[langKey] || range.directives['en'] || ''
-        };
-      }
-    }
-
-    const fallback = this.warmthRanges[2] || this.warmthRanges[0] || {
-      labels: { uk: 'Теплий', en: 'Warm', ru: 'Теплый' },
-      iconName: 'Flame',
-      tempDeltaBias: 0,
-      directives: { uk: 'Відповідайте з пасторською турботою.', en: 'Respond with pastoral warmth.', ru: 'Отвечайте с пасторской теплотой.' }
-    };
-    return {
-      score,
-      label: fallback.labels[langKey] || fallback.labels['en'] || 'Warm',
-      iconName: fallback.iconName || 'Flame',
-      tempDelta: fallback.tempDeltaBias || 0,
-      directive: fallback.directives[langKey] || fallback.directives['en'] || ''
-    };
-  }
-
-  public getMetricsSchema(lang: string = 'uk'): MetricsSchema {
-    const isUkr = lang === 'uk' || lang === 'ukr';
-    const langKey = isUkr ? 'uk' : (lang === 'ru' || lang === 'rus' ? 'ru' : 'en');
-    return this.metricsMap.get(langKey) || this.metricsMap.get('uk') || {
-      languageCode: 'uk',
-      complexityTitle: 'Складність',
-      modeTitle: 'Режим',
-      accuracyTitle: 'Точність',
-      badgeTemplate: '📊 **Складність:** `{complexity}/100` | ⚖️ **Режим:** `{mode}` | 🛡️ **Точність:** `{accuracy}`'
+  public getMetricsSchema(lang = 'ukr'): MetricsSchema {
+    const langKey = lang === 'eng' || lang === 'en' ? 'eng' : (lang === 'ru' ? 'ru' : 'ukr');
+    return this.metricsMap.get(langKey) || this.metricsMap.get('ukr') || {
+      languageCode: 'ukr',
+      complexityTitle: 'Складність запиту',
+      modeTitle: 'Режим аналізу',
+      accuracyTitle: 'Точність цитування',
+      badgeTemplate: '🎯 Калібрування'
     };
   }
 
@@ -355,20 +322,5 @@ export class DirectiveStore {
 
   public getPromptModule(moduleId: string): string | undefined {
     return this.modulesMap.get(moduleId);
-  }
-
-  public getServerInfo(): { name: string; description: string; version: string; server: string } {
-    const meta = this.metadataMap.get('server_info') || {};
-    return {
-      name: meta.name || 'Holy Bible MCP',
-      description: meta.description || 'Universal Multilingual Bible MCP Server',
-      version: meta.version || '2.0.0',
-      server: meta.server || 'holy-bible-mcp'
-    };
-  }
-
-  public getSettingsMetadata(settingId: string): any {
-    const meta = this.metadataMap.get('settings_metadata') || {};
-    return meta[settingId];
   }
 }

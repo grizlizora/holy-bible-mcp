@@ -20,8 +20,11 @@
     "start": "node build/index.js",
     "start:web": "npm --prefix client run start",
     "test": "npx tsx scripts/verify_v2.ts",
+    "test:sdk": "node scripts/test_live_sdk.js",
+    "test:stress_sdk": "node scripts/test_stress_sdk.js",
     "test:stress": "npx tsx scripts/stress_test_mcp.ts",
-    "test:local": "npx tsx scripts/test_mcp_locally.ts",
+    "test:local": "node scripts/test_live_sdk.js",
+
     "seed:directives": "npx tsx scripts/seed_directives_db.ts",
     "migrate:directives": "npx tsx scripts/migrate_sqlite_directives.ts",
     "migrate:osis": "npx tsx scripts/migrate_osis_to_sqlite.ts",

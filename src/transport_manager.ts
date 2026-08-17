@@ -15,6 +15,7 @@ export type ServerFactory = () => Server;
 export class TransportManager {
   private serverFactory: ServerFactory;
   private stdioServer: Server | null = null;
+  private stdioTransport: StdioServerTransport | null = null;
   private sseSessions: Map<string, { transport: SSEServerTransport; server: Server; res: http.ServerResponse }> = new Map();
   private httpServer: http.Server | null = null;
   private heartbeatInterval: NodeJS.Timeout | null = null;
@@ -36,9 +37,22 @@ export class TransportManager {
   private async startStdio(): Promise<void> {
     this.stdioServer = this.serverFactory();
     const stdioTransport = new StdioServerTransport();
+    this.stdioTransport = stdioTransport;
+
+    // 🛡️ Guard stdio streams against unhandled EPIPE / EOF errors
+    if (process.stdout && typeof process.stdout.on === "function") {
+      process.stdout.on("error", (err: any) => {
+        if (err.code === "EPIPE") {
+          process.exit(0);
+        }
+      });
+    }
+    if (process.stdin && typeof process.stdin.on === "function") {
+      process.stdin.on("error", () => {});
+    }
     
     stdioTransport.onerror = (err: Error) => {
-      console.error("[TRANSPORT STDIO ERROR]:", err);
+      console.error("[TRANSPORT STDIO ERROR]:", err?.message || err);
     };
     stdioTransport.onclose = () => {
       console.error("[TRANSPORT STDIO CLOSED]");
@@ -53,6 +67,18 @@ export class TransportManager {
 
   private async startSse(port: number, host: string): Promise<void> {
     this.httpServer = http.createServer(async (req, res) => {
+      // Guard response and request against unhandled socket errors
+      res.on("error", (err: any) => {
+        if (err.code !== "EPIPE" && err.code !== "ECONNRESET") {
+          console.warn("[TRANSPORT HTTP RES ERROR]:", err?.message || err);
+        }
+      });
+      req.on("error", (err: any) => {
+        if (err.code !== "ECONNRESET") {
+          console.warn("[TRANSPORT HTTP REQ ERROR]:", err?.message || err);
+        }
+      });
+
       // 1. Universal CORS Headers
       res.setHeader("Access-Control-Allow-Origin", "*");
       res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS, HEAD");
@@ -96,17 +122,34 @@ export class TransportManager {
         this.sseSessions.set(sessionId, { transport: sseTransport, server: sessionServer, res });
         console.error(`[TRANSPORT SSE] 🟢 Client connected. Session ID: ${sessionId} (Active: ${this.sseSessions.size})`);
 
-        const cleanup = () => {
+        let cleanedUp = false;
+        const cleanup = async () => {
+          if (cleanedUp) return;
+          cleanedUp = true;
           if (this.sseSessions.has(sessionId)) {
             this.sseSessions.delete(sessionId);
             console.error(`[TRANSPORT SSE] 🔴 Client disconnected. Session ID: ${sessionId} (Active: ${this.sseSessions.size})`);
           }
+          try {
+            await sseTransport.close();
+          } catch (_) {}
+          try {
+            await sessionServer.close();
+          } catch (_) {}
         };
 
         sseTransport.onclose = cleanup;
         res.on("close", cleanup);
+        res.on("error", cleanup);
+        req.on("close", cleanup);
+        req.on("error", cleanup);
 
-        await sessionServer.connect(sseTransport);
+        try {
+          await sessionServer.connect(sseTransport);
+        } catch (connErr: any) {
+          console.error(`[TRANSPORT SSE CONNECT ERROR]:`, connErr?.message || connErr);
+          await cleanup();
+        }
         return;
       }
 
@@ -155,13 +198,19 @@ export class TransportManager {
 
     // 15-second heartbeat keepalive to prevent proxy disconnects
     this.heartbeatInterval = setInterval(() => {
-      for (const [id, session] of this.sseSessions.entries()) {
+      for (const [id, session] of Array.from(this.sseSessions.entries())) {
         try {
-          if (session.res.writable) {
+          if (session.res.writable && !session.res.writableEnded) {
             session.res.write(": keepalive\n\n");
+          } else {
+            this.sseSessions.delete(id);
+            session.transport.close().catch(() => {});
+            session.server.close().catch(() => {});
           }
         } catch (_) {
           this.sseSessions.delete(id);
+          session.transport.close().catch(() => {});
+          session.server.close().catch(() => {});
         }
       }
     }, 15000);
@@ -173,16 +222,36 @@ export class TransportManager {
 
   public async shutdown(): Promise<void> {
     console.error("[TRANSPORT] Shutting down gracefully...");
-    if (this.heartbeatInterval) clearInterval(this.heartbeatInterval);
-    for (const [id, session] of this.sseSessions.entries()) {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+    }
+    for (const [id, session] of Array.from(this.sseSessions.entries())) {
       try {
         await session.transport.close();
+      } catch (_) {}
+      try {
+        await session.server.close();
       } catch (_) {}
     }
     this.sseSessions.clear();
 
+    if (this.stdioServer) {
+      try {
+        await this.stdioServer.close();
+      } catch (_) {}
+      this.stdioServer = null;
+    }
+    if (this.stdioTransport) {
+      try {
+        await this.stdioTransport.close();
+      } catch (_) {}
+      this.stdioTransport = null;
+    }
+
     if (this.httpServer) {
       await new Promise<void>((resolve) => this.httpServer!.close(() => resolve()));
+      this.httpServer = null;
     }
   }
 }

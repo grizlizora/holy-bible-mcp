@@ -149,7 +149,7 @@ export function getModelTier(paramSizeB: number | null | undefined): ModelTier {
   const size = typeof paramSizeB === 'number' && !isNaN(paramSizeB) ? paramSizeB : 14.0;
   if (size <= 8.5) return 'tier1';
   if (size <= 10.5) return 'tier1_5';
-  if (size <= 13.5) return 'tier2';
+  if (size <= 24.99) return 'tier2';
   return 'tier3';
 }
 

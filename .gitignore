@@ -44,3 +44,7 @@ scratch/
 .env
 *.env
 .mcp/
+*.apk
+app-debug.apk
+HolyBibleAI.apk
+P2P_MESH_MASTER_PLAN.md

@@ -6,9 +6,13 @@ import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+const PRIMARY_DB_PATH = path.resolve(__dirname, "../data/directives.sqlite");
 const TARGET_DB_PATHS = [
-  path.resolve(__dirname, "../data/directives.sqlite"),
+  PRIMARY_DB_PATH,
+  path.resolve(__dirname, "../client/data/directives.sqlite"),
   path.join(os.homedir(), ".mcp-hub", "servers", "Holy_Bible_MCP", "data", "directives.sqlite"),
+  path.join(os.homedir(), ".mcp-hub", "servers", "Holy_Bible_Mcp", "data", "directives.sqlite"),
+  path.join(os.homedir(), ".mcp-hub", "servers", "Holy_Bible_MCP", "code", "data", "directives.sqlite"),
   path.join(os.homedir(), ".bible-mcp", "directives.sqlite")
 ];
 
@@ -17,7 +21,9 @@ function seedDatabase(dbPath: string): Promise<void> {
     const dir = path.dirname(dbPath);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
-    if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
+    try {
+      if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
+    } catch (_) {}
 
     const db = new sqlite3.Database(dbPath, (err) => {
       if (err) return reject(err);
@@ -128,9 +134,9 @@ function seedDatabase(dbPath: string): Promise<void> {
         INSERT INTO model_tier_directives 
         (tier_id, name_display, min_param_size_b, max_param_size_b, default_num_ctx, default_num_predict, min_p, base_temp, top_p, repeat_penalty, frequency_penalty, presence_penalty, repeat_last_n, max_think_chars, supports_cot, max_allowed_mode, system_directive, thinking_directive)
         VALUES
-        ('tier1', 'Tier 1 (Small <=8.5B)', 0.0, 8.5, 4096, 2000, 0.07, 0.25, 0.85, 1.15, 0.08, 0.08, 256, 1500, 1, 'detailed',
-         '[TIER 1 COMPACT MODEL DIRECTIVE — CONCISE & STRUCTURAL]:\n• Focus on 1-2 core theological concepts with high factual precision.\n• Cite authentic Scripture verses from the provided canonical list (e.g. «...» — 1 Івана 4:8).\n• Use short, direct sentences with zero decorative filler, melodrama, or patronizing greetings.\n• Do NOT repeat phrases or enter generation loops.\n• Keep response clean, mature, and highly legible with concise Markdown headers.',
-         '<think>1. Identify the core intent of the question. 2. Select 1-2 key verses from the provided canonical list. 3. Formulate direct, clear points without verbosity. Keep reasoning strictly under 1500 characters.</think>'),
+        ('tier1', 'Tier 1 (Small <=8.5B)', 0.0, 8.5, 4096, 2000, 0.07, 0.25, 0.85, 1.15, 0.08, 0.08, 256, 0, 0, 'detailed',
+         '[TIER 1 COMPACT MODEL DIRECTIVE — CONCISE & STRUCTURAL]:\n• Focus on 1-2 core theological concepts with high factual precision.\n• Cite authentic Scripture verses from the provided canonical list (e.g. «...» — 1 Івана 4:8).\n• Use short, direct sentences with zero decorative filler, melodrama, or patronizing greetings.\n• Do NOT repeat phrases or enter generation loops.\n• Tone & Style: Direct, concise Markdown response. State the answer immediately.',
+         ''),
         ('tier1_5', 'Tier 1.5 (Compact Mid 8.5-10.5B)', 8.5, 10.5, 6144, 2500, 0.06, 0.30, 0.88, 1.12, 0.06, 0.06, 256, 2000, 1, 'deep',
          '[TIER 1.5 BALANCED COMPACT DIRECTIVE]:\n• Provide balanced structured reasoning with concise scripture etymology.\n• Break down theological meaning into 2-3 logical aspects.\n• Cite verified Scripture verses from the provided canonical list with brief theological explanation.\n• Conclude with an actionable practical life takeaway.\n• Avoid repetitive discourse, melodrama, and maintain disciplined Markdown structure.',
          '<think>1. Analyze question theological depth. 2. Map verified verses to biblical context. 3. Formulate concise linguistic insights. 4. Synthesize practical application.</think>'),

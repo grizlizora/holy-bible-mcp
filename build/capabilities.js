@@ -117,7 +117,7 @@ export function getModelTier(paramSizeB) {
         return 'tier1';
     if (size <= 10.5)
         return 'tier1_5';
-    if (size <= 13.5)
+    if (size <= 24.99)
         return 'tier2';
     return 'tier3';
 }

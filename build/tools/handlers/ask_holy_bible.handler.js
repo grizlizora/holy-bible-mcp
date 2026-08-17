@@ -1,6 +1,6 @@
 import { queryDb } from "../../database.js";
 import { resolveEffectiveMode } from "../../archetypes.js";
-import { estimatePromptComplexity } from "../../capabilities.js";
+import { estimatePromptComplexity, extractModelParamSizeB } from "../../capabilities.js";
 import { formatScriptureVerse } from "../../formatting.js";
 import { DirectiveStore } from "../../directives/directive_store.js";
 import { resolveLanguageCode, extractBiblicalSearchKeywords, getGlobalConfig } from "../../services/language_resolver.js";
@@ -22,9 +22,42 @@ export async function handleAskHolyBible(args) {
     const requestedMode = modesControlEnabled
         ? String(args?.mode || settings.detailLevel || globalConfig.mode)
         : 'unrestricted';
-    const paramSizeB = typeof args?.modelMetadata?.parameterSize === "number"
-        ? args.modelMetadata.parameterSize
-        : (typeof args?.parameter_size_b === "number" ? args.parameter_size_b : (args?.isSmallModel ? 4.7 : 14.0));
+    const parseParamSize = (val) => {
+        if (typeof val === 'number' && !isNaN(val) && val > 0)
+            return val;
+        if (typeof val === 'string' && val.trim()) {
+            const clean = val.trim().toLowerCase();
+            const parsed = parseFloat(clean);
+            if (!isNaN(parsed) && parsed > 0) {
+                return clean.includes('m') ? Math.round((parsed / 1000) * 100) / 100 : parsed;
+            }
+        }
+        return null;
+    };
+    const rawParamSize = parseParamSize(args?.parameter_size_b) ??
+        parseParamSize(args?.modelMetadata?.parameterSize) ??
+        parseParamSize(args?.modelMetadata?.parameter_size_b) ??
+        parseParamSize(args?.parameterSize) ??
+        parseParamSize(args?.paramSizeB);
+    let paramSizeB;
+    if (rawParamSize !== null) {
+        paramSizeB = rawParamSize;
+    }
+    else if (args?.isSmallModel === true || args?.modelMetadata?.isSmallModel === true) {
+        paramSizeB = 4.0;
+    }
+    else {
+        const rawModelName = (typeof args?.modelMetadata?.modelName === 'string' && args.modelMetadata.modelName) ? args.modelMetadata.modelName :
+            (typeof args?.selectedModel === 'string' && args.selectedModel) ? args.selectedModel :
+                (typeof args?.modelName === 'string' && args.modelName && args.modelName !== question) ? args.modelName :
+                    '';
+        if (rawModelName) {
+            paramSizeB = extractModelParamSizeB(rawModelName);
+        }
+        else {
+            paramSizeB = 14.0;
+        }
+    }
     const detectedLang = resolveLanguageCode(lang, question);
     const keywords = extractBiblicalSearchKeywords(question);
     let verses = [];
@@ -108,10 +141,13 @@ export async function handleAskHolyBible(args) {
     const groundingHeader = store.getPromptModule('grounding_header') || '[HOLY BIBLE MCP ACTIVE GROUNDING]:';
     const groundingSource = store.getPromptModule('grounding_source') || '• Grounding Source: SQLite Canonical Scripture Database (5.88 GB, FTS5 Zero-Latency)';
     const criticalRules = store.getPromptModule('critical_rules');
+    const isCotAllowed = Boolean(tier.supportsCot && tier.supportsCot !== 0);
     const groundingLines = [
         groundingHeader,
         `• Model Tier Calibration: ${tierName} (Detected: ${paramSizeB}B parameters)`,
-        supportsThinking ? `• Thinking Protocol (CoT): Active (<think> enabled for ${tierName})` : null,
+        isCotAllowed
+            ? `• Thinking Protocol (CoT): Active (<think> enabled for ${tierName})`
+            : `• Output Format: Direct, concise Markdown response.`,
         (warmthControlEnabled && sensInfo)
             ? `• Active Sensitivity & Warmth: ${sensInfo.score}% (${sensInfo.label})`
             : `• Warmth Control: DISABLED / OFF (Status: Inactive. If asked, report that Warmth Control is OFF and no sensitivity percentage applies).`,
@@ -156,6 +192,11 @@ export async function handleAskHolyBible(args) {
         contextText: fullContextText,
         complexityScore: complexityScoreObj.score,
         effectiveDetailLevel: effectiveMode,
+        modelTier: tier.tierId,
+        modelTierName: tierName,
+        detectedParamSize: paramSizeB,
+        supportsCot: isCotAllowed,
+        maxThinkChars: isCotAllowed ? (tier.maxThinkChars || 0) : 0,
         sensitivityProfile: sensInfo,
         accuracyScore: accuracyScoreStr,
         warmthControlActive: warmthControlEnabled,
