@@ -1,6 +1,10 @@
 import fs from "fs";
 import path from "path";
 import os from "os";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 function copyDirRecursive(src: string, dest: string): void {
   try {
@@ -22,8 +26,11 @@ function copyDirRecursive(src: string, dest: string): void {
 }
 
 function syncHubRuntime(): void {
-  const buildSrc = path.resolve(process.cwd(), "build");
-  const directivesSrc = path.resolve(process.cwd(), "data", "directives.sqlite");
+  const rootDir = path.resolve(__dirname, "..");
+  const buildSrc = path.join(rootDir, "build");
+  const directivesSrc = path.join(rootDir, "data", "directives.sqlite");
+  const manifestSrc = path.join(rootDir, "mcp-manifest.json");
+  const pkgSrc = path.join(rootDir, "package.json");
 
   const hubDirs: string[] = [
     path.join(os.homedir(), ".mcp-hub", "servers", "Holy_Bible_MCP"),
@@ -37,12 +44,19 @@ function syncHubRuntime(): void {
         if (fs.existsSync(path.join(hubDir, "code"))) {
           copyDirRecursive(buildSrc, targetBuild);
           console.log("[SYNC] Synced build -> " + targetBuild);
+
+          if (fs.existsSync(pkgSrc)) {
+            fs.copyFileSync(pkgSrc, path.join(hubDir, "code", "package.json"));
+          }
         }
         const targetData = path.join(hubDir, "data");
         fs.mkdirSync(targetData, { recursive: true });
         if (fs.existsSync(directivesSrc)) {
           fs.copyFileSync(directivesSrc, path.join(targetData, "directives.sqlite"));
           console.log("[SYNC] Synced directives.sqlite -> " + targetData);
+        }
+        if (fs.existsSync(manifestSrc)) {
+          fs.copyFileSync(manifestSrc, path.join(hubDir, "mcp-manifest.json"));
         }
       }
     } catch (_err) {

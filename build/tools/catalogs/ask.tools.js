@@ -6,14 +6,15 @@ export const ASK_TOOLS = [
             type: "object",
             properties: {
                 question: { type: "string", description: "The user's exact question or topic" },
+                userMessage: { type: "string", description: "The user's exact prompt or question" },
                 language: { type: "string", description: "3-letter language code ('ukr' for Ukrainian, 'eng' for English)" },
-                mode: { type: "string", description: "Response mode ('auto', 'verses_only', 'minimal', 'short', 'medium', 'detailed', 'deep')" },
+                mode: { type: "string", description: "Response mode ('auto', 'verses_only', 'minimal', 'short', 'medium', 'detailed', 'deep', 'unrestricted')" },
+                warmth: { type: "number", description: "Pastoral sensitivity and warmth level (0 to 100)" },
                 parameter_size_b: { type: "number", description: "Model parameter size in billions (e.g. 4.0, 8.0, 14.0)" },
                 modelName: { type: "string", description: "Selected model name identifier" },
                 isSmallModel: { type: "boolean", description: "Whether the executing model is a compact model" },
                 modelMetadata: { type: "object", description: "Optional execution context metadata" }
-            },
-            required: ["question"]
+            }
         }
     },
     {

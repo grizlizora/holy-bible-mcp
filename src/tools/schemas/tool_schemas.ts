@@ -9,14 +9,22 @@ const ParamSizeSchema = z.union([z.number(), z.string()]).optional().transform((
 });
 
 export const AskHolyBibleSchema = z.object({
-  question: z.string().min(1, "Question cannot be empty"),
+  question: z.string().optional(),
+  userMessage: z.string().optional(),
   language: z.string().optional().default("ukr"),
-  mode: z.enum(["auto", "verses_only", "minimal", "short", "medium", "detailed", "deep"]).optional().default("auto"),
+  lang: z.string().optional(),
+  mode: z.enum(["auto", "verses_only", "minimal", "short", "medium", "detailed", "deep", "unrestricted"]).optional().default("auto"),
+  warmth: z.number().min(0).max(100).optional(),
   parameter_size_b: ParamSizeSchema,
+  paramSizeB: ParamSizeSchema,
   modelName: z.string().optional(),
+  selectedModel: z.string().optional(),
   isSmallModel: z.boolean().optional(),
+  warmthControlEnabled: z.boolean().optional(),
+  modesControlEnabled: z.boolean().optional(),
+  settings: z.record(z.string(), z.any()).optional(),
   modelMetadata: z.record(z.string(), z.any()).optional()
-});
+}).passthrough();
 
 export const SearchKeywordSchema = z.object({
   keyword: z.string().min(1, "Keyword cannot be empty"),
