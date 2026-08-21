@@ -7,7 +7,17 @@ export async function handleGetCommentary(args) {
     const chapter = Number(args?.chapter || 1);
     const verse = Number(args?.verse || 1);
     const osisCode = OSIS_ALIAS_MAP[book] || book;
-    const rows = await queryDb(`SELECT author, commentary_text FROM commentaries WHERE (UPPER(book) = ? OR UPPER(book) = ?) AND chapter = ? AND verse = ?`, [osisCode, book, chapter, verse]);
+    let rows = await queryDb(`SELECT author, commentary_text, era FROM commentaries WHERE (UPPER(book) = ? OR UPPER(book) = ?) AND chapter = ? AND verse = ?`, [osisCode, book, chapter, verse]);
+    if (!rows || rows.length === 0) {
+        const storeCommentaries = DirectiveStore.getInstance().theologyRepo.getCommentaries(osisCode, chapter, verse);
+        if (storeCommentaries && storeCommentaries.length > 0) {
+            rows = storeCommentaries.map(c => ({
+                author: c.author,
+                era: c.era,
+                commentary_text: c.commentary_text
+            }));
+        }
+    }
     return {
         content: [{ type: "text", text: JSON.stringify(rows, null, 2) }]
     };

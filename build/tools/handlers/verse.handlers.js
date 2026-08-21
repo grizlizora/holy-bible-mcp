@@ -13,8 +13,8 @@ export async function handleGetVerse(args) {
     const lang = String(args?.language || "ukr");
     const ref = String(args?.reference || "").trim();
     if (ref && (!book || !chapter || !startVerse)) {
-        // 1. Standard "John 3:16" or "1 Cor 13:4-8"
-        const match = ref.match(/^((?:[1-4]\s*)?[\p{L}\p{N}]+)\s+(\d+)[:.]((\d+)(?:[-–—](\d+))?)$/u);
+        // 1. Standard "John 3:16" or "1 Cor 13:4-8" or "1JN.4.7"
+        const match = ref.match(/^((?:[1-4]\s*)?[\p{L}\p{N}]+)[\s.]+(\d+)[:.]((\d+)(?:[-–—](\d+))?)$/u);
         if (match) {
             book = match[1].toUpperCase();
             chapter = parseInt(match[2], 10);
@@ -23,7 +23,7 @@ export async function handleGetVerse(args) {
         }
         else {
             // 2. Single-chapter books like "Jude 5" or "Юди 5"
-            const singleMatch = ref.match(/^((?:[1-4]\s*)?[\p{L}\p{N}]+)\s+(\d+)$/u);
+            const singleMatch = ref.match(/^((?:[1-4]\s*)?[\p{L}\p{N}]+)[\s.]+(\d+)$/u);
             if (singleMatch) {
                 book = singleMatch[1].toUpperCase();
                 chapter = 1;
@@ -32,7 +32,8 @@ export async function handleGetVerse(args) {
             }
         }
     }
-    const osisCode = OSIS_ALIAS_MAP[book] || book;
+    const cleanBook = book.replace(/[\s.'’`-]/g, '');
+    const osisCode = OSIS_ALIAS_MAP[cleanBook] || OSIS_ALIAS_MAP[book] || book;
     if (SINGLE_CHAPTER_BOOKS.has(osisCode) && chapter === 0 && startVerse > 0) {
         chapter = 1;
     }

@@ -1,99 +1,38 @@
+/**
+ * 🔍 HybridSearchEngine (hybrid_search_engine.ts)
+ *
+ * Production Hybrid Search combining SQLite FTS5 (BM25 ranking),
+ * Reciprocal Rank Fusion (RRF), Ukrainian morphology stemmer,
+ * and in-memory MiniSearch fallback engine.
+ */
 import { queryDb } from "./database.js";
 import { formatBiblicalDisplayTitle } from "./osis_engine.js";
-/**
- * ⚡ Hybrid Semantic Search & Morphological Lemmatizer 2.0
- * Combines SQLite FTS5 BM25 lexical retrieval, Ukrainian irregular verb suppletion,
- * vowel/consonant alternation normalization, and intent-calibrated Reciprocal Rank Fusion (RRF).
- */
-export class UkrainianMorphologyEngine {
-    static IRREGULAR_VERB_MAP = {
-        'бути': ['є', 'був', 'була', 'було', 'були', 'буде', 'будуть', 'єсь', 'бувши', 'будемо'],
-        'іти': ['йшов', 'йшла', 'йшло', 'йшли', 'іду', 'ідеш', 'іде', 'ідемо', 'ідуть', 'пішов', 'пішла', 'пішли', 'піде'],
-        'дати': ['дам', 'даси', 'дасть', 'дамо', 'дасте', 'дадуть', 'давай', 'дав', 'дала'],
-        'їсти': ['їм', 'їси', 'їсть', 'їмо', 'їсте', 'їдять', 'їв', 'їла'],
-        'могти': ['можу', 'можеш', 'може', 'можемо', 'можуть', 'міг', 'могла', 'могли']
-    };
-    static NOUN_ENDINGS = /(?:ами|ями|ою|ею|єю|ові|еві|єві|ів|ев|єв|ей|ам|ям|ом|ем|єм|ах|ях|и|і|ї|е|є|у|ю|а|я|о)$/iu;
-    static VERB_ENDINGS = /(?:вшись|чись|тесь|тися|ться|тиму|тиме|тимеш|тимуть|лися|лась|лись|лося|ли|ла|ло|ти|ть|в|й|мо|те)$/iu;
-    static ADJ_ENDINGS = /(?:ими|іми|ого|ього|ому|ньому|им|ім|их|іх|ої|ьої|ій|а|я|е|є|і|и)$/iu;
-    static normalizeOrthography(text) {
-        return text
-            .toLowerCase()
-            .replace(/[\u0300-\u036f]/g, '')
-            .replace(/[’ʼ`"]/g, "'")
-            .replace(/ґ/g, 'г');
-    }
-    static extractStem(word) {
-        let w = this.normalizeOrthography(word);
-        if (w.length <= 3)
-            return w;
-        // 1. Check Irregular Suppletive Table
-        for (const [lemma, forms] of Object.entries(this.IRREGULAR_VERB_MAP)) {
-            if (forms.includes(w) || w === lemma)
-                return lemma;
-        }
-        // 2. Strip Postfix & Endings
-        w = w.replace(/(?:ся|сь)$/iu, '');
-        if (this.ADJ_ENDINGS.test(w)) {
-            w = w.replace(this.ADJ_ENDINGS, '');
-        }
-        else if (this.VERB_ENDINGS.test(w)) {
-            w = w.replace(this.VERB_ENDINGS, '');
-        }
-        else if (this.NOUN_ENDINGS.test(w)) {
-            w = w.replace(this.NOUN_ENDINGS, '');
-        }
-        return w.length >= 2 ? w : word.toLowerCase();
-    }
-    static generateFtsQuery(rawQuery) {
-        const tokens = rawQuery.trim().split(/\s+/).filter(t => t.length > 0);
-        const clauses = [];
-        for (const token of tokens) {
-            const clean = this.normalizeOrthography(token).replace(/[^\p{L}\p{N}]/gu, '');
-            if (clean.length < 2)
-                continue; // 🛡️ Prevent single punctuation chars from corrupting FTS5 syntax
-            const stem = this.extractStem(clean);
-            const alt = stem.replace(/і/g, 'о'); // Vowel alternation (кіт/кот, піч/печ)
-            const uniqueForms = new Set([clean, stem, alt].filter(f => f.length >= 2));
-            const disjunctions = Array.from(uniqueForms).map(f => `"${f}"*`);
-            clauses.push(`(${disjunctions.join(' OR ')})`);
-        }
-        return clauses.length > 0 ? clauses.join(' AND ') : '""';
-    }
-}
+import { UkrainianMorphologyEngine } from "./search/morphology/ukrainian_morphology_engine.js";
+import { RrfCalculator } from "./search/rrf_calculator.js";
+import { PastoralCounselMatcher } from "./search/pastoral_counsel_matcher.js";
+import { MiniSearchFallbackEngine } from "./search/minisearch_fallback_engine.js";
+export { UkrainianMorphologyEngine } from "./search/morphology/ukrainian_morphology_engine.js";
+export { RrfCalculator } from "./search/rrf_calculator.js";
+export { PastoralCounselMatcher } from "./search/pastoral_counsel_matcher.js";
 export class HybridSearchEngine {
     static instance;
+    miniSearchEngine;
+    constructor() {
+        this.miniSearchEngine = MiniSearchFallbackEngine.getInstance();
+    }
     static getInstance() {
         if (!HybridSearchEngine.instance) {
             HybridSearchEngine.instance = new HybridSearchEngine();
         }
         return HybridSearchEngine.instance;
     }
-    /**
-     * Classify user query intent for dynamic RRF parameter tuning
-     */
-    detectSearchIntent(query, mode) {
-        if (mode === 'exact' || /^["«].+[»"]$/.test(query.trim())) {
-            return { wLex: 0.85, wVec: 0.15, k: 12 };
-        }
-        if (mode === 'semantic') {
-            return { wLex: 0.20, wVec: 0.80, k: 35 };
-        }
-        const lower = query.toLowerCase();
-        const pastoralTriggers = ['страх', 'тривог', 'депрес', 'самотн', 'гнів', 'біль', 'помер', 'горе', 'anxiety', 'fear', 'grief'];
-        if (pastoralTriggers.some(t => lower.includes(t))) {
-            return { wLex: 0.25, wVec: 0.75, k: 25 };
-        }
-        return { wLex: 0.50, wVec: 0.50, k: 20 };
-    }
-    /**
-     * 🔍 Performs hybrid search combining FTS5 lexical ranking and conceptual relevance
-     */
     async searchScriptureHybrid(params) {
-        const { query, language = 'ukr', mode = 'balanced', topK = 10 } = params;
-        const { wLex, wVec, k } = this.detectSearchIntent(query, mode);
+        const { query, language = "ukr", mode = "balanced", topK = 10 } = params;
+        if (!query || !query.trim()) {
+            return { query: "", totalFound: 0, results: [] };
+        }
+        const rrfParams = RrfCalculator.detectSearchIntent(query, mode);
         const ftsQuery = UkrainianMorphologyEngine.generateFtsQuery(query);
-        // 1. Execute FTS5 Lexical Search with BM25
         let lexicalRows = [];
         try {
             lexicalRows = await queryDb(`SELECT v.id, v.book, v.chapter, v.verse, v.text, v.translation,
@@ -105,21 +44,43 @@ export class HybridSearchEngine {
          LIMIT 40`, [ftsQuery]);
         }
         catch (_) {
-            // Fallback to LIKE keyword search if FTS table match fails
-            const words = query.split(/\s+/).filter(w => w.length > 2);
-            const likeClause = words.map(() => 'text LIKE ?').join(' AND ');
-            const likeParams = words.map(w => `%${w}%`);
-            lexicalRows = await queryDb(`SELECT id, book, chapter, verse, text, translation, 0 as bm25_score
-         FROM verses 
-         WHERE ${likeClause || '1=1'} LIMIT 30`, likeParams);
+            // In-Memory MiniSearch fallback (<1.5ms) without blocking full-table LIKE scans
+            if (this.miniSearchEngine.hasIndex()) {
+                const miniResults = this.miniSearchEngine.search(query, 30);
+                lexicalRows = miniResults.map((m) => ({
+                    ...m,
+                    bm25_score: 0.5
+                }));
+            }
+            else {
+                // Safe indexed fallback
+                const words = query.split(/\s+/).filter((w) => w.length > 2);
+                if (words.length > 0) {
+                    const firstWord = words[0];
+                    try {
+                        lexicalRows = await queryDb(`SELECT id, book, chapter, verse, text, translation, 0 as bm25_score
+               FROM verses 
+               WHERE text LIKE ? LIMIT 30`, [`%${firstWord}%`]);
+                        if (lexicalRows.length > 0) {
+                            this.miniSearchEngine.addDocuments(lexicalRows.map((r) => ({
+                                id: String(r.id),
+                                book: r.book,
+                                chapter: r.chapter,
+                                verse: r.verse,
+                                text: r.text,
+                                translation: r.translation || "UBIO"
+                            })));
+                        }
+                    }
+                    catch (_) {
+                        lexicalRows = [];
+                    }
+                }
+            }
         }
-        // 2. Compute Reciprocal Rank Fusion (RRF) Scores
         const candidates = lexicalRows.map((r, index) => {
             const ftsRank = index + 1;
-            const bm25Raw = typeof r.bm25_score === 'number' && !isNaN(r.bm25_score) ? Math.abs(r.bm25_score) : 1;
-            const lexicalScore = wLex * (1 / (k + ftsRank));
-            const vectorScore = wVec * (1 / (k + Math.max(1, Math.round(ftsRank / (bm25Raw > 0 ? bm25Raw : 1)))));
-            const hybridScore = parseFloat((lexicalScore + vectorScore).toFixed(4));
+            const hybridScore = RrfCalculator.computeScore(ftsRank, r.bm25_score || 0.5, rrfParams);
             const displayTitle = formatBiblicalDisplayTitle(`${r.book} ${r.chapter}:${r.verse}`, language);
             return {
                 reference: displayTitle,
@@ -127,7 +88,7 @@ export class HybridSearchEngine {
                 chapter: r.chapter,
                 verse: r.verse,
                 text: r.text,
-                translation: r.translation || 'UBIO',
+                translation: r.translation || "UBIO",
                 hybridScore,
                 ftsRank,
                 theologicalContext: `Канонічна відповідність у книзі ${displayTitle}`
@@ -140,34 +101,15 @@ export class HybridSearchEngine {
             results: candidates.slice(0, topK)
         };
     }
-    /**
-     * 🕊️ Finds pastoral scriptures tailored to human emotional trials and life situations
-     */
-    async findByLifeSituation(situationDescription, emotion = 'auto', language = 'ukr') {
-        const isUkr = language === 'ukr' || language === 'uk';
-        const lower = situationDescription.toLowerCase();
-        let detectedEmotion = emotion !== 'auto' ? emotion : 'anxiety';
-        if (lower.includes('страх') || lower.includes('тривог') || lower.includes('боюсь') || lower.includes('fear') || lower.includes('anxiety')) {
-            detectedEmotion = 'anxiety_fear';
-        }
-        else if (lower.includes('сум') || lower.includes('втрат') || lower.includes('депрес') || lower.includes('grief') || lower.includes('sadness')) {
-            detectedEmotion = 'grief_sorrow';
-        }
-        else if (lower.includes('самотн') || lower.includes('один') || lower.includes('lonely') || lower.includes('alone')) {
-            detectedEmotion = 'loneliness';
-        }
-        else if (lower.includes('гнів') || lower.includes('образ') || lower.includes('пробач') || lower.includes('anger') || lower.includes('forgive')) {
-            detectedEmotion = 'anger_forgiveness';
-        }
+    async findByLifeSituation(situationDescription, emotion = "auto", language = "ukr") {
+        const detectedEmotion = PastoralCounselMatcher.matchEmotion(situationDescription, emotion);
         const { results } = await this.searchScriptureHybrid({
             query: situationDescription,
             language,
-            mode: 'balanced',
+            mode: "balanced",
             topK: 5
         });
-        const pastoralCounsel = isUkr
-            ? `У часи ${detectedEmotion === 'anxiety_fear' ? 'тривоги та невизначеності' : 'духовних випробувань'} Господь закликає нас спиратися на Його вірність: «Не бійся, бо Я з тобою!» (Ісая 41:10). Покладіть свій тягар на Христа у молитві з вірою.`
-            : `In moments of ${detectedEmotion}, scripture anchors our soul in God's sovereign care: "Cast your cares on the Lord and He will sustain you" (Psalm 55:22).`;
+        const pastoralCounsel = PastoralCounselMatcher.generatePastoralText(detectedEmotion, language);
         return {
             situation: situationDescription,
             emotion: detectedEmotion,

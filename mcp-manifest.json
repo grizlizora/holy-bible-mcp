@@ -35,39 +35,59 @@
       "options": [
         {
           "value": 0,
+          "iconName": "Snowflake",
           "label": {
             "uk": "Точний",
             "en": "Precise",
             "ru": "Точный"
           },
-          "iconName": "Snowflake"
+          "description": {
+            "uk": "Строгий фактологічний та екзегетичний аналіз",
+            "en": "Strict factual and exegetical analysis",
+            "ru": "Строгий фактологический и экзегетический анализ"
+          }
         },
         {
           "value": 50,
+          "iconName": "Scale",
           "label": {
             "uk": "Збалансований",
             "en": "Balanced",
             "ru": "Сбалансированный"
           },
-          "iconName": "Scale"
+          "description": {
+            "uk": "Гармонійне поєднання точності та пастирського тепла",
+            "en": "Harmonious blend of precision and pastoral warmth",
+            "ru": "Гармоничное сочетание точности и пастырского тепла"
+          }
         },
         {
           "value": 80,
+          "iconName": "Flame",
           "label": {
-            "uk": "Натхненний",
-            "en": "Inspired",
-            "ru": "Вдохновенный"
+            "uk": "Пастирський",
+            "en": "Pastoral",
+            "ru": "Пастырский"
           },
-          "iconName": "Flame"
+          "description": {
+            "uk": "Тепла пастирська емпатія, духовна підтримка та чуйність",
+            "en": "Pastoral empathy, spiritual care, and compassionate counsel",
+            "ru": "Теплая пастырская эмпатия, духовная поддержка и чуткость"
+          }
         },
         {
           "value": 100,
+          "iconName": "Sparkles",
           "label": {
-            "uk": "Глибока Любов",
-            "en": "Deep Love",
-            "ru": "Глубокая Любовь"
+            "uk": "Духовний",
+            "en": "Spiritual",
+            "ru": "Духовный"
           },
-          "iconName": "Sparkles"
+          "description": {
+            "uk": "Максимальна чуйність, молитовна підтримка та сердечність",
+            "en": "Maximum empathy, prayerful encouragement, and heartfelt care",
+            "ru": "Максимальная чуткость, молитвенная поддержка и сердечность"
+          }
         }
       ]
     },

@@ -14,11 +14,19 @@ const particleMap = {
     'ADV-S': 'Superlative Adverb', 'PRT': 'Particle', 'PRT-N': 'Negative Particle', 'COND': 'Conditional Particle',
     'INJ': 'Interjection', 'INT': 'Interjection'
 };
+const GREEK_PARSE_CACHE = new Map();
+const MAX_GREEK_CACHE = 5000;
 /**
- * 🔍 Parses Greek Robinson morphological codes into human-readable descriptions
+ * 🔍 Parses Greek Robinson morphological codes into human-readable descriptions (with 5,000 LRU Cache)
  */
 export function parseGreekMorphCode(code) {
     const raw = code.trim().toUpperCase();
+    if (GREEK_PARSE_CACHE.has(raw)) {
+        const cached = GREEK_PARSE_CACHE.get(raw);
+        GREEK_PARSE_CACHE.delete(raw);
+        GREEK_PARSE_CACHE.set(raw, cached);
+        return cached;
+    }
     const parts = raw.split('-');
     const basePos = parts[0];
     // 1. Verbs (e.g. V-AAI-3S, V-PAP-NSM, V-AAN)
@@ -114,7 +122,7 @@ export function parseGreekMorphCode(code) {
         const c = caseMap[cng[0]] || cng[0];
         const n = numberMap[cng[1]] || cng[1];
         const g = genderMap[cng[2]] || cng[2];
-        return {
+        const res = {
             code: raw,
             pos,
             caseGrammatical: c,
@@ -122,8 +130,22 @@ export function parseGreekMorphCode(code) {
             gender: g,
             description: `${pos} - ${c} ${g} ${n}`.trim()
         };
+        if (GREEK_PARSE_CACHE.size >= MAX_GREEK_CACHE) {
+            const oldest = GREEK_PARSE_CACHE.keys().next().value;
+            if (oldest)
+                GREEK_PARSE_CACHE.delete(oldest);
+        }
+        GREEK_PARSE_CACHE.set(raw, res);
+        return res;
     }
     // 5. Particles & Prepositions
     const desc = particleMap[raw] || raw;
-    return { code: raw, pos: desc, description: desc };
+    const res = { code: raw, pos: desc, description: desc };
+    if (GREEK_PARSE_CACHE.size >= MAX_GREEK_CACHE) {
+        const oldest = GREEK_PARSE_CACHE.keys().next().value;
+        if (oldest)
+            GREEK_PARSE_CACHE.delete(oldest);
+    }
+    GREEK_PARSE_CACHE.set(raw, res);
+    return res;
 }

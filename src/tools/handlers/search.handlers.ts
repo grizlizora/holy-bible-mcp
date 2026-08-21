@@ -3,6 +3,7 @@ import { formatScriptureVerse } from "../../formatting.js";
 import { resolveLanguageCode } from "../../services/language_resolver.js";
 import { fetchOnlineKeywordSearch } from "../../services/online_bible_fallback.js";
 import { HybridSearchEngine } from "../../hybrid_search_engine.js";
+import { DirectiveStore } from "../../directives/directive_store.js";
 
 export async function handleSearchKeyword(args: any) {
   const rawKeyword = String(args?.keyword || "").trim();
@@ -53,10 +54,24 @@ export async function handleSearchKeyword(args: any) {
 
 export async function handleSearchSemantic(args: any) {
   const concept = String(args?.concept || "").toLowerCase();
-  const rows = await queryDb(
+  let rows = await queryDb(
     `SELECT concept_name, book, chapter, verse, theological_principle FROM semantic_concepts WHERE LOWER(concept_name) LIKE ? OR LOWER(keywords) LIKE ? LIMIT 5`,
     [`%${concept}%`, `%${concept}%`]
   );
+
+  if (!rows || rows.length === 0) {
+    const storeConcepts = DirectiveStore.getInstance().theologyRepo.getSemanticConcepts(concept, 5);
+    if (storeConcepts && storeConcepts.length > 0) {
+      rows = storeConcepts.map(sc => ({
+        concept_name: sc.concept_name,
+        book: sc.book,
+        chapter: sc.chapter,
+        verse: sc.verse,
+        theological_principle: sc.theological_principle
+      }));
+    }
+  }
+
   return {
     content: [{ type: "text", text: JSON.stringify(rows, null, 2) }]
   };
@@ -65,10 +80,24 @@ export async function handleSearchSemantic(args: any) {
 export async function handleSearchTopic(args: any) {
   const topic = String(args?.topic || "").toLowerCase();
   const limit = typeof args?.limit === "number" ? args.limit : 5;
-  const rows = await queryDb(
+  let rows = await queryDb(
     `SELECT concept_name, book, chapter, verse, theological_principle FROM semantic_concepts WHERE LOWER(concept_name) LIKE ? OR LOWER(keywords) LIKE ? LIMIT ?`,
     [`%${topic}%`, `%${topic}%`, limit]
   );
+
+  if (!rows || rows.length === 0) {
+    const storeConcepts = DirectiveStore.getInstance().theologyRepo.getSemanticConcepts(topic, limit);
+    if (storeConcepts && storeConcepts.length > 0) {
+      rows = storeConcepts.map(sc => ({
+        concept_name: sc.concept_name,
+        book: sc.book,
+        chapter: sc.chapter,
+        verse: sc.verse,
+        theological_principle: sc.theological_principle
+      }));
+    }
+  }
+
   return {
     content: [{ type: "text", text: JSON.stringify(rows, null, 2) }]
   };

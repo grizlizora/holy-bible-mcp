@@ -15,16 +15,16 @@
   ],
   "scripts": {
     "dev": "npm --prefix client run dev",
-    "build": "rm -rf build && npx -y -p typescript tsc && cp src/data/osis_dictionary.json build/data/osis_dictionary.json 2>/dev/null || true",
+    "setup": "npx tsx setup.ts",
+    "build": "rm -rf build && tsc && cp src/data/osis_dictionary.json build/data/osis_dictionary.json 2>/dev/null || true && npx --prefix client tsx scripts/sync_hub_runtime.ts",
     "build:all": "npm run build && npm --prefix client run build",
     "start": "node build/index.js",
     "start:web": "npm --prefix client run start",
-    "test": "npx tsx scripts/verify_v2.ts",
+    "test": "npx --prefix client tsx scripts/verify_v2.ts",
     "test:sdk": "node scripts/test_live_sdk.js",
     "test:stress_sdk": "node scripts/test_stress_sdk.js",
     "test:stress": "npx tsx scripts/stress_test_mcp.ts",
     "test:local": "node scripts/test_live_sdk.js",
-
     "seed:directives": "npx tsx scripts/seed_directives_db.ts",
     "migrate:directives": "npx tsx scripts/migrate_sqlite_directives.ts",
     "migrate:osis": "npx tsx scripts/migrate_osis_to_sqlite.ts",
@@ -51,10 +51,20 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.1",
     "@xenova/transformers": "^2.17.2",
+    "better-sqlite3": "^13.0.3",
+    "diff": "^9.0.0",
+    "graphology": "^0.26.0",
+    "lru-cache": "^11.5.2",
+    "minisearch": "^7.2.0",
+    "piscina": "^5.3.0",
     "sqlite-vec": "^0.1.6",
-    "sqlite3": "^5.1.7"
+    "sqlite3": "^5.1.7",
+    "zod": "^4.4.3",
+    "zod-to-json-schema": "^3.25.2"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/diff": "^7.0.2",
     "@types/node": "^20.0.0",
     "@types/sqlite3": "^3.1.3",
     "typescript": "^5.4.5"

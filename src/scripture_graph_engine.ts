@@ -1,14 +1,9 @@
 import { queryDb } from "./database.js";
 import { OSIS_ALIAS_MAP } from "./data/osis_dictionary.js";
 import { formatBiblicalDisplayTitle } from "./osis_engine.js";
-import { DirectiveStore } from "./directives/directive_store.js";
-
-/**
- * 🔗 Biblical Cross-References Graph Engine (344,000+ TSK Links)
- * Traverses prophecy fulfillments, typology, doctrinal corroboration,
- * and synoptic parallels with multi-signal PageRank and anti-flooding ranking.
- * All graphs and thematic chains are dynamically resolved from SQLite.
- */
+import { TheologicalKnowledgeGraph } from "./graph/theological_graphology_engine.js";
+import { ThematicChainTracer, ThematicChainNode } from "./graph/thematic_chain_tracer.js";
+import { ProphecyFulfillmentMatcher, type ProphecyFulfillmentPair } from "./graph/prophecy_fulfillment_matcher.js";
 
 export type CrossReferenceCategory = 
   | 'messianic_prophecy'
@@ -29,36 +24,20 @@ export interface RankedCrossReference {
   theologicalSignificance?: string;
 }
 
-export interface ThematicChainNode {
-  step: number;
-  osis: string;
-  displayTitle: string;
-  epoch: string;
-  textSnippet: string;
-  theologicalLink: string;
-}
+export type { ThematicChainNode, ProphecyFulfillmentPair };
 
-export interface ProphecyFulfillmentPair {
-  topic: string;
-  topicTitle: string;
-  prophecy: {
-    osis: string;
-    displayTitle: string;
-    text: string;
-    epochBCE: string;
-  };
-  fulfillment: {
-    osis: string;
-    displayTitle: string;
-    text: string;
-    epochCE: string;
-  };
-  timeGapYears: number;
-  theologicalSignificance: string;
-}
-
+/**
+ * 🔗 Biblical Cross-References Graph Engine (344,000+ TSK Links)
+ * Traverses prophecy fulfillments, typology, doctrinal corroboration,
+ * and synoptic parallels with multi-signal PageRank and in-memory Graphology traversal.
+ */
 export class ScriptureGraphEngine {
   private static instance: ScriptureGraphEngine;
+  private graphologyEngine: TheologicalKnowledgeGraph;
+
+  constructor() {
+    this.graphologyEngine = TheologicalKnowledgeGraph.getInstance();
+  }
 
   public static getInstance(): ScriptureGraphEngine {
     if (!ScriptureGraphEngine.instance) {
@@ -68,7 +47,7 @@ export class ScriptureGraphEngine {
   }
 
   /**
-   * ⚡ Resolves top-ranked cross references with anti-flooding diversity filter
+   * ⚡ Resolves top-ranked cross references with in-memory Graphology O(1) traversal
    */
   public async getRankedCrossReferences(
     book: string,
@@ -83,77 +62,85 @@ export class ScriptureGraphEngine {
     const sourceOsis = `${osisBook}.${chapter}.${verse}`;
     const sourceTitle = formatBiblicalDisplayTitle(`${osisBook} ${chapter}:${verse}`, lang);
 
-    // 1. Check direct prophecy pairs from SQLite DirectiveStore
-    const prophecies = DirectiveStore.getInstance().getMessianicProphecies();
-    const matchedProphecy = prophecies.find(p => 
-      (p.prophecy?.osis && p.prophecy.osis.includes(sourceOsis)) || 
-      (p.fulfillment?.osis && p.fulfillment.osis.includes(sourceOsis)) ||
-      (p.prophecy_ref && p.prophecy_ref.includes(sourceOsis)) ||
-      (p.fulfillment_ref && p.fulfillment_ref.includes(sourceOsis))
-    );
-
-    // 2. Query Semantic & Thematic Graph Tables in SQLite
-    const rows = await queryDb(
-      `SELECT concept_name, book as target_book, chapter as target_chapter, verse as target_verse, theological_principle 
-       FROM semantic_concepts 
-       WHERE (UPPER(book) = ? AND chapter = ? AND verse = ?) 
-          OR (concept_name IN (SELECT concept_name FROM semantic_concepts WHERE UPPER(book) = ? AND chapter = ? AND verse = ?))
-       LIMIT 40`,
-      [osisBook, chapter, verse, osisBook, chapter, verse]
-    );
-
     const candidates: RankedCrossReference[] = [];
-
-    // Add prophecy pair if found
-    if (matchedProphecy) {
-      const isProphecySource = (matchedProphecy.prophecy?.osis || matchedProphecy.prophecy_ref || '').includes(sourceOsis);
-      const targetOsis = isProphecySource 
-        ? (matchedProphecy.fulfillment?.osis || matchedProphecy.fulfillment_ref || 'LUK.2.1')
-        : (matchedProphecy.prophecy?.osis || matchedProphecy.prophecy_ref || 'MIC.5.2');
-      const targetDisplay = formatBiblicalDisplayTitle(targetOsis, lang);
-      const text = isProphecySource 
-        ? (matchedProphecy.fulfillment?.text || matchedProphecy.theological_focus || '')
-        : (matchedProphecy.prophecy?.text || matchedProphecy.context_description || '');
-
-      candidates.push({
-        targetOsis,
-        targetDisplayTitle: targetDisplay,
-        targetText: text,
-        category: 'messianic_prophecy',
-        categoryLabel: lang === 'ukr' ? '📜 Месіанське пророцтво' : '📜 Messianic Prophecy',
-        compositeScore: 0.98,
-        theologicalSignificance: matchedProphecy.theologicalSignificance || matchedProphecy.theological_focus
-      });
-    }
-
-    // Process SQL concept rows
     const seenRefs = new Set<string>();
-    if (candidates.length > 0) seenRefs.add(candidates[0].targetOsis);
 
-    for (const r of rows) {
-      const targetOsis = `${r.target_book}.${r.target_chapter}.${r.target_verse}`;
-      if (targetOsis === sourceOsis || seenRefs.has(targetOsis)) continue;
-      seenRefs.add(targetOsis);
+    // 1. In-Memory Graphology traversal O(1)
+    const graphNeighbors = this.graphologyEngine.getNeighbors(sourceOsis, category, maxResults);
+    for (const neighbor of graphNeighbors) {
+      if (seenRefs.has(neighbor.targetOsis)) continue;
+      seenRefs.add(neighbor.targetOsis);
 
-      // Fetch target text
-      const targetVerseRows = await queryDb(
-        `SELECT text FROM verses WHERE UPPER(book) = ? AND chapter = ? AND verse = ? LIMIT 1`,
-        [r.target_book, r.target_chapter, r.target_verse]
-      );
-      const text = targetVerseRows[0]?.text || `[Scripture text for ${targetOsis}]`;
+      let text = `[Scripture text for ${neighbor.targetOsis}]`;
+      try {
+        const parts = neighbor.targetOsis.split(".");
+        if (parts.length >= 3) {
+          const rows = await queryDb(
+            `SELECT text FROM verses WHERE UPPER(book) = ? AND chapter = ? AND verse = ? LIMIT 1`,
+            [parts[0], Number(parts[1]), Number(parts[2])]
+          );
+          if (rows[0]?.text) {
+            text = rows[0].text;
+          }
+        }
+      } catch (_) {}
 
       candidates.push({
-        targetOsis,
-        targetDisplayTitle: formatBiblicalDisplayTitle(`${r.target_book} ${r.target_chapter}:${r.target_verse}`, lang),
+        targetOsis: neighbor.targetOsis,
+        targetDisplayTitle: formatBiblicalDisplayTitle(neighbor.targetOsis, lang),
         targetText: text,
-        category: 'doctrinal_corroboration',
-        categoryLabel: lang === 'ukr' ? '⚓ Доктринальна єдність' : '⚓ Doctrinal Unity',
-        compositeScore: 0.85,
-        theologicalSignificance: r.theological_principle || `Тематичний зв'язок з темою ${r.concept_name}`
+        category: neighbor.category as CrossReferenceCategory,
+        categoryLabel: neighbor.categoryLabel,
+        compositeScore: neighbor.weight,
+        theologicalSignificance: neighbor.theologicalSignificance
       });
     }
 
-    // Fallback if no specific rows found
+    // 2. Check direct prophecy pairs from ProphecyFulfillmentMatcher
+    if (candidates.length < maxResults) {
+      const matched = ProphecyFulfillmentMatcher.findMatchForOsis(sourceOsis, lang);
+      if (matched && !seenRefs.has(matched.targetOsis)) {
+        seenRefs.add(matched.targetOsis);
+        candidates.push(matched as RankedCrossReference);
+      }
+    }
+
+    // 3. Fallback to SQL Concept Rows if needed
+    if (candidates.length < maxResults) {
+      const rows = await queryDb(
+        `SELECT concept_name, book as target_book, chapter as target_chapter, verse as target_verse, theological_principle 
+         FROM semantic_concepts 
+         WHERE (UPPER(book) = ? AND chapter = ? AND verse = ?) 
+            OR (concept_name IN (SELECT concept_name FROM semantic_concepts WHERE UPPER(book) = ? AND chapter = ? AND verse = ?))
+         LIMIT 20`,
+        [osisBook, chapter, verse, osisBook, chapter, verse]
+      );
+
+      for (const r of rows) {
+        if (candidates.length >= maxResults) break;
+        const targetOsis = `${r.target_book}.${r.target_chapter}.${r.target_verse}`;
+        if (targetOsis === sourceOsis || seenRefs.has(targetOsis)) continue;
+        seenRefs.add(targetOsis);
+
+        const targetVerseRows = await queryDb(
+          `SELECT text FROM verses WHERE UPPER(book) = ? AND chapter = ? AND verse = ? LIMIT 1`,
+          [r.target_book, r.target_chapter, r.target_verse]
+        );
+        const text = targetVerseRows[0]?.text || `[Scripture text for ${targetOsis}]`;
+
+        candidates.push({
+          targetOsis,
+          targetDisplayTitle: formatBiblicalDisplayTitle(`${r.target_book} ${r.target_chapter}:${r.target_verse}`, lang),
+          targetText: text,
+          category: 'doctrinal_corroboration',
+          categoryLabel: lang === 'ukr' ? '⚓ Доктринальна єдність' : '⚓ Doctrinal Unity',
+          compositeScore: 0.85,
+          theologicalSignificance: r.theological_principle || `Тематичний зв'язок з темою ${r.concept_name}`
+        });
+      }
+    }
+
+    // 4. Default guaranteed theological anchor
     if (candidates.length === 0) {
       candidates.push({
         targetOsis: "JHN.3.16",
@@ -174,28 +161,9 @@ export class ScriptureGraphEngine {
   }
 
   /**
-   * 🔗 Traces progressive revelation covenant chain across Old and New Testaments from SQLite
+   * 🔗 Traces progressive revelation covenant chain across Old and New Testaments
    */
   public static async findThematicChain(theme = "living_water", startingVerse = "GEN.3.15"): Promise<ThematicChainNode[]> {
-    const rawChain = DirectiveStore.getInstance().getThematicChain(theme);
-    
-    if (!rawChain || rawChain.length === 0) {
-      return [
-        { step: 1, osis: "GEN.2.10", displayTitle: "Буття 2:10", epoch: "Едемський заповіт", textSnippet: "І річка виходила з Едему...", theologicalLink: "Початок джерела благодаті" },
-        { step: 2, osis: "EXO.17.6", displayTitle: "Вихід 17:6", epoch: "Заповіт Мойсея", textSnippet: "І вдариш у скелю, і піде з неї вода...", theologicalLink: "Христос як розбита скеля" },
-        { step: 3, osis: "JHN.4.14", displayTitle: "Івана 4:14", epoch: "Новий Заповіт", textSnippet: "Вода, що Я йому дам, стане в нім джерелом води, що тече в життя вічне.", theologicalLink: "Благодать Духа Святого" },
-        { step: 4, osis: "JHN.7.38", displayTitle: "Івана 7:38", epoch: "Новий Заповіт", textSnippet: "Ріки живої води потечуть із утроби його.", theologicalLink: "Переповнення віруючого Святим Духом" },
-        { step: 5, osis: "REV.22.1", displayTitle: "Об'явлення 22:1", epoch: "Вічне Царство", textSnippet: "І показав він мені чисту ріку живої води...", theologicalLink: "Остаточне звершення та вічне життя" }
-      ];
-    }
-
-    return rawChain.map((node: any) => ({
-      step: node.step,
-      osis: node.ref,
-      displayTitle: formatBiblicalDisplayTitle(node.ref, 'ukr'),
-      epoch: node.covenantStage || 'Біблійний етап',
-      textSnippet: `[Вірш ${node.ref}]`,
-      theologicalLink: node.significance || 'Прогресивне богословське розкриття теми'
-    }));
+    return ThematicChainTracer.traceChain(theme, startingVerse);
   }
 }

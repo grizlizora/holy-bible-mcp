@@ -1,3 +1,4 @@
+import { LRUCache } from "lru-cache";
 import { getBookNumber } from "../data/osis_dictionary.js";
 
 export const BOLLS_BOOK_MAP: Record<number, string> = {
@@ -13,10 +14,16 @@ export const BOLLS_BOOK_MAP: Record<number, string> = {
   65: "Jude", 66: "Rev"
 };
 
-// ⚡ Fast In-Memory LRU Cache for Online Queries (prevents redundant HTTP requests)
-const onlineVerseCache = new Map<string, { text: string; expiresAt: number }>();
-const onlineSearchCache = new Map<string, { results: any[]; expiresAt: number }>();
-const ONLINE_CACHE_TTL_MS = 3600_000; // 1 hour
+// ⚡ Bounded High-Performance LRU Cache (max 1000 items, 1h TTL) to eliminate memory leaks
+const onlineVerseCache = new LRUCache<string, string>({
+  max: 1000,
+  ttl: 3600_000
+});
+
+const onlineSearchCache = new LRUCache<string, any[]>({
+  max: 1000,
+  ttl: 3600_000
+});
 
 /**
  * 🌐 Multi-Provider Resilient Online Verse Resolver
@@ -25,8 +32,8 @@ const ONLINE_CACHE_TTL_MS = 3600_000; // 1 hour
 export async function fetchOnlineVerseText(osisCode: string, chapter: number, verse: number, lang: string): Promise<string | null> {
   const cacheKey = `${osisCode}:${chapter}:${verse}:${lang}`;
   const cached = onlineVerseCache.get(cacheKey);
-  if (cached && Date.now() < cached.expiresAt) {
-    return cached.text;
+  if (cached !== undefined) {
+    return cached;
   }
 
   const bookNum = getBookNumber(osisCode);
@@ -47,7 +54,7 @@ export async function fetchOnlineVerseText(osisCode: string, chapter: number, ve
       const data: any = await res.json();
       if (data?.text) {
         const cleanText = String(data.text).replace(/<[^>]+>/g, '').trim();
-        onlineVerseCache.set(cacheKey, { text: cleanText, expiresAt: Date.now() + ONLINE_CACHE_TTL_MS });
+        onlineVerseCache.set(cacheKey, cleanText);
         return cleanText;
       }
     }
@@ -63,7 +70,7 @@ export async function fetchOnlineVerseText(osisCode: string, chapter: number, ve
       const data: any = await resFallback.json();
       if (data?.text) {
         const cleanText = String(data.text).replace(/<[^>]+>/g, '').trim();
-        onlineVerseCache.set(cacheKey, { text: cleanText, expiresAt: Date.now() + ONLINE_CACHE_TTL_MS });
+        onlineVerseCache.set(cacheKey, cleanText);
         return cleanText;
       }
     }
@@ -104,8 +111,8 @@ export async function fetchOnlineChapterVerses(osisCode: string, chapter: number
 export async function fetchOnlineKeywordSearch(keyword: string, lang: string = "ukr", limit: number = 6): Promise<any[]> {
   const cacheKey = `${keyword}::${lang}::${limit}`;
   const cached = onlineSearchCache.get(cacheKey);
-  if (cached && Date.now() < cached.expiresAt) {
-    return cached.results;
+  if (cached !== undefined) {
+    return cached;
   }
 
   try {
@@ -139,7 +146,7 @@ export async function fetchOnlineKeywordSearch(keyword: string, lang: string = "
             score: 0.95
           };
         });
-        onlineSearchCache.set(cacheKey, { results, expiresAt: Date.now() + ONLINE_CACHE_TTL_MS });
+        onlineSearchCache.set(cacheKey, results);
         return results;
       }
     }

@@ -32,7 +32,7 @@ export function deriveModeFromComplexity(complexityScore: number, paramSizeB?: n
  */
 export function resolveEffectiveMode(currentModeKey: string, promptComplexityScore: number = 50, userPrompt: string = '', paramSizeB?: number): string {
   const normKey = (currentModeKey || 'auto').toLowerCase().trim();
-  if (normKey && normKey !== "auto") {
+  if (normKey && normKey !== "auto" && normKey !== "unrestricted") {
     return normKey;
   }
   const lower = (userPrompt || '').toLowerCase().trim();

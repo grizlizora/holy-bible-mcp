@@ -1,344 +1,1456 @@
 {
   "books": {
     "GEN": {
-      "names": { "ukr": "Буття", "eng": "Genesis", "rus": "Бытие", "spa": "Génesis", "deu": "1. Mose", "fra": "Genèse", "pol": "Księga Rodzaju" },
-      "aliases": ["GE", "GN", "GENESIS", "БУТ", "БУТТЯ", "БЫТ", "БЫТИЕ"]
+      "names": {
+        "ukr": "Буття",
+        "eng": "Genesis",
+        "rus": "Бытие",
+        "spa": "Génesis",
+        "deu": "1. Mose",
+        "fra": "Genèse",
+        "pol": "Księga Rodzaju"
+      },
+      "aliases": [
+        "GE",
+        "GN",
+        "GENESIS",
+        "БУТ",
+        "БУТТЯ",
+        "БЫТ",
+        "БЫТИЕ",
+        "КНИГАБУТТЯ",
+        "GEN"
+      ]
     },
     "EXO": {
-      "names": { "ukr": "Вихід", "eng": "Exodus", "rus": "Исход", "spa": "Éxodo", "deu": "2. Mose", "fra": "Exode", "pol": "Księga Wyjścia" },
-      "aliases": ["EX", "EXODUS", "ВИХ", "ВИХІД", "ИСХ", "ИСХОД"]
+      "names": {
+        "ukr": "Вихід",
+        "eng": "Exodus",
+        "rus": "Исход",
+        "spa": "Éxodo",
+        "deu": "2. Mose",
+        "fra": "Exode",
+        "pol": "Księga Wyjścia"
+      },
+      "aliases": [
+        "EX",
+        "EXODUS",
+        "ВИХ",
+        "ВИХІД",
+        "ИСХ",
+        "ИСХОД",
+        "КНИГАВИХОДУ",
+        "EXO"
+      ]
     },
     "LEV": {
-      "names": { "ukr": "Левіт", "eng": "Leviticus", "rus": "Левит", "spa": "Levítico", "deu": "3. Mose", "fra": "Lévitique", "pol": "Księga Kapłańska" },
-      "aliases": ["LE", "LV", "LEVITICUS", "ЛЕВ", "ЛЕВІТ", "ЛЕВИТ"]
+      "names": {
+        "ukr": "Левіт",
+        "eng": "Leviticus",
+        "rus": "Левит",
+        "spa": "Levítico",
+        "deu": "3. Mose",
+        "fra": "Lévitique",
+        "pol": "Księga Kapłańska"
+      },
+      "aliases": [
+        "LE",
+        "LV",
+        "LEVITICUS",
+        "ЛЕВ",
+        "ЛЕВІТ",
+        "ЛЕВИТ",
+        "КНИГАЛЕВІТ",
+        "LEV"
+      ]
     },
     "NUM": {
-      "names": { "ukr": "Числа", "eng": "Numbers", "rus": "Числа", "spa": "Números", "deu": "4. Mose", "fra": "Nombres", "pol": "Księga Liczb" },
-      "aliases": ["NU", "NM", "NUMBERS", "ЧИС", "ЧИСЛА"]
+      "names": {
+        "ukr": "Числа",
+        "eng": "Numbers",
+        "rus": "Числа",
+        "spa": "Números",
+        "deu": "4. Mose",
+        "fra": "Nombres",
+        "pol": "Księga Liczb"
+      },
+      "aliases": [
+        "NU",
+        "NM",
+        "NUMBERS",
+        "ЧИС",
+        "ЧИСЛА",
+        "ЧИСЕЛ",
+        "КНИГАЧИСЕЛ",
+        "NUM"
+      ]
     },
     "DEU": {
-      "names": { "ukr": "Повторення Закону", "eng": "Deuteronomy", "rus": "Второзаконие", "spa": "Deuteronomio", "deu": "5. Mose", "fra": "Deutéronome", "pol": "Księga Powtórzonego Prawa" },
-      "aliases": ["DT", "DEUTERONOMY", "ПОВ", "ПОВТОРЕННЯ", "ВТОР", "ВТОРОЗАКОНИЕ"]
+      "names": {
+        "ukr": "Повторення Закону",
+        "eng": "Deuteronomy",
+        "rus": "Второзаконие",
+        "spa": "Deuteronomio",
+        "deu": "5. Mose",
+        "fra": "Deutéronome",
+        "pol": "Księga Powtórzonego Prawa"
+      },
+      "aliases": [
+        "DT",
+        "DEUTERONOMY",
+        "ПОВ",
+        "ПОВТОРЕННЯ",
+        "ВТОР",
+        "ВТОРОЗАКОНИЕ",
+        "ПОВТОРЕННЯЗАКОНУ",
+        "DEU"
+      ]
     },
     "JOS": {
-      "names": { "ukr": "Ісуса Навина", "eng": "Joshua", "rus": "Иисус Навин", "spa": "Josué", "deu": "Josua", "fra": "Josué", "pol": "Księga Jozuego" },
-      "aliases": ["JOSH", "JOSHUA", "ІС", "НАВ", "ІСУС НАВИН"]
+      "names": {
+        "ukr": "Ісуса Навина",
+        "eng": "Joshua",
+        "rus": "Иисус Навин",
+        "spa": "Josué",
+        "deu": "Josua",
+        "fra": "Josué",
+        "pol": "Księga Jozuego"
+      },
+      "aliases": [
+        "JOSH",
+        "JOSHUA",
+        "ІС",
+        "НАВ",
+        "ІСУС НАВИН",
+        "ІСУСНАВИН",
+        "ІСУСАНАВИНА",
+        "НАВИН",
+        "НАВИНА",
+        "ИИСУСНАВИН",
+        "JOS"
+      ]
     },
     "JDG": {
-      "names": { "ukr": "Суддів", "eng": "Judges", "rus": "Судьи", "spa": "Jueces", "deu": "Richter", "fra": "Juges", "pol": "Księga Sędziów" },
-      "aliases": ["JUDG", "JUDGES", "СУД", "СУДДІВ", "СУДЬИ"]
+      "names": {
+        "ukr": "Суддів",
+        "eng": "Judges",
+        "rus": "Судьи",
+        "spa": "Jueces",
+        "deu": "Richter",
+        "fra": "Juges",
+        "pol": "Księga Sędziów"
+      },
+      "aliases": [
+        "JUDG",
+        "JUDGES",
+        "СУД",
+        "СУДДІВ",
+        "СУДЬИ",
+        "СУДДІ",
+        "КНИГАСУДДІВ",
+        "JDG"
+      ]
     },
     "RUT": {
-      "names": { "ukr": "Рут", "eng": "Ruth", "rus": "Руфь", "spa": "Rut", "deu": "Rut", "fra": "Ruth", "pol": "Księga Rut" },
-      "aliases": ["RU", "RUTH", "РУТ", "РУФЬ"]
+      "names": {
+        "ukr": "Рут",
+        "eng": "Ruth",
+        "rus": "Руфь",
+        "spa": "Rut",
+        "deu": "Rut",
+        "fra": "Ruth",
+        "pol": "Księga Rut"
+      },
+      "aliases": [
+        "RU",
+        "RUTH",
+        "РУТ",
+        "РУФЬ",
+        "RUT"
+      ]
     },
     "1SA": {
-      "names": { "ukr": "1 Самуїла", "eng": "1 Samuel", "rus": "1 Царств", "spa": "1 Samuel", "deu": "1. Samuel", "fra": "1 Samuel", "pol": "1 Księga Samuela" },
-      "aliases": ["1SAM", "1SAMUEL", "1САМ", "1САМУЇЛА"]
+      "names": {
+        "ukr": "1 Самуїла",
+        "eng": "1 Samuel",
+        "rus": "1 Царств",
+        "spa": "1 Samuel",
+        "deu": "1. Samuel",
+        "fra": "1 Samuel",
+        "pol": "1 Księga Samuela"
+      },
+      "aliases": [
+        "1SAM",
+        "1SAMUEL",
+        "1САМ",
+        "1САМУЇЛА",
+        "1САМУИЛА",
+        "1ЦАРСТВ",
+        "1SA"
+      ]
     },
     "2SA": {
-      "names": { "ukr": "2 Самуїла", "eng": "2 Samuel", "rus": "2 Царств", "spa": "2 Samuel", "deu": "2. Samuel", "fra": "2 Samuel", "pol": "2 Księga Samuela" },
-      "aliases": ["2SAM", "2SAMUEL", "2САМ", "2САМУЇЛА"]
+      "names": {
+        "ukr": "2 Самуїла",
+        "eng": "2 Samuel",
+        "rus": "2 Царств",
+        "spa": "2 Samuel",
+        "deu": "2. Samuel",
+        "fra": "2 Samuel",
+        "pol": "2 Księga Samuela"
+      },
+      "aliases": [
+        "2SAM",
+        "2SAMUEL",
+        "2САМ",
+        "2САМУЇЛА",
+        "2САМУИЛА",
+        "2ЦАРСТВ",
+        "2SA"
+      ]
     },
     "1KI": {
-      "names": { "ukr": "1 Царів", "eng": "1 Kings", "rus": "3 Царств", "spa": "1 Reyes", "deu": "1. Könige", "fra": "1 Rois", "pol": "1 Księga Królewska" },
-      "aliases": ["1KGS", "1KINGS", "1ЦАР", "1ЦАРІВ", "3ЦАР"]
+      "names": {
+        "ukr": "1 Царів",
+        "eng": "1 Kings",
+        "rus": "3 Царств",
+        "spa": "1 Reyes",
+        "deu": "1. Könige",
+        "fra": "1 Rois",
+        "pol": "1 Księga Królewska"
+      },
+      "aliases": [
+        "1KGS",
+        "1KINGS",
+        "1ЦАР",
+        "1ЦАРІВ",
+        "3ЦАР",
+        "3ЦАРСТВ",
+        "1KI"
+      ]
     },
     "2KI": {
-      "names": { "ukr": "2 Царів", "eng": "2 Kings", "rus": "4 Царств", "spa": "2 Reyes", "deu": "2. Könige", "fra": "2 Rois", "pol": "2 Księga Królewska" },
-      "aliases": ["2KGS", "2KINGS", "2ЦАР", "2ЦАРІВ", "4ЦАР"]
+      "names": {
+        "ukr": "2 Царів",
+        "eng": "2 Kings",
+        "rus": "4 Царств",
+        "spa": "2 Reyes",
+        "deu": "2. Könige",
+        "fra": "2 Rois",
+        "pol": "2 Księga Królewska"
+      },
+      "aliases": [
+        "2KGS",
+        "2KINGS",
+        "2ЦАР",
+        "2ЦАРІВ",
+        "4ЦАР",
+        "4ЦАРСТВ",
+        "2KI"
+      ]
     },
     "1CH": {
-      "names": { "ukr": "1 Хронік", "eng": "1 Chronicles", "rus": "1 Паралипоменон", "spa": "1 Crónicas", "deu": "1. Chronik", "fra": "1 Chroniques" },
-      "aliases": ["1CHR", "1CHRONICLES", "1ХР", "1ХРОНІК"]
+      "names": {
+        "ukr": "1 Хронік",
+        "eng": "1 Chronicles",
+        "rus": "1 Паралипоменон",
+        "spa": "1 Crónicas",
+        "deu": "1. Chronik",
+        "fra": "1 Chroniques"
+      },
+      "aliases": [
+        "1CHR",
+        "1CHRONICLES",
+        "1ХР",
+        "1ХРОНІК",
+        "1ПАРАЛИПОМЕНОН",
+        "1CH"
+      ]
     },
     "2CH": {
-      "names": { "ukr": "2 Хронік", "eng": "2 Chronicles", "rus": "2 Паралипоменон", "spa": "2 Crónicas", "deu": "2. Chronik", "fra": "2 Chroniques" },
-      "aliases": ["2CHR", "2CHRONICLES", "2ХР", "2ХРОНІК"]
+      "names": {
+        "ukr": "2 Хронік",
+        "eng": "2 Chronicles",
+        "rus": "2 Паралипоменон",
+        "spa": "2 Crónicas",
+        "deu": "2. Chronik",
+        "fra": "2 Chroniques"
+      },
+      "aliases": [
+        "2CHR",
+        "2CHRONICLES",
+        "2ХР",
+        "2ХРОНІК",
+        "2ПАРАЛИПОМЕНОН",
+        "2CH"
+      ]
     },
     "EZR": {
-      "names": { "ukr": "Ездри", "eng": "Ezra", "rus": "Ездра", "spa": "Esdras", "deu": "Esra", "fra": "Esdras" },
-      "aliases": ["EZRA", "ЕЗД", "ЕЗДРИ"]
+      "names": {
+        "ukr": "Ездри",
+        "eng": "Ezra",
+        "rus": "Ездра",
+        "spa": "Esdras",
+        "deu": "Esra",
+        "fra": "Esdras"
+      },
+      "aliases": [
+        "EZRA",
+        "ЕЗД",
+        "ЕЗДРИ",
+        "ЕЗДРА",
+        "EZR"
+      ]
     },
     "NEH": {
-      "names": { "ukr": "Неємії", "eng": "Nehemiah", "rus": "Неемия", "spa": "Nehemías", "deu": "Nehemia", "fra": "Néhémie" },
-      "aliases": ["NEHEMIAH", "НЕЄМ", "НЕЄМІЇ", "НЕЕМ"]
+      "names": {
+        "ukr": "Неємії",
+        "eng": "Nehemiah",
+        "rus": "Неемия",
+        "spa": "Nehemías",
+        "deu": "Nehemia",
+        "fra": "Néhémie"
+      },
+      "aliases": [
+        "NEHEMIAH",
+        "НЕЄМ",
+        "НЕЄМІЇ",
+        "НЕЕМ",
+        "НЕЄМІЯ",
+        "НЕЕМИЯ",
+        "NEH"
+      ]
     },
     "EST": {
-      "names": { "ukr": "Естер", "eng": "Esther", "rus": "Есфирь", "spa": "Ester", "deu": "Ester", "fra": "Esther" },
-      "aliases": ["ESTHER", "ЕСТ", "ЕСТЕР", "ЕСФ", "ЕСФИРЬ"]
+      "names": {
+        "ukr": "Естер",
+        "eng": "Esther",
+        "rus": "Есфирь",
+        "spa": "Ester",
+        "deu": "Ester",
+        "fra": "Esther"
+      },
+      "aliases": [
+        "ESTHER",
+        "ЕСТ",
+        "ЕСТЕР",
+        "ЕСФ",
+        "ЕСФИРЬ",
+        "EST"
+      ]
     },
     "JOB": {
-      "names": { "ukr": "Йова", "eng": "Job", "rus": "Иов", "spa": "Job", "deu": "Hiob", "fra": "Job" },
-      "aliases": ["ЙОВ", "ЙОВА", "ИОВ"]
+      "names": {
+        "ukr": "Йова",
+        "eng": "Job",
+        "rus": "Иов",
+        "spa": "Job",
+        "deu": "Hiob",
+        "fra": "Job"
+      },
+      "aliases": [
+        "ЙОВ",
+        "ЙОВА",
+        "ИОВ",
+        "JOB"
+      ]
     },
     "PSA": {
-      "names": { "ukr": "Псалом", "eng": "Psalms", "rus": "Псалтирь", "spa": "Salmos", "deu": "Psalmen", "fra": "Psaumes" },
-      "aliases": ["PS", "PSS", "PSALM", "PSALMS", "ПС", "ПСАЛОМ", "ПСАЛТИР", "ПСАЛМЫ"]
+      "names": {
+        "ukr": "Псалом",
+        "eng": "Psalms",
+        "rus": "Псалтирь",
+        "spa": "Salmos",
+        "deu": "Psalmen",
+        "fra": "Psaumes"
+      },
+      "aliases": [
+        "PS",
+        "PSS",
+        "PSALM",
+        "PSALMS",
+        "ПС",
+        "ПСАЛОМ",
+        "ПСАЛТИР",
+        "ПСАЛМЫ",
+        "ПСАЛМИ",
+        "ПСАЛМІВ",
+        "ПСАЛТИРЬ",
+        "PSA"
+      ]
     },
     "PRO": {
-      "names": { "ukr": "Приповісті", "eng": "Proverbs", "rus": "Притчи", "spa": "Proverbios", "deu": "Sprüche", "fra": "Proverbes" },
-      "aliases": ["PRV", "PROVERBS", "ПРИП", "ПРИПОВІСТІ", "ПРИТ", "ПРИТЧИ"]
+      "names": {
+        "ukr": "Приповісті",
+        "eng": "Proverbs",
+        "rus": "Притчи",
+        "spa": "Proverbios",
+        "deu": "Sprüche",
+        "fra": "Proverbes"
+      },
+      "aliases": [
+        "PRV",
+        "PROVERBS",
+        "ПРИП",
+        "ПРИПОВІСТІ",
+        "ПРИТ",
+        "ПРИТЧИ",
+        "ПРИПОВІСТЕЙ",
+        "ПРИТЧ",
+        "PRO"
+      ]
     },
     "ECC": {
-      "names": { "ukr": "Екклезіяст", "eng": "Ecclesiastes", "rus": "Екклесиаст", "spa": "Eclesiastés", "deu": "Prediger", "fra": "Ecclésiaste" },
-      "aliases": ["EC", "ECCLESIASTES", "ЕКК", "ЕККЛЕЗІЯСТ", "ЕККЛЕСИАСТ"]
+      "names": {
+        "ukr": "Екклезіяст",
+        "eng": "Ecclesiastes",
+        "rus": "Екклесиаст",
+        "spa": "Eclesiastés",
+        "deu": "Prediger",
+        "fra": "Ecclésiaste"
+      },
+      "aliases": [
+        "EC",
+        "ECCLESIASTES",
+        "ЕКК",
+        "ЕККЛЕЗІЯСТ",
+        "ЕККЛЕСИАСТ",
+        "ПРОПОВІДНИК",
+        "ECC"
+      ]
     },
     "SNG": {
-      "names": { "ukr": "Пісня Пісней", "eng": "Song of Solomon", "rus": "Песнь Песней", "spa": "Cantar de los Cantares", "deu": "Hohelied" },
-      "aliases": ["SONG", "SOS", "ПІСН", "ПЕСН"]
+      "names": {
+        "ukr": "Пісня Пісней",
+        "eng": "Song of Solomon",
+        "rus": "Песнь Песней",
+        "spa": "Cantar de los Cantares",
+        "deu": "Hohelied"
+      },
+      "aliases": [
+        "SONG",
+        "SOS",
+        "ПІСН",
+        "ПЕСН",
+        "ПІСНЯПІСНЕЙ",
+        "ПЕСНЬПЕСНЕЙ",
+        "SONGOFSONGS",
+        "SONGOFSOLOMON",
+        "SNG"
+      ]
     },
     "ISA": {
-      "names": { "ukr": "Ісаї", "eng": "Isaiah", "rus": "Исаия", "spa": "Isaías", "deu": "Jesaja", "fra": "Ésaïe" },
-      "aliases": ["ISAIAH", "ІСА", "ІСАЇ", "ИСА", "ИСАИЯ"]
+      "names": {
+        "ukr": "Ісаї",
+        "eng": "Isaiah",
+        "rus": "Исаия",
+        "spa": "Isaías",
+        "deu": "Jesaja",
+        "fra": "Ésaïe"
+      },
+      "aliases": [
+        "ISAIAH",
+        "ІСА",
+        "ІСАЇ",
+        "ИСА",
+        "ИСАИЯ",
+        "ІСАЯ",
+        "ІСАЙЯ",
+        "ИСАЙЯ",
+        "ISA"
+      ]
     },
     "JER": {
-      "names": { "ukr": "Єремії", "eng": "Jeremiah", "rus": "Иеремия", "spa": "Jeremías", "deu": "Jeremia", "fra": "Jérémie" },
-      "aliases": ["JEREMIAH", "ЄР", "ЄРЕМІЇ", "ИЕР", "ИЕРЕМИЯ"]
+      "names": {
+        "ukr": "Єремії",
+        "eng": "Jeremiah",
+        "rus": "Иеремия",
+        "spa": "Jeremías",
+        "deu": "Jeremia",
+        "fra": "Jérémie"
+      },
+      "aliases": [
+        "JEREMIAH",
+        "ЄР",
+        "ЄРЕМІЇ",
+        "ИЕР",
+        "ИЕРЕМИЯ",
+        "ЄРЕМІЯ",
+        "JER"
+      ]
     },
     "LAM": {
-      "names": { "ukr": "Плач Єремії", "eng": "Lamentations", "rus": "Плач Иеремии", "spa": "Lamentaciones", "deu": "Klagelieder" },
-      "aliases": ["LAMENTATIONS", "ПЛАЧ"]
+      "names": {
+        "ukr": "Плач Єремії",
+        "eng": "Lamentations",
+        "rus": "Плач Иеремии",
+        "spa": "Lamentaciones",
+        "deu": "Klagelieder"
+      },
+      "aliases": [
+        "LAMENTATIONS",
+        "ПЛАЧ",
+        "ПЛАЧЄРЕМІЇ",
+        "LAM"
+      ]
     },
     "EZK": {
-      "names": { "ukr": "Єзекіїля", "eng": "Ezekiel", "rus": "Иезекииль", "spa": "Ezequiel", "deu": "Hesekiel" },
-      "aliases": ["EZEK", "EZEKIEL", "ЄЗ", "ЄЗЕКІЇЛЯ", "ИЕЗ"]
+      "names": {
+        "ukr": "Єзекіїля",
+        "eng": "Ezekiel",
+        "rus": "Иезекииль",
+        "spa": "Ezequiel",
+        "deu": "Hesekiel"
+      },
+      "aliases": [
+        "EZEK",
+        "EZEKIEL",
+        "ЄЗ",
+        "ЄЗЕКІЇЛЯ",
+        "ИЕЗ",
+        "ЄЗЕКІЇЛЬ",
+        "ИЕЗЕКИИЛЬ",
+        "EZK"
+      ]
     },
     "DAN": {
-      "names": { "ukr": "Даниїла", "eng": "Daniel", "rus": "Даниил", "spa": "Daniel", "deu": "Daniel" },
-      "aliases": ["DANIEL", "ДАН", "ДАНИЇЛА", "ДАНИИЛ"]
+      "names": {
+        "ukr": "Даниїла",
+        "eng": "Daniel",
+        "rus": "Даниил",
+        "spa": "Daniel",
+        "deu": "Daniel"
+      },
+      "aliases": [
+        "DANIEL",
+        "ДАН",
+        "ДАНИЇЛА",
+        "ДАНИИЛ",
+        "ДАНИЇЛ",
+        "DAN"
+      ]
     },
     "HOS": {
-      "names": { "ukr": "Осії", "eng": "Hosea", "rus": "Осия", "spa": "Oseas", "deu": "Hosea" },
-      "aliases": ["HOSEA", "ОС", "ОСІЇ", "ОСИЯ"]
+      "names": {
+        "ukr": "Осії",
+        "eng": "Hosea",
+        "rus": "Осия",
+        "spa": "Oseas",
+        "deu": "Hosea"
+      },
+      "aliases": [
+        "HOSEA",
+        "ОС",
+        "ОСІЇ",
+        "ОСИЯ",
+        "ОСІЯ",
+        "HOS"
+      ]
     },
     "JOL": {
-      "names": { "ukr": "Йоіла", "eng": "Joel", "rus": "Иоиль", "spa": "Joel", "deu": "Joel" },
-      "aliases": ["JOEL", "ЙОІЛ", "ЙОІЛА", "ИОИЛЬ"]
+      "names": {
+        "ukr": "Йоіла",
+        "eng": "Joel",
+        "rus": "Иоиль",
+        "spa": "Joel",
+        "deu": "Joel"
+      },
+      "aliases": [
+        "JOEL",
+        "ЙОІЛ",
+        "ЙОІЛА",
+        "ИОИЛЬ",
+        "JOL"
+      ]
     },
     "AMO": {
-      "names": { "ukr": "Амоса", "eng": "Amos", "rus": "Амос", "spa": "Amós", "deu": "Amos" },
-      "aliases": ["AMOS", "АМ", "АМОС", "АМОСА"]
+      "names": {
+        "ukr": "Амоса",
+        "eng": "Amos",
+        "rus": "Амос",
+        "spa": "Amós",
+        "deu": "Amos"
+      },
+      "aliases": [
+        "AMOS",
+        "АМ",
+        "АМОС",
+        "АМОСА",
+        "AMO"
+      ]
     },
     "OBA": {
-      "names": { "ukr": "Овдія", "eng": "Obadiah", "rus": "Авдий", "spa": "Abdías", "deu": "Obadja" },
-      "aliases": ["OBADIAH", "ОВД", "ОВДІЯ", "АВД"]
+      "names": {
+        "ukr": "Овдія",
+        "eng": "Obadiah",
+        "rus": "Авдий",
+        "spa": "Abdías",
+        "deu": "Obadja"
+      },
+      "aliases": [
+        "OBADIAH",
+        "ОВД",
+        "ОВДІЯ",
+        "АВД",
+        "ОВДІЙ",
+        "АВДИЙ",
+        "OBA"
+      ]
     },
     "JON": {
-      "names": { "ukr": "Йони", "eng": "Jonah", "rus": "Иона", "spa": "Jonás", "deu": "Jona" },
-      "aliases": ["JONAH", "ЙОН", "ЙОНИ", "ИОНА"]
+      "names": {
+        "ukr": "Йони",
+        "eng": "Jonah",
+        "rus": "Иона",
+        "spa": "Jonás",
+        "deu": "Jona"
+      },
+      "aliases": [
+        "JONAH",
+        "ЙОН",
+        "ЙОНИ",
+        "ИОНА",
+        "ЙОНА",
+        "JON"
+      ]
     },
     "MIC": {
-      "names": { "ukr": "Михея", "eng": "Micah", "rus": "Михей", "spa": "Miqueas", "deu": "Micha" },
-      "aliases": ["MICAH", "МИХ", "МИХЕЯ", "МИХЕЙ"]
+      "names": {
+        "ukr": "Михея",
+        "eng": "Micah",
+        "rus": "Михей",
+        "spa": "Miqueas",
+        "deu": "Micha"
+      },
+      "aliases": [
+        "MICAH",
+        "МИХ",
+        "МИХЕЯ",
+        "МИХЕЙ",
+        "MIC"
+      ]
     },
     "NAM": {
-      "names": { "ukr": "Наума", "eng": "Nahum", "rus": "Наум", "spa": "Nahúm", "deu": "Nahum" },
-      "aliases": ["NAHUM", "НАУМ", "НАУМА"]
+      "names": {
+        "ukr": "Наума",
+        "eng": "Nahum",
+        "rus": "Наум",
+        "spa": "Nahúm",
+        "deu": "Nahum"
+      },
+      "aliases": [
+        "NAHUM",
+        "НАУМ",
+        "НАУМА",
+        "NAM"
+      ]
     },
     "HAB": {
-      "names": { "ukr": "Авакума", "eng": "Habakkuk", "rus": "Аввакум", "spa": "Habacuc", "deu": "Habakuk" },
-      "aliases": ["HABAKKUK", "АВАК", "АВАКУМА", "АВВАКУМ"]
+      "names": {
+        "ukr": "Авакума",
+        "eng": "Habakkuk",
+        "rus": "Аввакум",
+        "spa": "Habacuc",
+        "deu": "Habakuk"
+      },
+      "aliases": [
+        "HABAKKUK",
+        "АВАК",
+        "АВАКУМА",
+        "АВВАКУМ",
+        "АВАКУМ",
+        "HAB"
+      ]
     },
     "ZEP": {
-      "names": { "ukr": "Софонії", "eng": "Zephaniah", "rus": "Софония", "spa": "Sofonías", "deu": "Zefanja" },
-      "aliases": ["ZEPHANIAH", "СОФ", "СОФОНІЇ", "СОФОНИЯ"]
+      "names": {
+        "ukr": "Софонії",
+        "eng": "Zephaniah",
+        "rus": "Софония",
+        "spa": "Sofonías",
+        "deu": "Zefanja"
+      },
+      "aliases": [
+        "ZEPHANIAH",
+        "СОФ",
+        "СОФОНІЇ",
+        "СОФОНИЯ",
+        "СОФОНІЯ",
+        "ZEP"
+      ]
     },
     "HAG": {
-      "names": { "ukr": "Агея", "eng": "Haggai", "rus": "Аггей", "spa": "Hageo", "deu": "Haggai" },
-      "aliases": ["HAGGAI", "АГ", "АГЕЯ", "АГГЕЙ"]
+      "names": {
+        "ukr": "Агея",
+        "eng": "Haggai",
+        "rus": "Аггей",
+        "spa": "Hageo",
+        "deu": "Haggai"
+      },
+      "aliases": [
+        "HAGGAI",
+        "АГ",
+        "АГЕЯ",
+        "АГГЕЙ",
+        "АГЕЙ",
+        "HAG"
+      ]
     },
     "ZEC": {
-      "names": { "ukr": "Захарії", "eng": "Zechariah", "rus": "Захария", "spa": "Zacarías", "deu": "Sacharja" },
-      "aliases": ["ZECHARIAH", "ЗАХ", "ЗАХАРІЇ", "ЗАХАРИЯ"]
+      "names": {
+        "ukr": "Захарії",
+        "eng": "Zechariah",
+        "rus": "Захария",
+        "spa": "Zacarías",
+        "deu": "Sacharja"
+      },
+      "aliases": [
+        "ZECHARIAH",
+        "ЗАХ",
+        "ЗАХАРІЇ",
+        "ЗАХАРИЯ",
+        "ЗАХАРІЯ",
+        "ZEC"
+      ]
     },
     "MAL": {
-      "names": { "ukr": "Малахії", "eng": "Malachi", "rus": "Малахия", "spa": "Malaquías", "deu": "Maleachi" },
-      "aliases": ["MALACHI", "МАЛ", "МАЛАХІЇ", "МАЛАХИЯ"]
+      "names": {
+        "ukr": "Малахії",
+        "eng": "Malachi",
+        "rus": "Малахия",
+        "spa": "Malaquías",
+        "deu": "Maleachi"
+      },
+      "aliases": [
+        "MALACHI",
+        "МАЛ",
+        "МАЛАХІЇ",
+        "МАЛАХИЯ",
+        "МАЛАХІЯ",
+        "MAL"
+      ]
     },
     "MAT": {
-      "names": { "ukr": "Від Матвія", "eng": "Matthew", "rus": "От Матфея", "spa": "Mateo", "deu": "Matthäus" },
-      "aliases": ["MT", "MATTHEW", "МАТ", "МАТВІЯ", "МФ", "МАТФЕЙ"]
+      "names": {
+        "ukr": "Від Матвія",
+        "eng": "Matthew",
+        "rus": "От Матфея",
+        "spa": "Mateo",
+        "deu": "Matthäus"
+      },
+      "aliases": [
+        "MT",
+        "MATTHEW",
+        "МАТ",
+        "МАТВІЯ",
+        "МФ",
+        "МАТФЕЙ",
+        "МАТВІЙ",
+        "ВІДМАТВІЯ",
+        "ОТМАТФЕЯ",
+        "MAT"
+      ]
     },
     "MRK": {
-      "names": { "ukr": "Від Марка", "eng": "Mark", "rus": "От Марка", "spa": "Marcos", "deu": "Markus" },
-      "aliases": ["MK", "MARK", "МАР", "МАРКА", "МК"]
+      "names": {
+        "ukr": "Від Марка",
+        "eng": "Mark",
+        "rus": "От Марка",
+        "spa": "Marcos",
+        "deu": "Markus"
+      },
+      "aliases": [
+        "MK",
+        "MARK",
+        "МАР",
+        "МАРКА",
+        "МК",
+        "МАРК",
+        "ВІДМАРКА",
+        "ОТМАРКА",
+        "MRK"
+      ]
     },
     "LUK": {
-      "names": { "ukr": "Від Луки", "eng": "Luke", "rus": "От Луки", "spa": "Lucas", "deu": "Lukas" },
-      "aliases": ["LK", "LUKE", "ЛУК", "ЛУКИ", "ЛК"]
+      "names": {
+        "ukr": "Від Луки",
+        "eng": "Luke",
+        "rus": "От Луки",
+        "spa": "Lucas",
+        "deu": "Lukas"
+      },
+      "aliases": [
+        "LK",
+        "LUKE",
+        "ЛУК",
+        "ЛУКИ",
+        "ЛК",
+        "ЛУКА",
+        "ВІДЛУКИ",
+        "ОТЛУКИ",
+        "LUK"
+      ]
     },
     "JHN": {
-      "names": { "ukr": "Від Івана", "eng": "John", "rus": "От Иоанна", "spa": "Juan", "deu": "Johannes" },
-      "aliases": ["JN", "JOHN", "ІВ", "ІВАНА", "ІН", "ИН", "ИОАНН"]
+      "names": {
+        "ukr": "Від Івана",
+        "eng": "John",
+        "rus": "От Иоанна",
+        "spa": "Juan",
+        "deu": "Johannes"
+      },
+      "aliases": [
+        "JN",
+        "JOHN",
+        "ІВ",
+        "ІВАНА",
+        "ІН",
+        "ИН",
+        "ИОАНН",
+        "ІВАН",
+        "ВІДІВАНА",
+        "ОТИОАННА",
+        "JHN"
+      ]
     },
     "ACT": {
-      "names": { "ukr": "Діяння", "eng": "Acts", "rus": "Деяния", "spa": "Hechos", "deu": "Apostelgeschichte" },
-      "aliases": ["ACTS", "ДІЯ", "ДІЯННЯ", "ДЕЯ", "ДЕЯНИЯ"]
+      "names": {
+        "ukr": "Діяння",
+        "eng": "Acts",
+        "rus": "Деяния",
+        "spa": "Hechos",
+        "deu": "Apostelgeschichte"
+      },
+      "aliases": [
+        "ACTS",
+        "ДІЯ",
+        "ДІЯННЯ",
+        "ДЕЯ",
+        "ДЕЯНИЯ",
+        "ACT"
+      ]
     },
     "ROM": {
-      "names": { "ukr": "До Римлян", "eng": "Romans", "rus": "К Римлянам", "spa": "Romanos", "deu": "Römer" },
-      "aliases": ["ROMANS", "РИМ", "РИМЛЯНАМ"]
+      "names": {
+        "ukr": "До Римлян",
+        "eng": "Romans",
+        "rus": "К Римлянам",
+        "spa": "Romanos",
+        "deu": "Römer"
+      },
+      "aliases": [
+        "ROMANS",
+        "РИМ",
+        "РИМЛЯНАМ",
+        "РИМЛЯН",
+        "ДОРИМЛЯН",
+        "КРИМЛЯНАМ",
+        "ROM"
+      ]
     },
     "1CO": {
-      "names": { "ukr": "1 Коринфянам", "eng": "1 Corinthians", "rus": "1 Коринфянам", "spa": "1 Corintios", "deu": "1. Korinther" },
-      "aliases": ["1COR", "1CORINTHIANS", "1КОР", "1КОРИНФЯНАМ"]
+      "names": {
+        "ukr": "1 Коринфянам",
+        "eng": "1 Corinthians",
+        "rus": "1 Коринфянам",
+        "spa": "1 Corintios",
+        "deu": "1. Korinther"
+      },
+      "aliases": [
+        "1COR",
+        "1CORINTHIANS",
+        "1КОР",
+        "1КОРИНФЯНАМ",
+        "1КОРИНТЯНАМ",
+        "1CO"
+      ]
     },
     "2CO": {
-      "names": { "ukr": "2 Коринфянам", "eng": "2 Corinthians", "rus": "2 Коринфянам", "spa": "2 Corintios", "deu": "2. Korinther" },
-      "aliases": ["2COR", "2CORINTHIANS", "2КОР", "2КОРИНФЯНАМ"]
+      "names": {
+        "ukr": "2 Коринфянам",
+        "eng": "2 Corinthians",
+        "rus": "2 Коринфянам",
+        "spa": "2 Corintios",
+        "deu": "2. Korinther"
+      },
+      "aliases": [
+        "2COR",
+        "2CORINTHIANS",
+        "2КОР",
+        "2КОРИНФЯНАМ",
+        "2КОРИНТЯНАМ",
+        "2CO"
+      ]
     },
     "GAL": {
-      "names": { "ukr": "До Галатів", "eng": "Galatians", "rus": "К Галатам", "spa": "Gálatas", "deu": "Galater" },
-      "aliases": ["GALATIANS", "ГАЛ", "ГАЛАТАМ"]
+      "names": {
+        "ukr": "До Галатів",
+        "eng": "Galatians",
+        "rus": "К Галатам",
+        "spa": "Gálatas",
+        "deu": "Galater"
+      },
+      "aliases": [
+        "GALATIANS",
+        "ГАЛ",
+        "ГАЛАТАМ",
+        "ДОГАЛАТІВ",
+        "ДОГАЛАТ",
+        "КГАЛАТАМ",
+        "GAL"
+      ]
     },
     "EPH": {
-      "names": { "ukr": "До Ефесян", "eng": "Ephesians", "rus": "К Ефесянам", "spa": "Efesios", "deu": "Epheser" },
-      "aliases": ["EPHESIANS", "ЕФ", "ЕФЕСЯНАМ", "ЕФЕСЯН"]
+      "names": {
+        "ukr": "До Ефесян",
+        "eng": "Ephesians",
+        "rus": "К Ефесянам",
+        "spa": "Efesios",
+        "deu": "Epheser"
+      },
+      "aliases": [
+        "EPHESIANS",
+        "ЕФ",
+        "ЕФЕСЯНАМ",
+        "ЕФЕСЯН",
+        "ДОЕФЕСЯН",
+        "КЕФЕСЯНАМ",
+        "EPH"
+      ]
     },
     "PHP": {
-      "names": { "ukr": "До Филип'ян", "eng": "Philippians", "rus": "К Филиппийцам", "spa": "Filipenses", "deu": "Philipper" },
-      "aliases": ["PHIL", "PHILIPPIANS", "ФИЛ", "ФИЛИП'ЯНАМ", "ФИЛИППИЙЦАМ"]
+      "names": {
+        "ukr": "До Филип'ян",
+        "eng": "Philippians",
+        "rus": "К Филиппийцам",
+        "spa": "Filipenses",
+        "deu": "Philipper"
+      },
+      "aliases": [
+        "PHIL",
+        "PHILIPPIANS",
+        "ФИЛ",
+        "ФИЛИП'ЯНАМ",
+        "ФИЛИППИЙЦАМ",
+        "ФИЛИПЯНАМ",
+        "ФІЛІПІЙЦЯМ",
+        "PHP"
+      ]
     },
     "COL": {
-      "names": { "ukr": "До Колоссян", "eng": "Colossians", "rus": "К Колоссянам", "spa": "Colosenses", "deu": "Kolosser" },
-      "aliases": ["COLOSSIANS", "КОЛ", "КОЛОССЯНАМ", "КОЛОССЯН"]
+      "names": {
+        "ukr": "До Колоссян",
+        "eng": "Colossians",
+        "rus": "К Колоссянам",
+        "spa": "Colosenses",
+        "deu": "Kolosser"
+      },
+      "aliases": [
+        "COLOSSIANS",
+        "КОЛ",
+        "КОЛОССЯНАМ",
+        "КОЛОССЯН",
+        "ДОКОЛОССЯН",
+        "ККОЛОССЯНАМ",
+        "COL"
+      ]
     },
     "1TH": {
-      "names": { "ukr": "1 Солунянам", "eng": "1 Thessalonians", "rus": "1 Фессалоникийцам", "spa": "1 Tesalonicenses", "deu": "1. Thessalonicher" },
-      "aliases": ["1THESS", "1THESSALONIANS", "1СОЛ", "1СОЛУНЯНАМ", "1ФЕС"]
+      "names": {
+        "ukr": "1 Солунянам",
+        "eng": "1 Thessalonians",
+        "rus": "1 Фессалоникийцам",
+        "spa": "1 Tesalonicenses",
+        "deu": "1. Thessalonicher"
+      },
+      "aliases": [
+        "1THESS",
+        "1THESSALONIANS",
+        "1СОЛ",
+        "1СОЛУНЯНАМ",
+        "1ФЕС",
+        "1ФЕССАЛОНИКИЙЦАМ",
+        "1TH"
+      ]
     },
     "2TH": {
-      "names": { "ukr": "2 Солунянам", "eng": "2 Thessalonians", "rus": "2 Фессалоникийцам", "spa": "2 Tesalonicenses", "deu": "2. Thessalonicher" },
-      "aliases": ["2THESS", "2THESSALONIANS", "2СОЛ", "2СОЛУНЯНАМ", "2ФЕС"]
+      "names": {
+        "ukr": "2 Солунянам",
+        "eng": "2 Thessalonians",
+        "rus": "2 Фессалоникийцам",
+        "spa": "2 Tesalonicenses",
+        "deu": "2. Thessalonicher"
+      },
+      "aliases": [
+        "2THESS",
+        "2THESSALONIANS",
+        "2СОЛ",
+        "2СОЛУНЯНАМ",
+        "2ФЕС",
+        "2ФЕССАЛОНИКИЙЦАМ",
+        "2TH"
+      ]
     },
     "1TI": {
-      "names": { "ukr": "1 Тимофію", "eng": "1 Timothy", "rus": "1 Тимофею", "spa": "1 Timoteo", "deu": "1. Timotheus" },
-      "aliases": ["1TIM", "1TIMOTHY", "1ТИМ", "1ТИМОФІЮ", "1ТИМОФЕЮ"]
+      "names": {
+        "ukr": "1 Тимофію",
+        "eng": "1 Timothy",
+        "rus": "1 Тимофею",
+        "spa": "1 Timoteo",
+        "deu": "1. Timotheus"
+      },
+      "aliases": [
+        "1TIM",
+        "1TIMOTHY",
+        "1ТИМ",
+        "1ТИМОФІЮ",
+        "1ТИМОФЕЮ",
+        "1TI"
+      ]
     },
     "2TI": {
-      "names": { "ukr": "2 Тимофію", "eng": "2 Timothy", "rus": "2 Тимофею", "spa": "2 Timoteo", "deu": "2. Timotheus" },
-      "aliases": ["2TIM", "2TIMOTHY", "2ТИМ", "2ТИМОФІЮ", "2ТИМОФЕЮ"]
+      "names": {
+        "ukr": "2 Тимофію",
+        "eng": "2 Timothy",
+        "rus": "2 Тимофею",
+        "spa": "2 Timoteo",
+        "deu": "2. Timotheus"
+      },
+      "aliases": [
+        "2TIM",
+        "2TIMOTHY",
+        "2ТИМ",
+        "2ТИМОФІЮ",
+        "2ТИМОФЕЮ",
+        "2TI"
+      ]
     },
     "TIT": {
-      "names": { "ukr": "До Тита", "eng": "Titus", "rus": "К Титу", "spa": "Tito", "deu": "Titus" },
-      "aliases": ["TITUS", "ТИТ", "ТИТА"]
+      "names": {
+        "ukr": "До Тита",
+        "eng": "Titus",
+        "rus": "К Титу",
+        "spa": "Tito",
+        "deu": "Titus"
+      },
+      "aliases": [
+        "TITUS",
+        "ТИТ",
+        "ТИТА",
+        "ТИТУ",
+        "ДОТИТА",
+        "КТИТУ",
+        "TIT"
+      ]
     },
     "PHM": {
-      "names": { "ukr": "До Филимона", "eng": "Philemon", "rus": "К Филимону", "spa": "Filemón", "deu": "Philemon" },
-      "aliases": ["PHILEM", "PHILEMON", "ФИЛЕМ", "ФИЛИМОНА"]
+      "names": {
+        "ukr": "До Филимона",
+        "eng": "Philemon",
+        "rus": "К Филимону",
+        "spa": "Filemón",
+        "deu": "Philemon"
+      },
+      "aliases": [
+        "PHILEM",
+        "PHILEMON",
+        "ФИЛЕМ",
+        "ФИЛИМОНА",
+        "ФИЛИМОНУ",
+        "КФИЛИМОНУ",
+        "PHM"
+      ]
     },
     "HEB": {
-      "names": { "ukr": "До Євреїв", "eng": "Hebrews", "rus": "К Евреям", "spa": "Hebreos", "deu": "Hebräer" },
-      "aliases": ["HEBREWS", "ЄВР", "ЄВРЕЇВ", "ЕВР", "ЕВРЕЯМ"]
+      "names": {
+        "ukr": "До Євреїв",
+        "eng": "Hebrews",
+        "rus": "К Евреям",
+        "spa": "Hebreos",
+        "deu": "Hebräer"
+      },
+      "aliases": [
+        "HEBREWS",
+        "ЄВР",
+        "ЄВРЕЇВ",
+        "ЕВР",
+        "ЕВРЕЯМ",
+        "ЄВРЕЯМ",
+        "ДОЄВРЕЇВ",
+        "КЕВРЕЯМ",
+        "HEB"
+      ]
     },
     "JAS": {
-      "names": { "ukr": "Якова", "eng": "James", "rus": "Иакова", "spa": "Santiago", "deu": "Jakobus" },
-      "aliases": ["JAMES", "ЯК", "ЯКОВА", "ИАК", "ИАКОВА"]
+      "names": {
+        "ukr": "Якова",
+        "eng": "James",
+        "rus": "Иакова",
+        "spa": "Santiago",
+        "deu": "Jakobus"
+      },
+      "aliases": [
+        "JAMES",
+        "ЯК",
+        "ЯКОВА",
+        "ИАК",
+        "ИАКОВА",
+        "ЯКІВ",
+        "ИАКОВ",
+        "JAS"
+      ]
     },
     "1PE": {
-      "names": { "ukr": "1 Петра", "eng": "1 Peter", "rus": "1 Петра", "spa": "1 Pedro", "deu": "1. Petrus" },
-      "aliases": ["1PET", "1PETER", "1ПЕТ", "1ПЕТРА"]
+      "names": {
+        "ukr": "1 Петра",
+        "eng": "1 Peter",
+        "rus": "1 Петра",
+        "spa": "1 Pedro",
+        "deu": "1. Petrus"
+      },
+      "aliases": [
+        "1PET",
+        "1PETER",
+        "1ПЕТ",
+        "1ПЕТРА",
+        "1ПЕТРО",
+        "1ПЕТР",
+        "1PE"
+      ]
     },
     "2PE": {
-      "names": { "ukr": "2 Петра", "eng": "2 Peter", "rus": "2 Петра", "spa": "2 Pedro", "deu": "2. Petrus" },
-      "aliases": ["2PET", "2PETER", "2ПЕТ", "2ПЕТРА"]
+      "names": {
+        "ukr": "2 Петра",
+        "eng": "2 Peter",
+        "rus": "2 Петра",
+        "spa": "2 Pedro",
+        "deu": "2. Petrus"
+      },
+      "aliases": [
+        "2PET",
+        "2PETER",
+        "2ПЕТ",
+        "2ПЕТРА",
+        "2ПЕТРО",
+        "2ПЕТР",
+        "2PE"
+      ]
     },
     "1JN": {
-      "names": { "ukr": "1 Івана", "eng": "1 John", "rus": "1 Иоанна", "spa": "1 Juan", "deu": "1. Johannes" },
-      "aliases": ["1JOHN", "1ІВ", "1ІВАНА", "1ИН", "1ИОАННА"]
+      "names": {
+        "ukr": "1 Івана",
+        "eng": "1 John",
+        "rus": "1 Иоанна",
+        "spa": "1 Juan",
+        "deu": "1. Johannes"
+      },
+      "aliases": [
+        "1JOHN",
+        "1ІВ",
+        "1ІВАНА",
+        "1ИН",
+        "1ИОАННА",
+        "1ІВАН",
+        "1ИОАНН",
+        "1JN"
+      ]
     },
     "2JN": {
-      "names": { "ukr": "2 Івана", "eng": "2 John", "rus": "2 Иоанна", "spa": "2 Juan", "deu": "2. Johannes" },
-      "aliases": ["2JOHN", "2ІВ", "2ІВАНА", "2ИН", "2ИОАННА"]
+      "names": {
+        "ukr": "2 Івана",
+        "eng": "2 John",
+        "rus": "2 Иоанна",
+        "spa": "2 Juan",
+        "deu": "2. Johannes"
+      },
+      "aliases": [
+        "2JOHN",
+        "2ІВ",
+        "2ІВАНА",
+        "2ИН",
+        "2ИОАННА",
+        "2ІВАН",
+        "2ИОАНН",
+        "2JN"
+      ]
     },
     "3JN": {
-      "names": { "ukr": "3 Івана", "eng": "3 John", "rus": "3 Иоанна", "spa": "3 Juan", "deu": "3. Johannes" },
-      "aliases": ["3JOHN", "3ІВ", "3ІВАНА", "3ИН", "3ИОАННА"]
+      "names": {
+        "ukr": "3 Івана",
+        "eng": "3 John",
+        "rus": "3 Иоанна",
+        "spa": "3 Juan",
+        "deu": "3. Johannes"
+      },
+      "aliases": [
+        "3JOHN",
+        "3ІВ",
+        "3ІВАНА",
+        "3ИН",
+        "3ИОАННА",
+        "3ІВАН",
+        "3ИОАНН",
+        "3JN"
+      ]
     },
     "JUD": {
-      "names": { "ukr": "Юди", "eng": "Jude", "rus": "Иуды", "spa": "Judas", "deu": "Judas" },
-      "aliases": ["JUDE", "ЮД", "ЮДИ", "ІУД", "ІУДИ", "ИУДА"]
+      "names": {
+        "ukr": "Юди",
+        "eng": "Jude",
+        "rus": "Иуды",
+        "spa": "Judas",
+        "deu": "Judas"
+      },
+      "aliases": [
+        "JUDE",
+        "ЮД",
+        "ЮДИ",
+        "ІУД",
+        "ІУДИ",
+        "ИУДА",
+        "ЮДА",
+        "JUD"
+      ]
     },
     "REV": {
-      "names": { "ukr": "Об'явлення", "eng": "Revelation", "rus": "Откровение", "spa": "Apocalipsis", "deu": "Offenbarung" },
-      "aliases": ["REVELATION", "ОБ", "ОБ'ЯВЛЕННЯ", "ОТК", "ОТКРОВЕНИЕ"]
+      "names": {
+        "ukr": "Об'явлення",
+        "eng": "Revelation",
+        "rus": "Откровение",
+        "spa": "Apocalipsis",
+        "deu": "Offenbarung"
+      },
+      "aliases": [
+        "REVELATION",
+        "ОБ",
+        "ОБ'ЯВЛЕННЯ",
+        "ОТК",
+        "ОТКРОВЕНИЕ",
+        "ОБЯВЛЕННЯ",
+        "АПОКАЛИПСИС",
+        "REV"
+      ]
     },
     "TOB": {
-      "names": { "ukr": "Товита", "eng": "Tobit", "rus": "Товит" },
-      "aliases": ["TOBIT", "ТОВ", "ТОВИТА"]
+      "names": {
+        "ukr": "Товита",
+        "eng": "Tobit",
+        "rus": "Товит"
+      },
+      "aliases": [
+        "TOBIT",
+        "ТОВ",
+        "ТОВИТА"
+      ]
     },
     "JDT": {
-      "names": { "ukr": "Юдити", "eng": "Judith", "rus": "Иудифь" },
-      "aliases": ["JUDITH", "ЮДИТ", "ЮДИТИ"]
+      "names": {
+        "ukr": "Юдити",
+        "eng": "Judith",
+        "rus": "Иудифь"
+      },
+      "aliases": [
+        "JUDITH",
+        "ЮДИТ",
+        "ЮДИТИ"
+      ]
     },
     "WIS": {
-      "names": { "ukr": "Мудрості Соломона", "eng": "Wisdom of Solomon", "rus": "Премудрость Соломона" },
-      "aliases": ["WISDOM", "МУД", "МУДРОСТІ"]
+      "names": {
+        "ukr": "Мудрості Соломона",
+        "eng": "Wisdom of Solomon",
+        "rus": "Премудрость Соломона"
+      },
+      "aliases": [
+        "WISDOM",
+        "МУД",
+        "МУДРОСТІ"
+      ]
     },
     "SIR": {
-      "names": { "ukr": "Сираха", "eng": "Sirach", "rus": "Сирах" },
-      "aliases": ["SIRACH", "СИР", "СИРАХА"]
+      "names": {
+        "ukr": "Сираха",
+        "eng": "Sirach",
+        "rus": "Сирах"
+      },
+      "aliases": [
+        "SIRACH",
+        "СИР",
+        "СИРАХА"
+      ]
     },
     "BAR": {
-      "names": { "ukr": "Варуха", "eng": "Baruch", "rus": "Варух" },
-      "aliases": ["BARUCH", "ВАР", "ВАРУХА"]
+      "names": {
+        "ukr": "Варуха",
+        "eng": "Baruch",
+        "rus": "Варух"
+      },
+      "aliases": [
+        "BARUCH",
+        "ВАР",
+        "ВАРУХА"
+      ]
     },
     "1MA": {
-      "names": { "ukr": "1 Маккавеїв", "eng": "1 Maccabees", "rus": "1 Маккавейская" },
-      "aliases": ["1MACC", "1МАК", "1МАККАВЕЇВ"]
+      "names": {
+        "ukr": "1 Маккавеїв",
+        "eng": "1 Maccabees",
+        "rus": "1 Маккавейская"
+      },
+      "aliases": [
+        "1MACC",
+        "1МАК",
+        "1МАККАВЕЇВ"
+      ]
     },
     "2MA": {
-      "names": { "ukr": "2 Маккавеїв", "eng": "2 Maccabees", "rus": "2 Маккавейская" },
-      "aliases": ["2MACC", "2МАК", "2МАККАВЕЇВ"]
+      "names": {
+        "ukr": "2 Маккавеїв",
+        "eng": "2 Maccabees",
+        "rus": "2 Маккавейская"
+      },
+      "aliases": [
+        "2MACC",
+        "2МАК",
+        "2МАККАВЕЇВ"
+      ]
     },
     "3MA": {
-      "names": { "ukr": "3 Маккавеїв", "eng": "3 Maccabees", "rus": "3 Маккавейская" },
-      "aliases": ["3MACC", "3МАК", "3МАККАВЕЇВ"]
+      "names": {
+        "ukr": "3 Маккавеїв",
+        "eng": "3 Maccabees",
+        "rus": "3 Маккавейская"
+      },
+      "aliases": [
+        "3MACC",
+        "3МАК",
+        "3МАККАВЕЇВ"
+      ]
     },
     "4MA": {
-      "names": { "ukr": "4 Маккавеїв", "eng": "4 Maccabees", "rus": "4 Маккавейская" },
-      "aliases": ["4MACC", "4МАК", "4МАККАВЕЇВ"]
+      "names": {
+        "ukr": "4 Маккавеїв",
+        "eng": "4 Maccabees",
+        "rus": "4 Маккавейская"
+      },
+      "aliases": [
+        "4MACC",
+        "4МАК",
+        "4МАККАВЕЇВ"
+      ]
     },
     "1ES": {
-      "names": { "ukr": "1 Ездри", "eng": "1 Esdras", "rus": "2 Ездры" },
-      "aliases": ["1ESDRAS", "1ЕЗД", "2ЕЗД"]
+      "names": {
+        "ukr": "1 Ездри",
+        "eng": "1 Esdras",
+        "rus": "2 Ездры"
+      },
+      "aliases": [
+        "1ESDRAS",
+        "1ЕЗД",
+        "2ЕЗД"
+      ]
     },
     "2ES": {
-      "names": { "ukr": "2 Ездри", "eng": "2 Esdras", "rus": "3 Ездры" },
-      "aliases": ["2ESDRAS", "2ЕЗД", "3ЕЗД"]
+      "names": {
+        "ukr": "2 Ездри",
+        "eng": "2 Esdras",
+        "rus": "3 Ездры"
+      },
+      "aliases": [
+        "2ESDRAS",
+        "2ЕЗД",
+        "3ЕЗД"
+      ]
     },
     "MAN": {
-      "names": { "ukr": "Молитва Манасії", "eng": "Prayer of Manasseh", "rus": "Молитва Манассии" },
-      "aliases": ["MANASSEH", "МАН"]
+      "names": {
+        "ukr": "Молитва Манасії",
+        "eng": "Prayer of Manasseh",
+        "rus": "Молитва Манассии"
+      },
+      "aliases": [
+        "MANASSEH",
+        "МАН"
+      ]
     },
     "PS151": {
-      "names": { "ukr": "Псалом 151", "eng": "Psalm 151", "rus": "Псалом 151" },
-      "aliases": ["ПС151", "PSALM151"]
+      "names": {
+        "ukr": "Псалом 151",
+        "eng": "Psalm 151",
+        "rus": "Псалом 151"
+      },
+      "aliases": [
+        "ПС151",
+        "PSALM151"
+      ]
     },
     "SUS": {
-      "names": { "ukr": "Сусанна", "eng": "Susanna", "rus": "Сусанна" },
-      "aliases": ["SUSANNA", "СУС"]
+      "names": {
+        "ukr": "Сусанна",
+        "eng": "Susanna",
+        "rus": "Сусанна"
+      },
+      "aliases": [
+        "SUSANNA",
+        "СУС"
+      ]
     },
     "BEL": {
-      "names": { "ukr": "Віл і Дракон", "eng": "Bel and Dragon", "rus": "Виль и Дракон" },
-      "aliases": ["BEL", "БЕЛ", "ВІЛ"]
+      "names": {
+        "ukr": "Віл і Дракон",
+        "eng": "Bel and Dragon",
+        "rus": "Виль и Дракон"
+      },
+      "aliases": [
+        "BEL",
+        "БЕЛ",
+        "ВІЛ"
+      ]
     },
     "S3Y": {
-      "names": { "ukr": "Пісня 3 Отроків", "eng": "Song of 3 Youths", "rus": "Песнь 3 Отроков" },
-      "aliases": ["SONGOFTHREEYOUTHS", "S3Y"]
+      "names": {
+        "ukr": "Пісня 3 Отроків",
+        "eng": "Song of 3 Youths",
+        "rus": "Песнь 3 Отроков"
+      },
+      "aliases": [
+        "SONGOFTHREEYOUTHS",
+        "S3Y"
+      ]
     },
     "LAO": {
-      "names": { "ukr": "Послання до Лаодикійців", "eng": "Laodiceans", "rus": "Лаодикийцам" },
-      "aliases": ["LAODICEANS", "ЛАО"]
+      "names": {
+        "ukr": "Послання до Лаодикійців",
+        "eng": "Laodiceans",
+        "rus": "Лаодикийцам"
+      },
+      "aliases": [
+        "LAODICEANS",
+        "ЛАО"
+      ]
     },
     "ENO": {
-      "names": { "ukr": "Книга Еноха", "eng": "Enoch", "rus": "Енох" },
-      "aliases": ["ENOCH", "ЕНОХ"]
+      "names": {
+        "ukr": "Книга Еноха",
+        "eng": "Enoch",
+        "rus": "Енох"
+      },
+      "aliases": [
+        "ENOCH",
+        "ЕНОХ"
+      ]
     },
     "LJE": {
-      "names": { "ukr": "Лист Єремії", "eng": "Letter of Jeremiah", "rus": "Письмо Иеремии" },
-      "aliases": ["LETTEROFJEREMIAH", "ЛЄР"]
+      "names": {
+        "ukr": "Лист Єремії",
+        "eng": "Letter of Jeremiah",
+        "rus": "Письмо Иеремии"
+      },
+      "aliases": [
+        "LETTEROFJEREMIAH",
+        "ЛЄР"
+      ]
     }
   }
 }

@@ -1,4 +1,37 @@
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+function loadLocalEnvFiles() {
+    const candidateEnvFiles = [
+        path.resolve(process.cwd(), "server.env"),
+        path.resolve(process.cwd(), ".env"),
+        path.resolve(__dirname, "../../server.env"),
+        path.resolve(__dirname, "../../.env")
+    ];
+    for (const envFile of candidateEnvFiles) {
+        if (fs.existsSync(envFile)) {
+            try {
+                const content = fs.readFileSync(envFile, "utf-8");
+                const lines = content.split("\n");
+                for (const line of lines) {
+                    const trimmed = line.trim();
+                    if (!trimmed || trimmed.startsWith("#") || !trimmed.includes("="))
+                        continue;
+                    const [k, ...rest] = trimmed.split("=");
+                    const key = k.trim();
+                    const val = rest.join("=").trim().replace(/^["']|["']$/g, "");
+                    if (key && process.env[key] === undefined) {
+                        process.env[key] = val;
+                    }
+                }
+            }
+            catch (_) { }
+        }
+    }
+}
 export function parseInitialConfig() {
+    loadLocalEnvFiles();
     let warmth = 80;
     let mode = "auto";
     let showMetrics = true;
@@ -144,16 +177,26 @@ export function resolveLanguageCode(inputLang, sampleText) {
 export function extractBiblicalSearchKeywords(question) {
     const clean = question.replace(/[.,/#!$%^&*;:{}=\-_`~()?"'«»]/g, " ").toLowerCase();
     const stopWords = new Set([
-        "що", "як", "чому", "де", "коли", "хто", "який", "яка", "яке", "які", "про", "для", "від", "до",
-        "на", "в", "у", "з", "із", "зі", "по", "за", "під", "над", "перед", "через", "при", "після",
-        "це", "той", "та", "те", "ті", "цей", "ця", "ці", "свій", "своя", "своє", "свої", "він", "вона",
-        "воно", "вони", "ми", "ви", "я", "ти", "мене", "тебе", "його", "її", "нас", "вас", "їх",
-        "біблія", "біблії", "писання", "писанні", "слово", "боже", "говорить", "говориться", "скажи",
-        "розкажи", "поясни", "напиши", "дай", "знайди", "будь", "ласка", "чи", "або", "але", "хоча",
-        "якщо", "тому", "що", "щоб", "так", "ні", "є", "був", "була", "було", "були", "буде", "будуть",
-        "what", "how", "why", "where", "when", "who", "which", "about", "for", "from", "to", "in", "on",
-        "bible", "scripture", "god", "says", "tell", "explain", "find", "is", "are", "was", "were"
+        // Ukrainian interrogatives, pronouns, auxiliaries, demonstratives
+        "що", "як", "чому", "де", "коли", "хто", "який", "яка", "яке", "які", "якого", "якому", "яким", "яких", "якій", "якою",
+        "про", "для", "від", "до", "на", "в", "у", "з", "із", "зі", "по", "за", "під", "над", "перед", "через", "при", "після",
+        "це", "той", "та", "те", "ті", "цей", "ця", "ці", "цього", "цьому", "цим", "цих", "цій", "цією",
+        "таке", "такий", "така", "такі", "такого", "такому", "таким", "таких", "такої", "такою",
+        "свій", "своя", "своє", "свої", "він", "вона", "воно", "вони", "ми", "ви", "я", "ти", "мене", "тебе", "його", "її", "нас", "вас", "їх",
+        "біблія", "біблії", "писання", "писанні", "слово", "боже", "говорить", "говориться", "скажи", "скажіть",
+        "розкажи", "розкажіть", "поясни", "поясніть", "напиши", "дай", "знайди", "будь", "ласка", "чи", "або", "але", "хоча",
+        "якщо", "тому", "щоб", "так", "ні", "є", "був", "була", "було", "були", "буде", "будуть", "означає", "значення", "сенс", "сутність",
+        // Russian
+        "что", "как", "почему", "где", "когда", "кто", "какой", "какая", "какое", "какие", "такое", "такой", "такая", "такие",
+        "это", "этот", "эта", "эти", "этого", "этому", "этим", "этих", "расскажи", "объясни", "скажи", "библия", "библии",
+        // English
+        "what", "how", "why", "where", "when", "who", "which", "whom", "whose", "about", "for", "from", "to", "in", "on", "at", "by", "with",
+        "the", "a", "an", "this", "that", "these", "those", "is", "are", "was", "were", "be", "been", "being", "have", "has", "had",
+        "bible", "scripture", "scriptures", "meaning", "mean", "definition", "define", "explain", "tell", "says", "say"
     ]);
-    const words = clean.split(/\s+/).filter(w => w.length >= 3 && !stopWords.has(w));
+    const words = clean
+        .split(/\s+/)
+        .filter(w => w.length >= 3 && !stopWords.has(w))
+        .sort((a, b) => b.length - a.length); // Prioritize longer, domain-specific semantic keywords first
     return Array.from(new Set(words));
 }

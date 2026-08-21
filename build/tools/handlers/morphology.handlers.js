@@ -2,7 +2,7 @@ import { queryDb } from "../../database.js";
 import { MorphologyEngine } from "../../morphology_engine.js";
 export async function handleGetStrongsDefinition(args) {
     const wordId = String(args?.word_id || "").toUpperCase();
-    const rows = await queryDb(`SELECT strongs_id, original_word, transliteration, definition FROM strongs_dictionary WHERE UPPER(strongs_id) = ? LIMIT 1`, [wordId]);
+    const rows = await queryDb(`SELECT strongs_id, lemma, COALESCE(original_word, lemma) AS original_word, transliteration, pronunciation, definition FROM strongs_dictionary WHERE UPPER(strongs_id) = ? OR UPPER(id) = ? LIMIT 1`, [wordId, wordId]);
     return {
         content: [{ type: "text", text: JSON.stringify(rows[0] || { error: "Strong ID not found" }, null, 2) }]
     };

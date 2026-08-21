@@ -1,27 +1,16 @@
 import { queryDb } from "../database.js";
 import { OSIS_ALIAS_MAP, getLocalizedBookNameFromDict } from "../data/osis_dictionary.js";
-import { DirectiveStore } from "../directives/directive_store.js";
 import { parseGreekMorphCode } from "./robinson_parser.js";
 import { parseHebrewMorphCode } from "./hebrew_parser.js";
+import { TransliterationEngine } from "./transliteration_engine.js";
+import { StrongsEtymologyService, COMMON_LEMMA_MAP } from "./strongs_etymology_service.js";
 import {
   InterlinearVerseResult,
   InterlinearWordToken,
   StrongsEtymologyResult
 } from "./types.js";
 
-export const COMMON_LEMMA_MAP: Record<string, string> = {
-  "агапе": "G0026", "agape": "G0026", "любов": "G0026", "agapao": "G0025",
-  "філео": "G5368", "phileo": "G5368", "дружба": "G5368",
-  "логос": "G3056", "logos": "G3056", "слово": "G3056",
-  "рема": "G4487", "rhema": "G4487",
-  "зое": "G2222", "zoe": "G2222", "життя": "G2222",
-  "біос": "G0979", "bios": "G0979",
-  "шалом": "H7965", "shalom": "H7965", "мир": "H7965",
-  "хесед": "H2617", "hesed": "H2617", "милість": "H2617",
-  "бара": "H1254", "bara": "H1254", "створив": "H1254",
-  "алетейя": "G0225", "aletheia": "G0225", "істина": "G0225",
-  "еметь": "H0571", "emet": "H0571", "правда": "H0571"
-};
+export { COMMON_LEMMA_MAP };
 
 /**
  * 📖 Retrieves interlinear verse breakdown
@@ -63,10 +52,10 @@ export async function getInterlinearVerse(
   if (rawText) {
     const tokens = rawText.split(/\s+/).filter(Boolean);
     tokens.forEach((token: string, index: number) => {
-      const clean = token.replace(/[^\p{L}\p{M}]/gu, '');
-      const translit = isOT ? `tr-heb-${index + 1}` : `tr-grc-${index + 1}`;
-      const morphCode = isOT ? 'V-q-3ms' : 'V-AAI-3S';
-      const strongsId = isOT ? `H${1000 + index}` : `G${2000 + index}`;
+      const clean = TransliterationEngine.cleanWord(token);
+      const translit = TransliterationEngine.transliterate(clean, isOT);
+      const morphCode = isOT ? 'N-cmpa' : 'N-NSM';
+      const strongsId = COMMON_LEMMA_MAP[clean.toLowerCase()] || (isOT ? 'H0430' : 'G3056');
       
       words.push({
         order: index + 1,
@@ -75,7 +64,7 @@ export async function getInterlinearVerse(
         transliteration: translit,
         lemma: clean,
         strongsId,
-        gloss: isOT ? `Word ${index + 1}` : `Слово ${index + 1}`,
+        gloss: parallelText.split(/\s+/)[index] || clean,
         morphology: isOT ? parseHebrewMorphCode(morphCode) : parseGreekMorphCode(morphCode)
       });
     });
@@ -125,48 +114,8 @@ export async function getInterlinearVerse(
 }
 
 /**
- * 🏛️ Retrieves full Strong's Concordance, BDB/Thayer, and Trench's Synonyms etymology from SQLite
+ * 🏛️ Retrieves full Strong's Concordance, BDB/Thayer, and Trench's Synonyms etymology
  */
 export async function getStrongsEtymology(strongsInput: string): Promise<StrongsEtymologyResult> {
-  const rawClean = strongsInput.trim().toLowerCase();
-  const resolvedFromAlias = COMMON_LEMMA_MAP[rawClean];
-  const normalizedId = (resolvedFromAlias || strongsInput).trim().toUpperCase();
-  
-  const isGreek = normalizedId.startsWith('G');
-  const isHebrew = normalizedId.startsWith('H');
-
-  // 1. Fetch Trench's Synonyms from SQLite Cache
-  const trench = DirectiveStore.getInstance().getTrenchSynonym(normalizedId);
-
-  // 2. Query SQLite Strong's Table
-  const letter = normalizedId[0] || 'G';
-  const numPart = parseInt(normalizedId.slice(1), 10) || 1;
-  const paddedKey = letter + String(numPart).padStart(4, '0');
-  const rawKey = letter + String(numPart);
-
-  const rows = await queryDb(
-    `SELECT strongs_id, lemma, transliteration, pronunciation, definition 
-     FROM strongs_dictionary 
-     WHERE strongs_id IN (?, ?, ?) OR id IN (?, ?, ?) LIMIT 1`,
-    [normalizedId, paddedKey, rawKey, normalizedId, paddedKey, rawKey]
-  );
-
-  const row = rows[0] || {};
-  const lemma = row.lemma || (isGreek ? 'ἀγάπη' : 'בָּרָא');
-  const translit = row.transliteration || (isGreek ? 'agape' : 'bara');
-  const pron = row.pronunciation || (isGreek ? 'ag-ah-pay' : 'bah-rah');
-  const def = row.definition || (trench ? trench.distinction : 'Sacrificial, unconditional covenantal love.');
-
-  return {
-    strongsId: paddedKey,
-    language: isGreek ? 'Koine Greek' : (isHebrew ? 'Biblical Hebrew' : 'Ancient Biblical Language'),
-    lemma,
-    transliteration: translit,
-    pronunciation: pron,
-    strongsDefinition: def,
-    trenchSynonyms: trench,
-    sampleOccurrences: [
-      { ref: isGreek ? 'JHN.3.16' : 'GEN.1.1', text: isGreek ? '«Так бо Бог полюбив [ἠγάπησεν] світ...»' : '«На початку створив [בָּרָא] Бог небо та землю...»' }
-    ]
-  };
+  return StrongsEtymologyService.getEtymology(strongsInput);
 }

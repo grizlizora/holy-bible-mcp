@@ -15,11 +15,21 @@ const conjMap: Record<string, string> = {
 const stateMap: Record<string, string> = { 'a': 'Absolute', 'c': 'Construct', 'd': 'Determined', 'e': 'Emphatic' };
 const numMap: Record<string, string> = { 's': 'Singular', 'p': 'Plural', 'd': 'Dual' };
 
+const HEBREW_PARSE_CACHE = new Map<string, MorphologyBreakdown>();
+const MAX_HEBREW_CACHE = 5000;
+
 /**
- * 🔍 Parses Hebrew WLC morphological codes (e.g. 'V-q-3ms', 'HR/Ncfsa', 'Vqw3ms')
+ * 🔍 Parses Hebrew WLC morphological codes (e.g. 'V-q-3ms', 'HR/Ncfsa', 'Vqw3ms') with 5,000 LRU cache
  */
 export function parseHebrewMorphCode(code: string): MorphologyBreakdown {
   const raw = code.trim();
+  if (HEBREW_PARSE_CACHE.has(raw)) {
+    const cached = HEBREW_PARSE_CACHE.get(raw)!;
+    HEBREW_PARSE_CACHE.delete(raw);
+    HEBREW_PARSE_CACHE.set(raw, cached);
+    return cached;
+  }
+
   const prefixes: string[] = [];
 
   // Separate prefixes separated by '/'
@@ -35,9 +45,9 @@ export function parseHebrewMorphCode(code: string): MorphologyBreakdown {
 
   const [stemPart, suffixPart] = mainSegment.split('+');
 
-  // A. Verb Parsing (e.g. V-q-3ms, Vqw3ms)
+  // A. Verb Parsing (e.g. V-q-p-3ms, V-q-3ms, Vqw3ms)
   if (stemPart.startsWith('V')) {
-    const vClean = stemPart.replace(/^V-?/, '');
+    const vClean = stemPart.replace(/^V/, '').replace(/-/g, '');
     const stemChar = vClean[0] || 'q';
     const conjChar = vClean[1] || 'p';
     const stem = stemMap[stemChar] || `Stem (${stemChar})`;
@@ -74,7 +84,7 @@ export function parseHebrewMorphCode(code: string): MorphologyBreakdown {
     const pfxDesc = prefixes.length > 0 ? ` [Prefix: ${prefixes.join(' + ')}]` : '';
     const sfxDesc = suffixPart ? ` + [Suffix: ${suffixPart}]` : '';
 
-    return {
+    const res: MorphologyBreakdown = {
       code: raw,
       pos: isProper ? 'Proper Noun' : 'Noun',
       gender: isProper ? undefined : gen,
@@ -82,11 +92,23 @@ export function parseHebrewMorphCode(code: string): MorphologyBreakdown {
       state: isProper ? undefined : state,
       description: `${isProper ? 'Proper Noun' : `Noun (${gen} ${num} ${state})`}${pfxDesc}${sfxDesc}`.trim()
     };
+    if (HEBREW_PARSE_CACHE.size >= MAX_HEBREW_CACHE) {
+      const oldest = HEBREW_PARSE_CACHE.keys().next().value;
+      if (oldest) HEBREW_PARSE_CACHE.delete(oldest);
+    }
+    HEBREW_PARSE_CACHE.set(raw, res);
+    return res;
   }
 
-  return {
+  const res: MorphologyBreakdown = {
     code: raw,
     pos: 'Hebrew Grammar / Particle',
     description: `Hebrew Grammar: ${raw}`
   };
+  if (HEBREW_PARSE_CACHE.size >= MAX_HEBREW_CACHE) {
+    const oldest = HEBREW_PARSE_CACHE.keys().next().value;
+    if (oldest) HEBREW_PARSE_CACHE.delete(oldest);
+  }
+  HEBREW_PARSE_CACHE.set(raw, res);
+  return res;
 }

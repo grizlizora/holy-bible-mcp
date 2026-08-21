@@ -19,11 +19,21 @@ const particleMap: Record<string, string> = {
   'INJ': 'Interjection', 'INT': 'Interjection'
 };
 
+const GREEK_PARSE_CACHE = new Map<string, MorphologyBreakdown>();
+const MAX_GREEK_CACHE = 5000;
+
 /**
- * 🔍 Parses Greek Robinson morphological codes into human-readable descriptions
+ * 🔍 Parses Greek Robinson morphological codes into human-readable descriptions (with 5,000 LRU Cache)
  */
 export function parseGreekMorphCode(code: string): MorphologyBreakdown {
   const raw = code.trim().toUpperCase();
+  if (GREEK_PARSE_CACHE.has(raw)) {
+    const cached = GREEK_PARSE_CACHE.get(raw)!;
+    GREEK_PARSE_CACHE.delete(raw);
+    GREEK_PARSE_CACHE.set(raw, cached);
+    return cached;
+  }
+
   const parts = raw.split('-');
   const basePos = parts[0];
 
@@ -118,7 +128,7 @@ export function parseGreekMorphCode(code: string): MorphologyBreakdown {
     const n = numberMap[cng[1]] || cng[1];
     const g = genderMap[cng[2]] || cng[2];
 
-    return {
+    const res: MorphologyBreakdown = {
       code: raw,
       pos,
       caseGrammatical: c,
@@ -126,9 +136,21 @@ export function parseGreekMorphCode(code: string): MorphologyBreakdown {
       gender: g,
       description: `${pos} - ${c} ${g} ${n}`.trim()
     };
+    if (GREEK_PARSE_CACHE.size >= MAX_GREEK_CACHE) {
+      const oldest = GREEK_PARSE_CACHE.keys().next().value;
+      if (oldest) GREEK_PARSE_CACHE.delete(oldest);
+    }
+    GREEK_PARSE_CACHE.set(raw, res);
+    return res;
   }
 
   // 5. Particles & Prepositions
   const desc = particleMap[raw] || raw;
-  return { code: raw, pos: desc, description: desc };
+  const res: MorphologyBreakdown = { code: raw, pos: desc, description: desc };
+  if (GREEK_PARSE_CACHE.size >= MAX_GREEK_CACHE) {
+    const oldest = GREEK_PARSE_CACHE.keys().next().value;
+    if (oldest) GREEK_PARSE_CACHE.delete(oldest);
+  }
+  GREEK_PARSE_CACHE.set(raw, res);
+  return res;
 }

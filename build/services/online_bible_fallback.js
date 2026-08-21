@@ -1,3 +1,4 @@
+import { LRUCache } from "lru-cache";
 import { getBookNumber } from "../data/osis_dictionary.js";
 export const BOLLS_BOOK_MAP = {
     1: "Gen", 2: "Exod", 3: "Lev", 4: "Num", 5: "Deut", 6: "Josh", 7: "Judg", 8: "Ruth",
@@ -11,10 +12,15 @@ export const BOLLS_BOOK_MAP = {
     58: "Heb", 59: "Jas", 60: "1Pet", 61: "2Pet", 62: "1John", 63: "2John", 64: "3John",
     65: "Jude", 66: "Rev"
 };
-// ⚡ Fast In-Memory LRU Cache for Online Queries (prevents redundant HTTP requests)
-const onlineVerseCache = new Map();
-const onlineSearchCache = new Map();
-const ONLINE_CACHE_TTL_MS = 3600_000; // 1 hour
+// ⚡ Bounded High-Performance LRU Cache (max 1000 items, 1h TTL) to eliminate memory leaks
+const onlineVerseCache = new LRUCache({
+    max: 1000,
+    ttl: 3600_000
+});
+const onlineSearchCache = new LRUCache({
+    max: 1000,
+    ttl: 3600_000
+});
 /**
  * 🌐 Multi-Provider Resilient Online Verse Resolver
  * Queries primary CDN/API (Bolls.life) with automated fallback to secondary mirror (Bible-API / UKRK / KJV).
@@ -22,8 +28,8 @@ const ONLINE_CACHE_TTL_MS = 3600_000; // 1 hour
 export async function fetchOnlineVerseText(osisCode, chapter, verse, lang) {
     const cacheKey = `${osisCode}:${chapter}:${verse}:${lang}`;
     const cached = onlineVerseCache.get(cacheKey);
-    if (cached && Date.now() < cached.expiresAt) {
-        return cached.text;
+    if (cached !== undefined) {
+        return cached;
     }
     const bookNum = getBookNumber(osisCode);
     if (bookNum <= 0)
@@ -42,7 +48,7 @@ export async function fetchOnlineVerseText(osisCode, chapter, verse, lang) {
             const data = await res.json();
             if (data?.text) {
                 const cleanText = String(data.text).replace(/<[^>]+>/g, '').trim();
-                onlineVerseCache.set(cacheKey, { text: cleanText, expiresAt: Date.now() + ONLINE_CACHE_TTL_MS });
+                onlineVerseCache.set(cacheKey, cleanText);
                 return cleanText;
             }
         }
@@ -58,7 +64,7 @@ export async function fetchOnlineVerseText(osisCode, chapter, verse, lang) {
             const data = await resFallback.json();
             if (data?.text) {
                 const cleanText = String(data.text).replace(/<[^>]+>/g, '').trim();
-                onlineVerseCache.set(cacheKey, { text: cleanText, expiresAt: Date.now() + ONLINE_CACHE_TTL_MS });
+                onlineVerseCache.set(cacheKey, cleanText);
                 return cleanText;
             }
         }
@@ -97,8 +103,8 @@ export async function fetchOnlineChapterVerses(osisCode, chapter, lang) {
 export async function fetchOnlineKeywordSearch(keyword, lang = "ukr", limit = 6) {
     const cacheKey = `${keyword}::${lang}::${limit}`;
     const cached = onlineSearchCache.get(cacheKey);
-    if (cached && Date.now() < cached.expiresAt) {
-        return cached.results;
+    if (cached !== undefined) {
+        return cached;
     }
     try {
         const isUkr = lang === "ukr" || lang === "uk";
@@ -128,7 +134,7 @@ export async function fetchOnlineKeywordSearch(keyword, lang = "ukr", limit = 6)
                         score: 0.95
                     };
                 });
-                onlineSearchCache.set(cacheKey, { results, expiresAt: Date.now() + ONLINE_CACHE_TTL_MS });
+                onlineSearchCache.set(cacheKey, results);
                 return results;
             }
         }

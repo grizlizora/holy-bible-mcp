@@ -25,5 +25,5 @@ export function resolveDirectivesDbPath(): string {
     if (fs.existsSync(p)) return p;
   }
 
-  return path.resolve(process.cwd(), "data/directives.sqlite");
+  return path.resolve(__dirname, "../../data/directives.sqlite");
 }

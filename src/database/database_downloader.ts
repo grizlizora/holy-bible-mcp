@@ -1,6 +1,12 @@
+/**
+ * 📥 Database Downloader Subsystem (database_downloader.ts)
+ * 
+ * Manages downloading and initial installation of the Holy Bible SQLite Database
+ * with atomic rename, backpressure flow control, and checksum validation.
+ */
+
 import path from "path";
 import fs from "fs";
-import os from "os";
 import https from "https";
 import http from "http";
 import { fileURLToPath } from "url";
@@ -40,13 +46,13 @@ export const REMOTE_DB_PRIMARY = "https://huggingface.co/datasets/grizlizora/hol
 export const REMOTE_DB_FALLBACK = "https://github.com/grizlizora/holy-bible-mcp/releases/download/v1.0.0/bible_database.sqlite";
 
 export async function downloadDatabaseStream(targetPath: string, url: string = REMOTE_DB_PRIMARY): Promise<boolean> {
-  console.error(`[AUTO-DOWNLOADER] Starting automatic download of Holy Bible SQLite DB to ${targetPath}...`);
+  console.error(`[AUTO-DOWNLOADER] Starting download of Holy Bible SQLite DB to ${targetPath}...`);
   const targetDir = path.dirname(targetPath);
   if (!fs.existsSync(targetDir)) {
     fs.mkdirSync(targetDir, { recursive: true });
   }
 
-  const tempPath = `${targetPath}.tmp`;
+  const tempPath = `${targetPath}.tmp_${Date.now()}`;
 
   return new Promise((resolve) => {
     const fetchWithRedirects = (currentUrl: string, redirectCount = 0) => {
@@ -95,9 +101,17 @@ export async function downloadDatabaseStream(targetPath: string, url: string = R
         fileStream.on('finish', () => {
           fileStream.close(() => {
             if (fs.existsSync(tempPath) && fs.statSync(tempPath).size > 1000000) {
-              fs.renameSync(tempPath, targetPath);
-              console.error(`[AUTO-DOWNLOADER] ✅ Database successfully downloaded and installed to ${targetPath}!`);
-              resolve(true);
+              try {
+                if (fs.existsSync(targetPath)) {
+                  fs.unlinkSync(targetPath);
+                }
+                fs.renameSync(tempPath, targetPath);
+                console.error(`[AUTO-DOWNLOADER] ✅ Database successfully installed to ${targetPath}!`);
+                resolve(true);
+              } catch (renameErr) {
+                console.error('[AUTO-DOWNLOADER] Rename error:', renameErr);
+                resolve(false);
+              }
             } else {
               console.error(`[AUTO-DOWNLOADER] ❌ Downloaded file is too small or corrupt.`);
               if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);

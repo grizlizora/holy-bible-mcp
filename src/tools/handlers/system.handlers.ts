@@ -125,7 +125,7 @@ export async function handleGetMcpCapabilities(args: any) {
                 label: { uk: "Авто", en: "Auto", ru: "Авто" },
                 description: { uk: "Автоматичний підбір", en: "Auto complexity selection", ru: "Автоматический выбор" }
               },
-              ...store.getAllModes().map((m: any) => ({
+              ...store.getAllModes().filter((m: any) => m.modeKey !== 'unrestricted').map((m: any) => ({
                 value: m.modeKey || m.mode,
                 iconName: m.iconName,
                 label: (m as any).displayNames || { uk: m.labelUk, en: m.labelEn, ru: m.labelRu },

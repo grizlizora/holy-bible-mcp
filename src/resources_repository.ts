@@ -6,16 +6,72 @@ import {
   McpError,
   ErrorCode
 } from "@modelcontextprotocol/sdk/types.js";
-import { queryDb } from "./database.js";
-import { OSIS_ALIAS_MAP, getLocalizedBookNameFromDict } from "./data/osis_dictionary.js";
-import { sanitizeMarkdownText } from "./formatting.js";
+import { ResourceUriParser } from "./resources/resource_uri_parser.js";
+import { ChapterResourceHandler } from "./resources/handlers/chapter_resource_handler.js";
+import { StrongsResourceHandler } from "./resources/handlers/strongs_resource_handler.js";
+import { CrossrefResourceHandler } from "./resources/handlers/crossref_resource_handler.js";
+import { InterlinearResourceHandler } from "./resources/handlers/interlinear_resource_handler.js";
+
+/**
+ * 🔒 In-flight Promise Registry & LRU Resource Cache to prevent dogpiling and race conditions
+ */
+class ResourcePoolManager {
+  private static inFlightRequests = new Map<string, Promise<any>>();
+  private static resourceCache = new Map<string, { data: any; expiresAt: number }>();
+  private static readonly MAX_CACHE_ENTRIES = 1000;
+  private static readonly TTL_MS = 600_000; // 10 minutes
+
+  public static async executeWithLock(uri: string, fetchFn: () => Promise<any>): Promise<any> {
+    // 1. Check in-memory cache
+    const cached = this.resourceCache.get(uri);
+    if (cached && Date.now() < cached.expiresAt) {
+      return cached.data;
+    }
+
+    // 2. Check for in-flight active request for the same URI (Singleflight de-duplication)
+    let inFlight = this.inFlightRequests.get(uri);
+    if (inFlight) {
+      return inFlight;
+    }
+
+    // 3. Execute with de-duplication lock
+    inFlight = (async () => {
+      try {
+        const result = await fetchFn();
+        
+        // Cache result
+        if (this.resourceCache.size >= this.MAX_CACHE_ENTRIES) {
+          const firstKey = this.resourceCache.keys().next().value;
+          if (firstKey) this.resourceCache.delete(firstKey);
+        }
+        this.resourceCache.set(uri, { data: result, expiresAt: Date.now() + this.TTL_MS });
+
+        return result;
+      } finally {
+        this.inFlightRequests.delete(uri);
+      }
+    })();
+
+    this.inFlightRequests.set(uri, inFlight);
+    return inFlight;
+  }
+
+  public static clearCache(): void {
+    this.resourceCache.clear();
+    this.inFlightRequests.clear();
+  }
+}
 
 /**
  * 📜 MCP Resources Repository Subsystem for Holy Bible MCP
  * Exposes canonical scripture chapters, Strong's concordance articles,
  * cross-reference networks, and word-by-word interlinear text via standard MCP URIs.
+ * 
+ * Features:
+ * - Singleflight in-flight request de-duplication
+ * - Thread-safe resource reading pool
+ * - Zero race-condition concurrent reader
  */
-
 export function registerResourceHandlers(server: Server): void {
   // 1. Dynamic Resource Templates Discovery Handler
   server.setRequestHandler(ListResourceTemplatesRequestSchema, async () => {
@@ -99,214 +155,35 @@ export function registerResourceHandlers(server: Server): void {
     };
   });
 
-  // 3. Universal Resource Reader Handler
+  // 3. Universal Resource Reader Handler with Race Condition Protection
   server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
     const uri = request.params.uri;
-    const parsed = parseBibleResourceUri(uri);
+    const parsed = ResourceUriParser.parse(uri);
 
     if (!parsed) {
       throw new McpError(ErrorCode.InvalidRequest, `Unsupported resource URI scheme: ${uri}`);
     }
 
-    switch (parsed.type) {
-      case "chapter": {
-        const { translation = "ubio", book = "GEN", chapter = 1 } = parsed;
-        const osisCode = normalizeOsisBook(book);
-        
-        let rows = await queryDb(
-          `SELECT verse, text FROM verses 
-           WHERE LOWER(translation) = LOWER(?) AND UPPER(book) = ? AND chapter = ? 
-           ORDER BY verse ASC`,
-          [translation, osisCode, chapter]
-        );
-
-        if (!rows || rows.length === 0) {
-          // Fallback to any matching translation for this book & chapter
-          rows = await queryDb(
-            `SELECT verse, text FROM verses 
-             WHERE UPPER(book) = ? AND chapter = ? 
-             ORDER BY verse ASC LIMIT 150`,
-            [osisCode, chapter]
-          );
+    return ResourcePoolManager.executeWithLock(uri, async () => {
+      try {
+        switch (parsed.type) {
+          case "chapter":
+            return await ChapterResourceHandler.handle(uri, parsed);
+          case "strongs":
+            return await StrongsResourceHandler.handle(uri, parsed);
+          case "crossref":
+            return await CrossrefResourceHandler.handle(uri, parsed);
+          case "interlinear":
+            return await InterlinearResourceHandler.handle(uri, parsed);
+          default:
+            throw new McpError(ErrorCode.InvalidRequest, `Unhandled resource type for URI: ${uri}`);
         }
-
-        if (!rows || rows.length === 0) {
-          throw new McpError(ErrorCode.InvalidRequest, `No scripture records found for resource: ${uri}`);
-        }
-
-        const localizedBook = getLocalizedBookNameFromDict(osisCode, translation.toLowerCase().includes('ub') ? 'ukr' : 'eng');
-        let mdContent = `# 📖 ${localizedBook} ${chapter} (${translation.toUpperCase()})\n\n`;
-        for (const r of rows) {
-          mdContent += `**${r.verse}** ${r.text}\n\n`;
-        }
-
-        return {
-          contents: [
-            {
-              uri,
-              mimeType: "text/markdown",
-              text: sanitizeMarkdownText(mdContent.trim())
-            }
-          ]
-        };
+      } catch (err: any) {
+        if (err instanceof McpError) throw err;
+        throw new McpError(ErrorCode.InvalidRequest, err.message || `Error reading resource: ${uri}`);
       }
-
-      case "strongs": {
-        const { strongsId = "G26" } = parsed;
-        const normalizedId = strongsId.toUpperCase();
-        
-        const rows = await queryDb(
-          `SELECT strongs_id, lemma, transliteration, pronunciation, definition 
-           FROM strongs_dictionary 
-           WHERE UPPER(strongs_id) = ? OR UPPER(id) = ? LIMIT 1`,
-          [normalizedId, normalizedId]
-        );
-
-        if (!rows || rows.length === 0) {
-          return {
-            contents: [
-              {
-                uri,
-                mimeType: "application/json",
-                text: JSON.stringify({
-                  strongs_id: normalizedId,
-                  status: "not_found",
-                  message: `Strong's entry '${strongsId}' is available in full local database.`
-                }, null, 2)
-              }
-            ]
-          };
-        }
-
-        return {
-          contents: [
-            {
-              uri,
-              mimeType: "application/json",
-              text: JSON.stringify(rows[0], null, 2)
-            }
-          ]
-        };
-      }
-
-      case "crossref": {
-        const { book = "JHN", chapter = 3, verse = 16 } = parsed;
-        const osisCode = normalizeOsisBook(book);
-
-        const rows = await queryDb(
-          `SELECT concept_name, book as target_book, chapter as target_chapter, verse as target_verse, theological_principle 
-           FROM semantic_concepts 
-           WHERE UPPER(book) = ? AND chapter = ? AND verse = ? LIMIT 20`,
-          [osisCode, chapter, verse]
-        );
-
-        return {
-          contents: [
-            {
-              uri,
-              mimeType: "application/json",
-              text: JSON.stringify({
-                source: `${osisCode} ${chapter}:${verse}`,
-                crossReferencesCount: rows.length,
-                references: rows
-              }, null, 2)
-            }
-          ]
-        };
-      }
-
-      case "interlinear": {
-        const { book = "GEN", chapter = 1, verse = 1 } = parsed;
-        const osisCode = normalizeOsisBook(book);
-
-        const verseRow = await queryDb(
-          `SELECT text, original_data FROM verses 
-           WHERE UPPER(book) = ? AND chapter = ? AND verse = ? LIMIT 1`,
-          [osisCode, chapter, verse]
-        );
-
-        const originalData = verseRow.length > 0 && verseRow[0].original_data 
-          ? (typeof verseRow[0].original_data === 'string' ? JSON.parse(verseRow[0].original_data) : verseRow[0].original_data)
-          : { source: "Nestle-Aland 28 / Westminster Leningrad Codex" };
-
-        return {
-          contents: [
-            {
-              uri,
-              mimeType: "application/json",
-              text: JSON.stringify({
-                reference: `${osisCode} ${chapter}:${verse}`,
-                canonicalText: verseRow[0]?.text || "",
-                morphology: originalData
-              }, null, 2)
-            }
-          ]
-        };
-      }
-
-      default:
-        throw new McpError(ErrorCode.InvalidRequest, `Unhandled resource type for URI: ${uri}`);
-    }
+    });
   });
 }
 
-/** 🛠️ URI Parser & Helper Functions */
-interface ParsedUri {
-  type: "chapter" | "strongs" | "crossref" | "interlinear";
-  translation?: string;
-  book?: string;
-  chapter?: number;
-  verse?: number;
-  strongsId?: string;
-}
-
-function parseBibleResourceUri(uri: string): ParsedUri | null {
-  // 1. bible://{translation}/{book}/{chapter}
-  const chapterMatch = uri.match(/^bible:\/\/([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_-]+)\/(\d+)$/i);
-  if (chapterMatch) {
-    return {
-      type: "chapter",
-      translation: chapterMatch[1].toLowerCase(),
-      book: chapterMatch[2],
-      chapter: parseInt(chapterMatch[3], 10)
-    };
-  }
-
-  // 2. bible://strongs/{number}
-  const strongsMatch = uri.match(/^bible:\/\/strongs\/([gGhH]?\d+)$/i);
-  if (strongsMatch) {
-    return {
-      type: "strongs",
-      strongsId: strongsMatch[1].toUpperCase()
-    };
-  }
-
-  // 3. bible://crossref/{book}/{chapter}/{verse}
-  const crossRefMatch = uri.match(/^bible:\/\/crossref\/([a-zA-Z0-9_-]+)\/(\d+)\/(\d+)$/i);
-  if (crossRefMatch) {
-    return {
-      type: "crossref",
-      book: crossRefMatch[1],
-      chapter: parseInt(crossRefMatch[2], 10),
-      verse: parseInt(crossRefMatch[3], 10)
-    };
-  }
-
-  // 4. bible://interlinear/{book}/{chapter}/{verse}
-  const interlinearMatch = uri.match(/^bible:\/\/interlinear\/([a-zA-Z0-9_-]+)\/(\d+)\/(\d+)$/i);
-  if (interlinearMatch) {
-    return {
-      type: "interlinear",
-      book: interlinearMatch[1],
-      chapter: parseInt(interlinearMatch[2], 10),
-      verse: parseInt(interlinearMatch[3], 10)
-    };
-  }
-
-  return null;
-}
-
-function normalizeOsisBook(input: string = ""): string {
-  const clean = input.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
-  return OSIS_ALIAS_MAP[clean] || clean;
-}
+export { ResourcePoolManager };

@@ -2,11 +2,12 @@ import { queryDb } from "./database.js";
 import { OSIS_ALIAS_MAP } from "./data/osis_dictionary.js";
 import { formatBiblicalDisplayTitle } from "./osis_engine.js";
 import { DirectiveStore } from "./directives/directive_store.js";
+import { TranslationWordDiff } from "./search/diff/translation_word_diff.js";
 
 /**
  * 🌍 Multi-Translation Parallel Corpus Engine (15 Translations)
  * Aligns verses across Ukrainian, English, and Original Language texts with
- * token-level Myers LCS Diff analysis and translation philosophy metadata.
+ * word-level Myers LCS Diff analysis and translation philosophy metadata.
  * All translations and philosophies are dynamically loaded from SQLite.
  */
 
@@ -96,7 +97,7 @@ export class ParallelCorpusEngine {
   }
 
   /**
-   * ⚖️ Performs token-level diff comparison between two translations
+   * ⚖️ Performs token-level diff comparison between two translations using word-level Myers LCS
    */
   public async compareTranslationsDiff(
     book: string,
@@ -114,15 +115,12 @@ export class ParallelCorpusEngine {
     const baseMeta = store.getTranslation(baseTrans);
     const targetMeta = store.getTranslation(targetTrans);
 
-    const diffMarkdown = `
-\`\`\`diff
-- [${baseTrans}] ${baseText}
-+ [${targetTrans}] ${targetText}
-\`\`\`
-`.trim();
+    const diffResult = TranslationWordDiff.computeWordDiff(baseTrans, baseText, targetTrans, targetText);
 
     const analysisNotes = [
       `Порівняння **${baseTrans}** (${baseMeta?.philosophy || 'Formal'}) проти **${targetTrans}** (${targetMeta?.philosophy || 'Optimal'}).`,
+      `Коефіцієнт схожості тексту: **${Math.round(diffResult.similarityRatio * 100)}%**.`,
+      diffResult.addedWords.length > 0 ? `Додані або уточнені слова у ${targetTrans}: ${diffResult.addedWords.slice(0, 5).join(", ")}` : `Мінімальні лексичні відмінності.`,
       `Лексичні акценти: обидва переклади зберігають канонічну точність і богословську глибину першотвору.`
     ];
 
@@ -130,7 +128,7 @@ export class ParallelCorpusEngine {
       reference: parallel.reference,
       base: baseText,
       target: targetText,
-      diffMarkdown,
+      diffMarkdown: diffResult.diffMarkdown,
       analysisNotes
     };
   }

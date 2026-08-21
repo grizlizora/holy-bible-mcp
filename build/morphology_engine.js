@@ -11,6 +11,12 @@ export class MorphologyEngine {
     static parseHebrewMorphCode = parseHebrewMorphCode;
     static getInterlinearVerse = getInterlinearVerse;
     static getStrongsEtymology = getStrongsEtymology;
+    static parseMorphology(code, lang = 'auto') {
+        if (lang === 'heb' || (lang === 'auto' && (code.includes('/') || code.startsWith('H')))) {
+            return parseHebrewMorphCode(code);
+        }
+        return parseGreekMorphCode(code);
+    }
 }
 export { COMMON_LEMMA_MAP };
 export * from "./morphology/types.js";

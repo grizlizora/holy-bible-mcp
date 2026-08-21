@@ -1,3 +1,10 @@
+/**
+ * 📥 Resilient Database Downloader (resilient_downloader.ts)
+ * 
+ * Production-grade resumable multi-mirror database downloader with HTTP 206 Range,
+ * fastest mirror racing, streaming backpressure, and atomic SQLite integrity verification.
+ */
+
 import fs from "fs";
 import path from "path";
 import { TerminalProgressBar, formatBytes } from "../cli/progress_bar.js";
@@ -51,7 +58,6 @@ export async function raceFastestMirrors(mirrors: string[], signal?: AbortSignal
 
   return valid.length > 0 ? valid : mirrors;
 }
-
 
 export interface DownloadOptions {
   targetPath?: string;
@@ -176,7 +182,10 @@ export async function downloadDatabaseResumable(options: DownloadOptions = {}): 
 
         if (value && value.length > 0) {
           downloaded += value.length;
-          currentStream.write(Buffer.from(value));
+          const canContinue = currentStream.write(Buffer.from(value));
+          if (!canContinue) {
+            await new Promise<void>(r => currentStream?.once('drain', () => r()));
+          }
           progressBar.update(downloaded);
         }
       }
@@ -194,8 +203,6 @@ export async function downloadDatabaseResumable(options: DownloadOptions = {}): 
       activeReader = null;
 
       if (success) break;
-
-
     } catch (err: any) {
       if (isAborted) break;
       consecutiveErrors++;

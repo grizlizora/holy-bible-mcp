@@ -1,24 +1,30 @@
-import sqlite3 from "sqlite3";
+import Database from "better-sqlite3";
 import fs from "fs";
 import { resolveDirectivesDbPath } from "./directive_path_resolver.js";
-import { loadDirectivesFromDb } from "./theological_tables.js";
-import { TheologicalKnowledgeStore } from "./theological_knowledge_store.js";
-import { TierResolver } from "./tier_resolver.js";
-import { WarmthResolver } from "./warmth_resolver.js";
+import { TierRepository } from "./repositories/tier_repository.js";
+import { ModeRepository } from "./repositories/mode_repository.js";
+import { WarmthRepository } from "./repositories/warmth_repository.js";
+import { TheologyRepository } from "./repositories/theology_repository.js";
+import { hydrateDirectivesFromDb } from "./directives_db_loader.js";
+import { TheologicalKnowledgeGraph } from "../graph/theological_graphology_engine.js";
 export * from "./theological_knowledge_store.js";
 export * from "./tier_resolver.js";
 export * from "./warmth_resolver.js";
+export * from "./repositories/tier_repository.js";
+export * from "./repositories/mode_repository.js";
+export * from "./repositories/warmth_repository.js";
+export * from "./repositories/theology_repository.js";
 export class DirectiveStore {
     static instance = null;
-    db = null;
     dbPath = "";
-    tierResolver = new TierResolver();
-    warmthResolver = new WarmthResolver();
-    theologyStore = new TheologicalKnowledgeStore();
-    modeMap = new Map();
+    tierRepo = new TierRepository();
+    modeRepo = new ModeRepository();
+    warmthRepo = new WarmthRepository();
+    theologyRepo = new TheologyRepository();
     metricsMap = new Map();
     modulesMap = new Map();
     isInitialized = false;
+    initPromise = null;
     constructor() { }
     static getInstance() {
         if (!DirectiveStore.instance) {
@@ -29,244 +35,107 @@ export class DirectiveStore {
     async loadDirectives() {
         if (this.isInitialized)
             return;
-        this.dbPath = resolveDirectivesDbPath();
-        const startTime = performance.now();
-        if (!fs.existsSync(this.dbPath)) {
-            console.warn(`[DIRECTIVE-ENGINE] ⚠️ Directives SQLite DB not found at: ${this.dbPath}. Running with fallback state.`);
-            this.isInitialized = true;
-            return;
-        }
-        this.db = new sqlite3.Database(this.dbPath, (err) => {
-            if (err) {
-                console.error(`[DIRECTIVE-ENGINE] ⚠️ Error opening SQLite database:`, err.message);
+        if (this.initPromise)
+            return this.initPromise;
+        this.initPromise = (async () => {
+            this.dbPath = resolveDirectivesDbPath();
+            const startTime = performance.now();
+            if (!fs.existsSync(this.dbPath)) {
+                console.warn(`[DIRECTIVE-ENGINE] ⚠️ Directives SQLite DB not found at: ${this.dbPath}. Running with fallback state.`);
+                this.isInitialized = true;
+                return;
             }
-        });
-        this.db.serialize(() => {
-            this.db?.run("PRAGMA busy_timeout = 5000;");
-            this.db?.run("PRAGMA journal_mode = WAL;");
-            this.db?.run("PRAGMA synchronous = NORMAL;");
-            this.db?.run("PRAGMA temp_store = MEMORY;");
-            this.db?.run("PRAGMA mmap_size = 30000000000;");
-            this.db?.run("PRAGMA cache_size = -64000;");
-        });
-        try {
-            const data = await loadDirectivesFromDb(this.db);
-            // 1. Model Tier Directives
-            for (const r of data.tierRows) {
-                const item = {
-                    tierId: r.tier_id,
-                    nameDisplay: r.name_display,
-                    minParamSizeB: r.min_param_size_b,
-                    maxParamSizeB: r.max_param_size_b,
-                    defaultNumCtx: r.default_num_ctx,
-                    defaultNumPredict: r.default_num_predict,
-                    minP: r.min_p,
-                    baseTemp: r.base_temp,
-                    topP: r.top_p,
-                    repeatPenalty: r.repeat_penalty,
-                    frequencyPenalty: r.frequency_penalty,
-                    presencePenalty: r.presence_penalty,
-                    repeatLastN: r.repeat_last_n,
-                    maxThinkChars: r.max_think_chars,
-                    supportsCot: Boolean(r.supports_cot),
-                    maxAllowedMode: r.max_allowed_mode,
-                    systemDirective: r.system_directive,
-                    thinkingDirective: r.thinking_directive
-                };
-                this.tierResolver.tierMap.set(item.tierId, item);
-                this.tierResolver.tierRanges.push(item);
+            let db = null;
+            try {
+                db = new Database(this.dbPath, { readonly: true, fileMustExist: false });
+                db.pragma("busy_timeout = 5000");
+                db.pragma("journal_mode = WAL");
+                db.pragma("synchronous = NORMAL");
+                db.pragma("temp_store = MEMORY");
+                db.pragma("mmap_size = 30000000000");
+                db.pragma("cache_size = -64000");
+                hydrateDirectivesFromDb(db, {
+                    tierRepo: this.tierRepo,
+                    modeRepo: this.modeRepo,
+                    warmthRepo: this.warmthRepo,
+                    theologyRepo: this.theologyRepo,
+                    metricsMap: this.metricsMap,
+                    modulesMap: this.modulesMap
+                });
+                // Hydrate In-Memory Knowledge Graph with loaded prophecies and thematic chains
+                TheologicalKnowledgeGraph.getInstance().hydrateFromDirectives(this.theologyRepo.propheciesList, this.theologyRepo.thematicChainsMap);
+                this.isInitialized = true;
+                const elapsed = (performance.now() - startTime).toFixed(2);
+                console.error(`[DIRECTIVE-ENGINE] ✅ Loaded dedicated Directives DB (${this.dbPath}) in ${elapsed}ms.`);
             }
-            // 2. Mode Directives
-            for (const r of data.modeRows) {
-                const item = {
-                    modeKey: r.mode_key,
-                    displayNames: JSON.parse(r.display_names_json || '{}'),
-                    descriptions: JSON.parse(r.descriptions_json || '{}'),
-                    iconName: r.icon_name,
-                    minWords: r.min_words,
-                    maxWords: r.max_words,
-                    maxVerses: r.max_verses,
-                    complexityMin: r.complexity_min,
-                    complexityMax: r.complexity_max,
-                    structureMandate: r.structure_mandate,
-                    templateBody: r.template_body,
-                    accuracyMatrix: JSON.parse(r.accuracy_matrix_json || '{}')
-                };
-                this.modeMap.set(item.modeKey, item);
+            catch (err) {
+                console.error(`[DIRECTIVE-ENGINE] ❌ Failed to load directives from SQLite:`, err?.message || err);
+                this.isInitialized = false;
+                this.initPromise = null;
             }
-            // 3. Warmth Directives
-            for (const r of data.warmthRows) {
-                const item = {
-                    levelId: r.level_id,
-                    minScore: r.min_score,
-                    maxScore: r.max_score,
-                    iconName: r.icon_name,
-                    tempDeltaBias: r.temp_delta_bias,
-                    labels: JSON.parse(r.labels_json || '{}'),
-                    directives: JSON.parse(r.directive_text_json || r.directives_json || '{}')
-                };
-                this.warmthResolver.warmthRanges.push(item);
-            }
-            // 4. Metrics Schemas
-            for (const r of data.metricsRows) {
-                const item = {
-                    languageCode: r.language_code,
-                    complexityTitle: r.complexity_title,
-                    modeTitle: r.mode_title,
-                    accuracyTitle: r.accuracy_title,
-                    badgeTemplate: r.badge_template
-                };
-                this.metricsMap.set(item.languageCode, item);
-                if (item.languageCode === 'uk')
-                    this.metricsMap.set('ukr', item);
-                if (item.languageCode === 'en')
-                    this.metricsMap.set('eng', item);
-            }
-            // 5. Prompt Modules
-            for (const r of data.moduleRows) {
-                this.modulesMap.set(r.module_id, r.content);
-            }
-            // 6. Translations Catalog
-            for (const r of data.transRows) {
-                let detailsObj = {};
-                if (r.details_json) {
+            finally {
+                if (db) {
                     try {
-                        detailsObj = JSON.parse(r.details_json);
+                        db.close();
                     }
                     catch { }
                 }
-                this.theologyStore.translationsMap.set(r.id.toUpperCase(), {
-                    id: r.id,
-                    name: r.name,
-                    language: r.language,
-                    year: r.year,
-                    philosophy: r.philosophy,
-                    textualBasis: r.textual_basis,
-                    notes: r.notes,
-                    ...detailsObj
-                });
             }
-            // 7. Trench Synonyms
-            for (const r of data.synRows) {
-                this.theologyStore.trenchMap.set(r.strongs_id.toUpperCase(), {
-                    strongsId: r.strongs_id,
-                    greekLemma: r.greek_lemma,
-                    transliteration: r.transliteration,
-                    group: r.synonym_group,
-                    synonymGroup: r.synonym_group,
-                    distinction: r.distinction,
-                    theologicalSignificance: r.theological_significance
-                });
-            }
-            // 8. Messianic Prophecies
-            this.theologyStore.propheciesList = data.propRows.map((r) => {
-                const pOsis = r.prophecy_osis || r.prophecy_ref || '';
-                const fOsis = r.fulfillment_osis || r.fulfillment_ref || '';
-                const pText = r.prophecy_text || r.context_description || '';
-                const fText = r.theological_significance || r.theological_focus || '';
-                return {
-                    id: r.id,
-                    topic: r.topic,
-                    prophecy_ref: pOsis,
-                    fulfillment_ref: fOsis,
-                    context_description: pText,
-                    theological_focus: fText,
-                    prophecy: { osis: pOsis, text: pText },
-                    fulfillment: { osis: fOsis, text: fText }
-                };
-            });
-            // 9. Thematic Chains
-            for (const r of data.chainRows) {
-                if (!this.theologyStore.thematicChainsMap.has(r.theme)) {
-                    this.theologyStore.thematicChainsMap.set(r.theme, []);
-                }
-                this.theologyStore.thematicChainsMap.get(r.theme).push({
-                    step: r.step_number,
-                    ref: r.osis || r.scripture_ref || '',
-                    covenantStage: r.epoch || r.covenant_stage || '',
-                    significance: r.theological_link || r.significance || ''
-                });
-            }
-            // 10. Server Metadata
-            for (const r of data.metaRows) {
-                try {
-                    this.theologyStore.metadataMap.set(r.key, JSON.parse(r.value_json));
-                }
-                catch {
-                    this.theologyStore.metadataMap.set(r.key, r.value_json);
-                }
-            }
-            this.isInitialized = true;
-            const elapsed = (performance.now() - startTime).toFixed(2);
-            console.error(`[DIRECTIVE-ENGINE] ✅ Loaded dedicated Directives DB (${this.dbPath}) in ${elapsed}ms.`);
-        }
-        catch (err) {
-            console.error(`[DIRECTIVE-ENGINE] ❌ Failed to load directives from SQLite:`, err);
-            this.isInitialized = true;
-        }
-        finally {
-            if (this.db) {
-                try {
-                    this.db.close();
-                    this.db = null;
-                }
-                catch { }
-            }
-        }
+        })();
+        return this.initPromise;
     }
+    // Facade delegation methods
     getTranslations() {
-        return this.theologyStore.getTranslations();
+        return this.theologyRepo.getTranslations();
     }
     getTranslation(id) {
-        return this.theologyStore.getTranslation(id);
+        return this.theologyRepo.getTranslation(id);
     }
     getTrenchSynonym(strongsId) {
-        return this.theologyStore.getTrenchSynonym(strongsId);
+        return this.theologyRepo.getTrenchSynonym(strongsId);
     }
     getMessianicProphecies(topic) {
-        return this.theologyStore.getMessianicProphecies(topic);
+        return this.theologyRepo.getMessianicProphecies(topic);
     }
     getThematicChain(theme) {
-        return this.theologyStore.getThematicChain(theme);
+        return this.theologyRepo.getThematicChain(theme);
     }
     getServerMetadata(key) {
-        return this.theologyStore.getServerMetadata(key);
+        return this.theologyRepo.getServerMetadata(key);
     }
     getServerInfo() {
-        return this.theologyStore.getServerMetadata('server_info') || {};
+        return this.theologyRepo.getServerMetadata('server_info') || {};
     }
     getSettingsMetadata(key) {
-        return this.theologyStore.getServerMetadata(key);
+        const settings = this.theologyRepo.getServerMetadata('settings_metadata');
+        if (settings && typeof settings === 'object' && settings[key]) {
+            return settings[key];
+        }
+        return this.theologyRepo.getServerMetadata(key);
     }
     getTierDirective(tierKey) {
-        return this.tierResolver.getTierDirective(tierKey);
+        return this.tierRepo.getTierDirective(tierKey);
     }
     resolveTierByParamSize(paramSizeB) {
-        return this.tierResolver.resolveTierByParamSize(paramSizeB);
+        return this.tierRepo.resolveTierByParamSize(paramSizeB);
     }
     getModeDirective(modeKey) {
-        return this.modeMap.get(modeKey);
+        return this.modeRepo.getModeDirective(modeKey);
     }
     getMode(modeKey) {
-        return this.modeMap.get(modeKey);
+        return this.modeRepo.getMode(modeKey);
     }
     getAllModes() {
-        return Array.from(this.modeMap.values());
+        return this.modeRepo.getAllModes();
     }
     resolveModeFromComplexity(complexityScore, paramSizeB) {
-        const sorted = Array.from(this.modeMap.values()).sort((a, b) => a.complexityMin - b.complexityMin);
-        for (const m of sorted) {
-            if (complexityScore >= m.complexityMin && complexityScore <= m.complexityMax) {
-                return m.modeKey;
-            }
-        }
-        return 'medium';
+        return this.modeRepo.resolveModeFromComplexity(complexityScore, paramSizeB);
     }
     getAllWarmthRanges() {
-        return this.warmthResolver.warmthRanges;
+        return this.warmthRepo.getAllWarmthRanges();
     }
     resolveWarmth(score, lang = 'ukr') {
-        return this.warmthResolver.resolveWarmth(score, lang);
+        return this.warmthRepo.resolveWarmth(score, lang);
     }
     getMetricsSchema(lang = 'ukr') {
         const langKey = lang === 'eng' || lang === 'en' ? 'eng' : (lang === 'ru' ? 'ru' : 'ukr');

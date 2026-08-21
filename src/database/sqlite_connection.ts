@@ -1,188 +1,23 @@
-import sqlite3 from "sqlite3";
-import fs from "fs";
-import os from "os";
-import { resolveDbPath, isValidDb } from "./database_downloader.js";
+import {
+  sqlitePool,
+  auxDbInstance,
+  DB_PATH,
+  isDbReady,
+  checkAndHotMountDb,
+  getFromCache,
+  saveToCache
+} from "./better_sqlite_pool.js";
 
-export let DB_PATH = resolveDbPath();
-
-// 🧠 Multi-Core Node.js Threadpool Scaling (16 parallel I/O threads)
-if (typeof process !== 'undefined') {
-  process.env.UV_THREADPOOL_SIZE = '16';
-}
-
-let canOpenRealDb = false;
-let dbHasVersesTable = false;
-let lastDbCheckTime = 0;
-
-function checkRealDbPath(): boolean {
-  DB_PATH = resolveDbPath();
-  try {
-    if (isValidDb(DB_PATH)) {
-      fs.accessSync(DB_PATH, fs.constants.R_OK);
-      return true;
-    }
-  } catch {
-    return false;
-  }
-  return false;
-}
-
-canOpenRealDb = checkRealDbPath();
-
-// Auxiliary in-memory database for dynamic commentaries & concepts
-const auxDb = new sqlite3.Database(':memory:');
-auxDb.serialize(() => {
-  auxDb.run(`CREATE TABLE IF NOT EXISTS commentaries (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    book TEXT,
-    chapter INTEGER,
-    verse INTEGER,
-    author TEXT,
-    commentary_text TEXT
-  );`);
-
-  auxDb.run(`CREATE TABLE IF NOT EXISTS semantic_concepts (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    concept_name TEXT,
-    keywords TEXT,
-    book TEXT,
-    chapter INTEGER,
-    verse INTEGER,
-    theological_principle TEXT
-  );`);
-
-  auxDb.run(`INSERT INTO commentaries (book, chapter, verse, author, commentary_text) VALUES 
-  ('JN', 3, 16, 'John Chrysostom', 'God so loved the world that He gave His only begotten Son. This is the supreme demonstration of sacrificial covenantal love (Agape).'),
-  ('JN', 3, 16, 'Matthew Henry', 'Faith in Christ is the single divine means of salvation from eternal ruin and receiving everlasting life.'),
-  ('PS', 23, 1, 'Ivan Ohiyenko', 'The Pastoral Psalm expresses absolute trust in God as the Caring Shepherd during times of testing.');`);
-
-  auxDb.run(`INSERT INTO semantic_concepts (concept_name, keywords, book, chapter, verse, theological_principle) VALUES 
-  ('anxiety', 'anxiety fear worry care distress', 'PHP', 4, 6, 'Be anxious for nothing, but in everything by prayer and supplication with thanksgiving let your requests be made known to God.'),
-  ('loneliness', 'lonely abandoned isolated alone', 'PS', 27, 10, 'When my father and my mother forsake me, then the Lord will take me up.'),
-  ('financial trials', 'money debt poverty scarcity risk', 'PROV', 13, 11, 'Wealth gained hastily will dwindle, but whoever gathers little by little will increase it.'),
-  ('forgiveness', 'offense anger forgive enemy grudge', 'EPH', 4, 32, 'Be kind to one another, tenderhearted, forgiving one another, even as God in Christ forgave you.');`);
-});
-
-function configurePragmas(instance: sqlite3.Database, isReadOnly: boolean) {
-  instance.serialize(() => {
-    try {
-      instance.run("PRAGMA busy_timeout = 5000;");
-      instance.run("PRAGMA synchronous = NORMAL;");
-      instance.run("PRAGMA temp_store = MEMORY;");
-      instance.run("PRAGMA mmap_size = 30000000000;");
-      instance.run("PRAGMA cache_size = -64000;");
-      instance.run("PRAGMA threads = 8;");
-      if (isReadOnly) {
-        instance.run("PRAGMA query_only = ON;");
-      }
-    } catch {}
-  });
-}
-
-function createDbInstance(dbPath: string): sqlite3.Database {
-  let instance: sqlite3.Database;
-  const isReal = dbPath !== ':memory:' && isValidDb(dbPath);
-
-  try {
-    if (isReal) {
-      instance = new sqlite3.Database(dbPath, sqlite3.OPEN_READONLY, (err) => {
-        if (err) {
-          console.error("[DATABASE ENGINE] Warning: SQLite read-only connection error:", err.message);
-          dbHasVersesTable = false;
-          return;
-        }
-        instance.get("SELECT name FROM sqlite_master WHERE type='table' AND name='verses'", (e, row: any) => {
-          if (!e && row) {
-            dbHasVersesTable = true;
-            console.error(`[DATABASE ENGINE] ⚡ Connected to offline Read-Only Bible database: ${dbPath}`);
-          } else {
-            dbHasVersesTable = false;
-          }
-        });
-      });
-      configurePragmas(instance, true);
-    } else {
-      instance = new sqlite3.Database(':memory:');
-      dbHasVersesTable = false;
-      configurePragmas(instance, false);
-    }
-  } catch {
-    instance = new sqlite3.Database(':memory:');
-    dbHasVersesTable = false;
-  }
-
-  return instance;
-}
-
-export let db = createDbInstance(canOpenRealDb ? DB_PATH : ':memory:');
-
-/**
- * 🔄 Zero-Restart Auto-Mounting (Hot-Plugging)
- * Automatically detects when the 5.88 GB database is downloaded or added to disk
- * and seamlessly mounts it in real time without restarting the MCP server!
- */
-export function checkAndHotMountDb(): boolean {
-  if (dbHasVersesTable) return true;
-  const now = Date.now();
-  if (now - lastDbCheckTime < 2500) return false;
-  lastDbCheckTime = now;
-
-  if (checkRealDbPath()) {
-    try {
-      const oldInstance = db;
-      const newInstance = createDbInstance(DB_PATH);
-      db = newInstance;
-      canOpenRealDb = true;
-      queryCache.clear();
-      if (oldInstance && typeof (oldInstance as any).close === 'function') {
-        try { oldInstance.close(); } catch (_) {}
-      }
-      return true;
-    } catch (_) {}
-  }
-  return false;
-}
-
-
-// Fast In-Memory Bounded O(1) QuickLRU Cache with 10-minute TTL (Up to 5,000 cached queries)
-const queryCache = new Map<string, { data: any; expiresAt: number }>();
-const MAX_CACHE_SIZE = 5000;
-const DEFAULT_CACHE_TTL_MS = 600000;
-
-export function getFromCache(key: string): any | undefined {
-  const entry = queryCache.get(key);
-  if (!entry) return undefined;
-  if (Date.now() > entry.expiresAt) {
-    queryCache.delete(key);
-    return undefined;
-  }
-  queryCache.delete(key);
-  queryCache.set(key, entry);
-  return entry.data;
-}
-
-export function saveToCache(key: string, data: any): void {
-  if (queryCache.has(key)) {
-    queryCache.delete(key);
-  } else if (queryCache.size >= MAX_CACHE_SIZE) {
-    const oldestKey = queryCache.keys().next().value;
-    if (oldestKey) queryCache.delete(oldestKey);
-  }
-  queryCache.set(key, { data, expiresAt: Date.now() + DEFAULT_CACHE_TTL_MS });
-}
-
-export function isDbReady(): boolean {
-  if (dbHasVersesTable) return true;
-  return checkAndHotMountDb();
-}
+export const db = sqlitePool.getRawDb();
+export const auxDb = auxDbInstance;
+export { DB_PATH, isDbReady, checkAndHotMountDb, getFromCache, saveToCache };
 
 export async function queryDb(sql: string, params: any[] = [], maxRetries = 3): Promise<any[]> {
-  const isAuxQuery = sql.includes('commentaries') || sql.includes('semantic_concepts');
-  const targetDb = isAuxQuery ? auxDb : db;
+  const isAuxQuery = sql.includes("commentaries") || sql.includes("semantic_concepts");
 
-  if (!isAuxQuery && !dbHasVersesTable && (sql.includes('FROM verses') || sql.includes('verses_fts'))) {
+  if (!isAuxQuery && !isDbReady() && (sql.includes("FROM verses") || sql.includes("verses_fts"))) {
     checkAndHotMountDb();
-    if (!dbHasVersesTable) {
+    if (!isDbReady()) {
       return [];
     }
   }
@@ -196,23 +31,16 @@ export async function queryDb(sql: string, params: any[] = [], maxRetries = 3): 
   let attempt = 0;
   while (attempt <= maxRetries) {
     try {
-      const rows = await new Promise<any[]>((resolve, reject) => {
-        targetDb.all(sql, params, (err, rows) => {
-          if (err) return reject(err);
-          resolve(rows || []);
-        });
-      });
-
+      const rows = sqlitePool.query(sql, params);
       saveToCache(cacheKey, rows);
       return rows;
     } catch (err: any) {
-      const isLocked = err.message?.includes('SQLITE_BUSY') || err.message?.includes('database is locked') || err.message?.includes('SQLITE_LOCKED');
+      const isLocked = err.message?.includes("SQLITE_BUSY") || err.message?.includes("database is locked") || err.message?.includes("SQLITE_LOCKED");
       if (isLocked && attempt < maxRetries) {
         attempt++;
         const backoffMs = Math.pow(2, attempt) * 40 + Math.floor(Math.random() * 20);
         await new Promise((r) => setTimeout(r, backoffMs));
-      } else if (err.message?.includes('no such table')) {
-        dbHasVersesTable = false;
+      } else if (err.message?.includes("no such table")) {
         return [];
       } else {
         return [];

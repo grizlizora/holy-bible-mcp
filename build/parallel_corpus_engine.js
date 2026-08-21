@@ -2,6 +2,7 @@ import { queryDb } from "./database.js";
 import { OSIS_ALIAS_MAP } from "./data/osis_dictionary.js";
 import { formatBiblicalDisplayTitle } from "./osis_engine.js";
 import { DirectiveStore } from "./directives/directive_store.js";
+import { TranslationWordDiff } from "./search/diff/translation_word_diff.js";
 export class ParallelCorpusEngine {
     static instance;
     static getInstance() {
@@ -45,7 +46,7 @@ export class ParallelCorpusEngine {
         };
     }
     /**
-     * ⚖️ Performs token-level diff comparison between two translations
+     * ⚖️ Performs token-level diff comparison between two translations using word-level Myers LCS
      */
     async compareTranslationsDiff(book, chapter, verse, baseTrans = 'UBIO', targetTrans = 'UKRK', lang = 'ukr') {
         const parallel = await this.getParallelVerses(book, chapter, verse, undefined, [baseTrans, targetTrans], lang);
@@ -54,21 +55,18 @@ export class ParallelCorpusEngine {
         const store = DirectiveStore.getInstance();
         const baseMeta = store.getTranslation(baseTrans);
         const targetMeta = store.getTranslation(targetTrans);
-        const diffMarkdown = `
-\`\`\`diff
-- [${baseTrans}] ${baseText}
-+ [${targetTrans}] ${targetText}
-\`\`\`
-`.trim();
+        const diffResult = TranslationWordDiff.computeWordDiff(baseTrans, baseText, targetTrans, targetText);
         const analysisNotes = [
             `Порівняння **${baseTrans}** (${baseMeta?.philosophy || 'Formal'}) проти **${targetTrans}** (${targetMeta?.philosophy || 'Optimal'}).`,
+            `Коефіцієнт схожості тексту: **${Math.round(diffResult.similarityRatio * 100)}%**.`,
+            diffResult.addedWords.length > 0 ? `Додані або уточнені слова у ${targetTrans}: ${diffResult.addedWords.slice(0, 5).join(", ")}` : `Мінімальні лексичні відмінності.`,
             `Лексичні акценти: обидва переклади зберігають канонічну точність і богословську глибину першотвору.`
         ];
         return {
             reference: parallel.reference,
             base: baseText,
             target: targetText,
-            diffMarkdown,
+            diffMarkdown: diffResult.diffMarkdown,
             analysisNotes
         };
     }

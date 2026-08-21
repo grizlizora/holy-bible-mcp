@@ -12,6 +12,13 @@ export class MorphologyEngine {
   public static parseHebrewMorphCode = parseHebrewMorphCode;
   public static getInterlinearVerse = getInterlinearVerse;
   public static getStrongsEtymology = getStrongsEtymology;
+
+  public static parseMorphology(code: string, lang: 'grc' | 'heb' | 'auto' = 'auto') {
+    if (lang === 'heb' || (lang === 'auto' && (code.includes('/') || code.startsWith('H')))) {
+      return parseHebrewMorphCode(code);
+    }
+    return parseGreekMorphCode(code);
+  }
 }
 
 export { COMMON_LEMMA_MAP };
