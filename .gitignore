@@ -1,51 +1,7 @@
-# Dependencies & Build artifacts
 node_modules/
-venv/
-.venv/
-
-# Non-MCP web components (retained locally, excluded from npm package release)
-/client/
-/data/*
-!/data/directives.sqlite
-liquid_ai.db*
-data/liquid_ai.db*
-*.db
-*.db-wal
-*.db-shm
-*.sqlite-wal
-*.sqlite-shm
-.app_secret_key
-data/.app_secret_key
-
-# IDE & Editor Temporary Folders
-.trae/
-.vscode/
-.idea/
-.next/
-
-# Tunnels & Logs
-*.log
-*.mp4
-jprq
-loophole-cli*
-pinggy*
-serveo*
-localtunnel*
-lt_test*
-npx_tmole*
-tuns_test*
-cloudflared*
-ssish_test*
-
-# OS System Files
+build/
 .DS_Store
-Thumbs.db
-scratch/
+*.log
+npm-debug.log*
 .env
-*.env
-.mcp/
-*.apk
-app-debug.apk
-HolyBibleAI.apk
-P2P_MESH_MASTER_PLAN.md
-p2p_mesh_analyzed.json
+.env.local

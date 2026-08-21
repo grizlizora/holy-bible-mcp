@@ -27,17 +27,24 @@ export const AskHolyBibleSchema = z.object({
 }).passthrough();
 
 export const SearchKeywordSchema = z.object({
-  keyword: z.string().min(1, "Keyword cannot be empty"),
+  keyword: z.string().optional(),
+  query: z.string().optional(),
   translation: z.string().optional(),
+  language: z.string().optional(),
+  lang: z.string().optional(),
   limit: z.number().optional().default(10)
-});
+}).passthrough();
 
 export const GetVerseSchema = z.object({
   book: z.string().optional(),
   chapter: z.number().optional(),
   verse: z.number().optional(),
-  language: z.string().optional()
-});
+  reference: z.string().optional(),
+  ref: z.string().optional(),
+  query: z.string().optional(),
+  language: z.string().optional(),
+  lang: z.string().optional()
+}).passthrough();
 
 export const GetChapterContextSchema = z.object({
   book: z.string().min(1, "Book cannot be empty"),
@@ -69,7 +76,7 @@ export const SetRelevanceSensitivitySchema = z.object({
 });
 
 export const SetResponseModeSchema = z.object({
-  mode: z.enum(["auto", "minimal", "short", "medium", "detailed", "deep", "verses_only"])
+  mode: z.enum(["auto", "minimal", "short", "medium", "detailed", "deep", "verses_only", "unrestricted"])
 });
 
 export const SetShowMetricsSchema = z.object({
@@ -117,8 +124,9 @@ export const GetInterlinearVerseSchema = z.object({
 });
 
 export const GetStrongsEtymologySchema = z.object({
-  strongs_id: z.string().min(1)
-});
+  strongs_id: z.string().optional(),
+  word: z.string().optional()
+}).passthrough();
 
 export const AnalyzeGreekHebrewWordSchema = z.object({
   word: z.string().min(1)
