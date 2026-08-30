@@ -5,3 +5,7 @@ build/
 npm-debug.log*
 .env
 .env.local
+*.sqlite-wal
+*.sqlite-shm
+*.sqlite-journal
+coverage/

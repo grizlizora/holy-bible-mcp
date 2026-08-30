@@ -1,4 +1,5 @@
-import { BIBLE_DB_MAGNET_URI } from "../../database.js";
+import fs from "fs";
+import { BIBLE_DB_MAGNET_URI, resolveDbPath, REMOTE_MIRRORS } from "../../database.js";
 import { getSensitivityDirective, resolveEffectiveMode } from "../../archetypes.js";
 import { computeAdaptiveModelBudget } from "../../capabilities.js";
 import { extractVectorContext } from "../../vector_context.js";
@@ -35,15 +36,22 @@ export async function handleSetShowMetrics(args) {
     };
 }
 export async function handleGetP2pSwarmStatus() {
+    const dbPath = resolveDbPath();
+    const exists = fs.existsSync(dbPath);
+    const sizeBytes = exists ? fs.statSync(dbPath).size : 0;
     return {
         content: [{
                 type: "text",
                 text: JSON.stringify({
                     server: "holy-bible-mcp",
                     protocol: "WebTorrent / BitTorrent P2P Mesh Engine",
-                    status: "active",
+                    status: exists ? "mounted" : "ready_for_sync",
+                    storagePath: dbPath,
+                    localSizeBytes: sizeBytes,
+                    isFullyMounted: exists && sizeBytes > 1_000_000_000,
                     magnetUri: BIBLE_DB_MAGNET_URI,
-                    databaseSize: "5.88 GB (11,907,047 verses, 800+ languages)",
+                    mirrors: REMOTE_MIRRORS,
+                    databaseTargetSize: "5.88 GB (11,907,047 verses, 800+ languages)",
                     trackers: [
                         "udp://tracker.opentrackr.org:1337/announce",
                         "udp://tracker.openbittorrent.com:6969/announce",

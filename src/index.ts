@@ -16,6 +16,10 @@ process.on("uncaughtException", (error: Error) => {
   console.error("[MCP PROCESS SAFEGUARD] Uncaught Exception:", error);
 });
 
+import { onDatabaseMounted, sqlitePool, clearQueryCache } from "./database.js";
+import { ResourcePoolManager } from "./resources_repository.js";
+
+
 export function createServerInstance(): Server {
   const server = new Server(
     {
@@ -28,7 +32,7 @@ export function createServerInstance(): Server {
           listChanged: true
         },
         resources: {
-          subscribe: false,
+          subscribe: true,
           listChanged: true
         },
         prompts: {
@@ -43,8 +47,35 @@ export function createServerInstance(): Server {
   registerResourceHandlers(server);
   registerPromptHandlers(server);
 
+  const unregisterMount = onDatabaseMounted(async () => {
+    try {
+      ResourcePoolManager.clearCache();
+      clearQueryCache();
+      await server.notification({ method: "notifications/resources/list_changed" });
+      await server.notification({ method: "notifications/tools/list_changed" });
+
+      // Emit updated notification for all active resource subscriptions
+      const subscribedUris = ResourcePoolManager.getSubscribedUris();
+      for (const uri of subscribedUris) {
+        try {
+          await server.notification({
+            method: "notifications/resources/updated",
+            params: { uri }
+          });
+        } catch (_) {}
+      }
+    } catch (_) {}
+  });
+
+  const origClose = server.close.bind(server);
+  server.close = async () => {
+    unregisterMount();
+    return origClose();
+  };
+
   return server;
 }
+
 
 async function main() {
   const cliArgs = process.argv.slice(2);
@@ -70,9 +101,15 @@ async function main() {
 
   const handleSignal = async (signal: string) => {
     console.error(`[MCP SERVER] Received ${signal}. Initiating graceful shutdown...`);
-    await transportManager.shutdown();
+    try {
+      await transportManager.shutdown();
+      await sqlitePool.drainAndClose(2000);
+      const { PiscinaWorkerPool } = await import("./workers/piscina_worker_pool.js");
+      await PiscinaWorkerPool.getInstance().destroy();
+    } catch (_) {}
     process.exit(0);
   };
+
 
   process.on("SIGINT", () => handleSignal("SIGINT"));
   process.on("SIGTERM", () => handleSignal("SIGTERM"));

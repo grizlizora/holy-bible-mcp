@@ -61,18 +61,46 @@ export function extractModelParamSizeB(modelName: string, details?: any): number
     name === 'r1' ||
     name === 'v3'
   ) {
+    // If it's a distilled variant, resolve actual distilled size
+    if (name.includes('70b')) return 70.0;
+    if (name.includes('32b')) return 32.0;
+    if (name.includes('14b')) return 14.0;
+    if (name.includes('8b')) return 8.0;
+    if (name.includes('7b')) return 7.0;
+    if (name.includes('1.5b')) return 1.5;
     return 671.0;
   }
 
-  if (name.includes('gpt-4o') || name.includes('o1') || name.includes('o3') || name.includes('claude-3-7') || name.includes('claude-3-5-sonnet') || name.includes('gemini-2.0-pro') || name.includes('gemini-1.5-pro')) {
+  if (
+    name.includes('gpt-4o') || 
+    name.includes('o1') || 
+    name.includes('o3') || 
+    name.includes('claude-3-7') || 
+    name.includes('claude-3.7') || 
+    name.includes('claude-3-5-sonnet') || 
+    name.includes('claude-3.5-sonnet') || 
+    name.includes('claude-3-opus') || 
+    name.includes('gemini-2.0-pro') || 
+    name.includes('gemini-1.5-pro') ||
+    name.includes('command-r-plus') ||
+    name.includes('command-r+')
+  ) {
     return 200.0;
   }
 
-  if (name.includes('gpt-4o-mini') || name.includes('gemini-2.0-flash') || name.includes('gemini-1.5-flash') || name.includes('claude-3-haiku')) {
+  if (
+    name.includes('gpt-4o-mini') || 
+    name.includes('gemini-2.0-flash') || 
+    name.includes('gemini-1.5-flash') || 
+    name.includes('claude-3-haiku') ||
+    name.includes('claude-3.5-haiku') ||
+    name.includes('codestral')
+  ) {
     return 32.0;
   }
 
-  if (name.includes('qwen2.5-coder') || name.includes('qwen2.5')) {
+  if (name.includes('qwen2.5-coder') || name.includes('qwen2.5') || name.includes('qwen-2.5')) {
+    if (name.includes('72b')) return 72.0;
     if (name.includes('32b')) return 32.0;
     if (name.includes('14b')) return 14.0;
     if (name.includes('7b')) return 7.0;
@@ -83,7 +111,13 @@ export function extractModelParamSizeB(modelName: string, details?: any): number
   }
 
   if (name.includes('llama-3.3') || name.includes('llama3.3')) return 70.0;
+  if (name.includes('llama-3.2') || name.includes('llama3.2')) {
+    if (name.includes('3b')) return 3.0;
+    if (name.includes('1b')) return 1.0;
+    return 3.0;
+  }
   if (name.includes('llama-3.1') || name.includes('llama3.1') || name.includes('llama-3') || name.includes('llama3')) {
+    if (name.includes('405b')) return 405.0;
     if (name.includes('70b')) return 70.0;
     if (name.includes('8b')) return 8.0;
     if (name.includes('1b')) return 1.0;

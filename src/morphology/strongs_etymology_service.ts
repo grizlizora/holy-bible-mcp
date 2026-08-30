@@ -51,18 +51,31 @@ export class StrongsEtymologyService {
     const paddedKey = letter + String(numPart).padStart(4, '0');
     const rawKey = letter + String(numPart);
 
-    const rows = await queryDb(
+    let rows = await queryDb(
       `SELECT strongs_id, lemma, COALESCE(original_word, lemma) AS original_word, transliteration, pronunciation, definition 
        FROM strongs_dictionary 
        WHERE strongs_id IN (?, ?, ?) OR id IN (?, ?, ?) LIMIT 1`,
       [normalizedId, paddedKey, rawKey, normalizedId, paddedKey, rawKey]
     );
 
+    if (!rows || rows.length === 0) {
+      rows = await queryDb(
+        `SELECT strongs_id, lemma, COALESCE(original_word, lemma) AS original_word, transliteration, pronunciation, definition 
+         FROM strongs_dictionary 
+         WHERE LOWER(lemma) = ? OR LOWER(original_word) = ? OR LOWER(transliteration) = ? LIMIT 1`,
+        [rawClean, rawClean, rawClean]
+      );
+    }
+
     const row = rows[0] || {};
-    const lemma = row.lemma || row.original_word || (isGreek ? 'ἀγάπη' : 'בָּרָא');
-    const translit = row.transliteration || (isGreek ? 'agape' : 'bara');
-    const pron = row.pronunciation || (isGreek ? 'ag-ah-pay' : 'bah-rah');
+    const effectiveStrongsId = row.strongs_id ? String(row.strongs_id).toUpperCase() : paddedKey;
+    const isGreekWord = effectiveStrongsId.startsWith('G') || isGreek;
+    const isHebrewWord = effectiveStrongsId.startsWith('H') || isHebrew;
+    const lemma = row.lemma || row.original_word || (isGreekWord ? 'ἀγάπη' : 'בָּרָא');
+    const translit = row.transliteration || (isGreekWord ? 'agape' : 'bara');
+    const pron = row.pronunciation || (isGreekWord ? 'ag-ah-pay' : 'bah-rah');
     const def = row.definition || (trench ? trench.distinction : 'Sacrificial, unconditional covenantal love.');
+
 
     const result: StrongsEtymologyResult = {
       strongsId: paddedKey,

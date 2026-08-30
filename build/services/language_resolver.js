@@ -160,18 +160,20 @@ export function resolveLanguageCode(inputLang, sampleText) {
         return 'hin';
     if (/[\u0E00-\u0E7F]/u.test(str))
         return 'tha';
-    if (/[ąćęłńóśźż]/i.test(str))
+    if (/[ąćęłńóśźż]/i.test(str) || /\b(jest|miłość|wiara|łaska|bóg|jezus|według|świętego)\b/i.test(str))
         return 'pol';
-    if (/[áéíóúüñ¿¡]/i.test(str))
-        return 'spa';
-    if (/[äöüß]/i.test(str))
+    if (/[äöüß]/i.test(str) || /\b(der|die|das|und|nicht|ist|sagt|über|glaube|hoffnung|gnade|gott)\b/i.test(str))
         return 'deu';
-    if (/[éèêëàâîïôûùç]/i.test(str))
+    if (/[èêëàâîïôûùçœæ]/i.test(str) || /qu['’]|l['’]|d['’]/i.test(str) || /\b(les|des|dans|avec|pour|dieu|grâce|selon|est-ce)\b/i.test(str))
         return 'fra';
-    if (/[àèéìíîòóùú]/i.test(str))
+    if (/[¿¡ñ]/i.test(str) || /\b(dios|jesús|gracia|dice|verdadera|según|biblia)\b/i.test(str) || (/[áíóú]/i.test(str) && /\b(el|los|las|del|por|para|con|sobre|fe)\b/i.test(str)))
+        return 'spa';
+    if (/[àèéìíîòóùú]/i.test(str) || /\b(il|lo|i|gli|per|dio|gesù|amore|fede|grazia|bibbia)\b/i.test(str))
         return 'ita';
-    if (/[ãõáéíóúâêôç]/i.test(str))
+    if (/[ãõáéíóúâêôç]/i.test(str) || /\b(os|as|do|da|dos|das|com|para|deus|jesus|fé|graça)\b/i.test(str))
         return 'por';
+    if (/\b(the|and|is|in|of|to|that|for|with|god|jesus|love|faith|grace|bible)\b/i.test(str))
+        return 'eng';
     return 'ukr';
 }
 export function extractBiblicalSearchKeywords(question) {

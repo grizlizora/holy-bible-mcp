@@ -1,4 +1,6 @@
-export { db, queryDb, isDbReady, getFromCache, saveToCache, DB_PATH } from "./database/sqlite_connection.js";
+export { db, sqlitePool, queryDb, isDbReady, getFromCache, saveToCache, clearQueryCache, DB_PATH, onDatabaseMounted, offDatabaseMounted } from "./database/sqlite_connection.js";
+
+
 export {
   BIBLE_DB_MAGNET_URI,
   downloadDatabaseStream,

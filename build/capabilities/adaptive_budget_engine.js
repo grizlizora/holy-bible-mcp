@@ -115,7 +115,15 @@ export function computeAdaptiveModelBudget(params) {
         numCtx = 8192;
     else
         numCtx = 8192;
-    const reasoningBonus = isReasoning ? 1200 : 0;
+    const lowerName = (modelName || '').toLowerCase();
+    const autoReasoning = isReasoning ||
+        lowerName.includes('r1') ||
+        lowerName.includes('thinking') ||
+        lowerName.includes('reasoning') ||
+        lowerName.includes('o1') ||
+        lowerName.includes('o3') ||
+        lowerName.includes('deepseek-reasoner');
+    const reasoningBonus = autoReasoning ? 1200 : 0;
     let numPredict = 3000;
     if (tier === 'tier1')
         numPredict = 2000;
@@ -133,7 +141,7 @@ export function computeAdaptiveModelBudget(params) {
     let computedFrequencyPenalty = 0.05;
     let computedPresencePenalty = 0.05;
     let computedRepeatLastN = 128;
-    if (isReasoning || family === 'deepseek') {
+    if (autoReasoning || family === 'deepseek') {
         baseTemp = 0.25;
         computedTopP = 0.90;
         computedMinP = 0.05;

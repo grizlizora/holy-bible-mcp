@@ -3,6 +3,8 @@ import {
   ListResourcesRequestSchema,
   ListResourceTemplatesRequestSchema,
   ReadResourceRequestSchema,
+  SubscribeRequestSchema,
+  UnsubscribeRequestSchema,
   McpError,
   ErrorCode
 } from "@modelcontextprotocol/sdk/types.js";
@@ -13,13 +15,30 @@ import { CrossrefResourceHandler } from "./resources/handlers/crossref_resource_
 import { InterlinearResourceHandler } from "./resources/handlers/interlinear_resource_handler.js";
 
 /**
- * 🔒 In-flight Promise Registry & LRU Resource Cache to prevent dogpiling and race conditions
+ * 🔒 In-flight Promise Registry, Subscriptions & LRU Resource Cache to prevent dogpiling and race conditions
  */
 class ResourcePoolManager {
   private static inFlightRequests = new Map<string, Promise<any>>();
   private static resourceCache = new Map<string, { data: any; expiresAt: number }>();
+  private static subscribers = new Set<string>(); // Set of subscribed URIs
   private static readonly MAX_CACHE_ENTRIES = 1000;
   private static readonly TTL_MS = 600_000; // 10 minutes
+
+  public static subscribe(uri: string): void {
+    this.subscribers.add(uri);
+  }
+
+  public static unsubscribe(uri: string): void {
+    this.subscribers.delete(uri);
+  }
+
+  public static isSubscribed(uri: string): boolean {
+    return this.subscribers.has(uri);
+  }
+
+  public static getSubscribedUris(): string[] {
+    return Array.from(this.subscribers);
+  }
 
   public static async executeWithLock(uri: string, fetchFn: () => Promise<any>): Promise<any> {
     // 1. Check in-memory cache
@@ -84,11 +103,12 @@ export function registerResourceHandlers(server: Server): void {
           mimeType: "text/markdown"
         },
         {
-          uriTemplate: "bible://strongs/{number}",
+          uriTemplate: "bible://strongs/{strongsId}",
           name: "Strong's Exhaustive Concordance Entry",
           description: "Greek & Hebrew lexical lemma, transliteration, pronunciation and definition (e.g. bible://strongs/G26 for Agape, bible://strongs/H1254 for Bara)",
           mimeType: "application/json"
         },
+
         {
           uriTemplate: "bible://crossref/{book}/{chapter}/{verse}",
           name: "Biblical Cross-References Network",
@@ -183,6 +203,23 @@ export function registerResourceHandlers(server: Server): void {
         throw new McpError(ErrorCode.InvalidRequest, err.message || `Error reading resource: ${uri}`);
       }
     });
+  });
+
+  // 4. Resource Subscriptions Handlers
+  server.setRequestHandler(SubscribeRequestSchema, async (request) => {
+    const uri = request.params.uri;
+    const parsed = ResourceUriParser.parse(uri);
+    if (!parsed) {
+      throw new McpError(ErrorCode.InvalidRequest, `Invalid or unsupported resource URI: ${uri}`);
+    }
+    ResourcePoolManager.subscribe(uri);
+    return {};
+  });
+
+  server.setRequestHandler(UnsubscribeRequestSchema, async (request) => {
+    const uri = request.params.uri;
+    ResourcePoolManager.unsubscribe(uri);
+    return {};
   });
 }
 

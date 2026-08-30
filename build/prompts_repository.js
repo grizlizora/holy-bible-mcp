@@ -13,11 +13,11 @@ export class PromptRepositoryEngine {
         return result;
     }
     static buildHydratedStudyPrompt(options) {
-        const { topic, language = 'ukr', detailLevel = 'medium', modelName } = options;
+        const { topic, language = 'ukr', detailLevel = 'medium', modelName, modelTier } = options;
         const isUkr = language === 'ukr' || language === 'uk';
         const sizeB = modelName ? (extractModelParamSizeB(modelName) || 14) : 14;
         const store = DirectiveStore.getInstance();
-        const tier = store.resolveTierByParamSize(sizeB);
+        const tier = (modelTier ? store.getTierDirective(modelTier) : undefined) || store.resolveTierByParamSize(sizeB);
         const modeObj = store.getMode(detailLevel) || store.getMode('medium');
         let baseTemplate = modeObj?.templateBody || modeObj?.structureMandate || '';
         if (tier?.systemDirective) {
@@ -196,10 +196,12 @@ Execute an exhaustive original-language philological study:
                 const topic = String(args?.topic || "що таке любов");
                 const lang = String(args?.language || "ukr");
                 const detailLevel = String(args?.detail_level || "medium");
+                const modelTier = args?.model_tier ? String(args.model_tier) : undefined;
                 const hydratedText = PromptRepositoryEngine.buildHydratedStudyPrompt({
                     topic,
                     language: lang,
-                    detailLevel
+                    detailLevel,
+                    modelTier
                 });
                 return {
                     description: `Holy Bible Study Prompt for topic: ${topic}`,

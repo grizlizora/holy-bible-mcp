@@ -14,17 +14,23 @@ export async function extractVectorContext(query, fullText, maxTokens = 8_000, f
     if (estimatedTokens <= maxTokens) {
         return text;
     }
-    // Structure-Aware Semantic Chunking with 100-token sliding window overlap
+    // Yield event loop for large attachments (>1MB) to prevent latency spikes on other connections
+    if (text.length > 1_000_000) {
+        await new Promise((resolve) => setImmediate(resolve));
+    }
+    // Structure-Aware Semantic Chunking with sliding window overlap
     const chunks = MarkdownSemanticSplitter.chunkDocument(text, filename, {
         targetChunkSize: 1800,
         overlapSize: 350
     });
-    const bm25Index = new InMemoryBm25Index(chunks);
-    const searchResults = bm25Index.search(query, 20);
+    // Limit indexed chunks to 2500 max to bound memory overhead during indexing
+    const boundedChunks = chunks.length > 2500 ? chunks.slice(0, 2500) : chunks;
+    const bm25Index = new InMemoryBm25Index(boundedChunks);
+    const searchResults = bm25Index.search(query, 25);
     // If BM25 yields results, take top scored chunks; else fallback to first chunks
     let scoredChunks = searchResults;
     if (scoredChunks.length === 0) {
-        scoredChunks = chunks.map((c, i) => ({ chunk: c, score: 1.0 / (i + 1) }));
+        scoredChunks = boundedChunks.map((c, i) => ({ chunk: c, score: 1.0 / (i + 1) }));
     }
     // Accumulate characters while preserving narrative chronological order
     let accumulatedChars = 0;

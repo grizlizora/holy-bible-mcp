@@ -70,7 +70,8 @@ export class TerminalProgressBar {
         const remainingBytes = Math.max(0, this.totalBytes - this.downloadedBytes);
         const etaSec = this.smoothSpeed > 0 ? remainingBytes / this.smoothSpeed : 0;
         if (this.isTTY) {
-            const barWidth = 26;
+            const cols = process.stdout.columns || 80;
+            const barWidth = Math.max(10, Math.min(30, cols - 65));
             const filledWidth = Math.round((percent / 100) * barWidth);
             const emptyWidth = Math.max(0, barWidth - filledWidth);
             const bar = `\x1b[32m${"█".repeat(filledWidth)}\x1b[90m${"░".repeat(emptyWidth)}\x1b[0m`;

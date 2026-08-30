@@ -14,8 +14,7 @@ const CLI_COMMANDS = new Set([
 
 export function isCliCommand(args: string[]): boolean {
   if (args.length === 0) return false;
-  const firstArg = args[0].toLowerCase();
-  return CLI_COMMANDS.has(firstArg);
+  return args.some(arg => CLI_COMMANDS.has(arg.toLowerCase()));
 }
 
 export function printHelp(): void {
@@ -36,6 +35,8 @@ COMMANDS:
 
 OPTIONS:
   --force, -f              Примусове завантаження або перезапис
+  --checksum, --deep       Глибока багатопотокова валідація SHA-256 (Piscina Worker Pool)
+  --profile <full|lite>    Профіль бази даних (full: 800+ мов ~5.88GB, lite: базові мови)
   --dir <path>             Вказати кастомну директорію бази (default: ~/.bible-mcp)
   --mirror <url>           Вказати пряме дзеркало для завантаження
   --yes, -y                Автоматично підтвердити видалення
@@ -49,8 +50,15 @@ EXAMPLES:
 }
 
 export async function runCli(args: string[]): Promise<number> {
-  const cmd = args[0].toLowerCase();
-  const rest = args.slice(1);
+  // Find command token anywhere in arguments
+  const cmdIndex = args.findIndex(a => CLI_COMMANDS.has(a.toLowerCase()));
+  if (cmdIndex === -1) {
+    console.error(`❌ Unknown command: ${args[0]}. Use --help for usage.`);
+    return 1;
+  }
+
+  const cmd = args[cmdIndex].toLowerCase();
+  const rest = args.filter((_, idx) => idx !== cmdIndex);
 
   if (cmd === "--help" || cmd === "-h" || cmd === "help") {
     printHelp();

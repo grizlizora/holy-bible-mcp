@@ -2,8 +2,15 @@ import { queryDb } from "../../database.js";
 import { OSIS_ALIAS_MAP } from "../../data/osis_dictionary.js";
 import { DirectiveStore } from "../../directives/directive_store.js";
 import { ScriptureGraphEngine } from "../../scripture_graph_engine.js";
+import { z } from "zod";
+import {
+  GetCommentarySchema,
+  GetCrossReferencesSchema,
+  FindThematicScriptureChainSchema,
+  GetProphecyFulfillmentPairsSchema
+} from "../schemas/tool_schemas.js";
 
-export async function handleGetCommentary(args: any) {
+export async function handleGetCommentary(args: z.infer<typeof GetCommentarySchema>) {
   const book = String(args?.book || "").toUpperCase();
   const chapter = Number(args?.chapter || 1);
   const verse = Number(args?.verse || 1);
@@ -30,7 +37,7 @@ export async function handleGetCommentary(args: any) {
   };
 }
 
-export async function handleGetCrossReferences(args: any) {
+export async function handleGetCrossReferences(args: z.infer<typeof GetCrossReferencesSchema>) {
   const book = String(args?.book || "JHN");
   const chapter = parseInt(String(args?.chapter || 3), 10);
   const verse = parseInt(String(args?.verse || 16), 10);
@@ -43,7 +50,7 @@ export async function handleGetCrossReferences(args: any) {
   };
 }
 
-export async function handleFindThematicScriptureChain(args: any) {
+export async function handleFindThematicScriptureChain(args: z.infer<typeof FindThematicScriptureChainSchema>) {
   const theme = String(args?.theme || "living_water");
   const startingVerse = String(args?.starting_verse || "GEN.3.15");
 
@@ -53,10 +60,11 @@ export async function handleFindThematicScriptureChain(args: any) {
   };
 }
 
-export async function handleGetProphecyFulfillmentPairs(args: any) {
+export async function handleGetProphecyFulfillmentPairs(args: z.infer<typeof GetProphecyFulfillmentPairsSchema>) {
   const topic = String(args?.topic || "all");
   const pairs = DirectiveStore.getInstance().getMessianicProphecies(topic);
   return {
     content: [{ type: "text", text: JSON.stringify(pairs, null, 2) }]
   };
 }
+

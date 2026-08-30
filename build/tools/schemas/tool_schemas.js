@@ -24,16 +24,23 @@ export const AskHolyBibleSchema = z.object({
     modelMetadata: z.record(z.string(), z.any()).optional()
 }).passthrough();
 export const SearchKeywordSchema = z.object({
-    keyword: z.string().min(1, "Keyword cannot be empty"),
+    keyword: z.string().optional(),
+    query: z.string().optional(),
     translation: z.string().optional(),
+    language: z.string().optional(),
+    lang: z.string().optional(),
     limit: z.number().optional().default(10)
-});
+}).passthrough();
 export const GetVerseSchema = z.object({
     book: z.string().optional(),
     chapter: z.number().optional(),
     verse: z.number().optional(),
-    language: z.string().optional()
-});
+    reference: z.string().optional(),
+    ref: z.string().optional(),
+    query: z.string().optional(),
+    language: z.string().optional(),
+    lang: z.string().optional()
+}).passthrough();
 export const GetChapterContextSchema = z.object({
     book: z.string().min(1, "Book cannot be empty"),
     chapter: z.number(),
@@ -58,7 +65,7 @@ export const SetRelevanceSensitivitySchema = z.object({
     score: z.number().min(0).max(100)
 });
 export const SetResponseModeSchema = z.object({
-    mode: z.enum(["auto", "minimal", "short", "medium", "detailed", "deep", "verses_only"])
+    mode: z.enum(["auto", "minimal", "short", "medium", "detailed", "deep", "verses_only", "unrestricted"])
 });
 export const SetShowMetricsSchema = z.object({
     enabled: z.boolean().optional(),
@@ -97,8 +104,9 @@ export const GetInterlinearVerseSchema = z.object({
     parallel_translation: z.string().optional().default("UBIO")
 });
 export const GetStrongsEtymologySchema = z.object({
-    strongs_id: z.string().min(1)
-});
+    strongs_id: z.string().optional(),
+    word: z.string().optional()
+}).passthrough();
 export const AnalyzeGreekHebrewWordSchema = z.object({
     word: z.string().min(1)
 });

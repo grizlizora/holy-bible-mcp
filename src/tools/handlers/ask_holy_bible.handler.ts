@@ -6,10 +6,16 @@ import { VerseContextRetriever } from "./ask_holy_bible/verse_context_retriever.
 import { TelemetryCalculator } from "./ask_holy_bible/telemetry_calculator.js";
 import { PromptContextComposer } from "./ask_holy_bible/prompt_context_composer.js";
 
-export async function handleAskHolyBible(args: any) {
+import { z } from "zod";
+import { AskHolyBibleSchema } from "../schemas/tool_schemas.js";
+
+export type AskHolyBibleArgs = z.infer<typeof AskHolyBibleSchema>;
+
+export async function handleAskHolyBible(args: AskHolyBibleArgs) {
   const question = String(args?.question || args?.userMessage || "що таке любов");
   const lang = String(args?.language || args?.lang || "auto");
-  const settings = (args as any)?.settings || {};
+  const settings = ((args as any)?.settings) || {};
+
 
   const envModesControl = process.env.MODES_CONTROL || process.env.MCP_MODES_CONTROL;
   const envWarmthControl = process.env.WARMTH_CONTROL || process.env.MCP_WARMTH_CONTROL;
@@ -27,7 +33,7 @@ export async function handleAskHolyBible(args: any) {
     : null;
 
   const requestedMode = modesControlEnabled
-    ? String(args?.mode || settings.detailLevel || globalConfig.mode)
+    ? String(args?.mode || settings.detailLevel || settings.modeKey || settings.mode || globalConfig.mode)
     : 'unrestricted';
 
   const rawParamSize = 
@@ -105,6 +111,7 @@ export async function handleAskHolyBible(args: any) {
     maxThinkChars: isCotAllowed ? (tier.maxThinkChars || 0) : 0,
     sensitivityProfile: sensInfo,
     accuracyScore: accuracyScoreStr,
+    showMetrics: globalConfig.showMetrics,
     warmthControlActive: warmthControlEnabled,
     modesControlActive: modesControlEnabled,
     verses: verses.map(v => ({ book: v.book, chapter: v.chapter, verse: v.verse, text: v.text, language: v.language }))

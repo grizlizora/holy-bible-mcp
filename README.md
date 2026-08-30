@@ -6,11 +6,62 @@
 [![Languages: 800+](https://img.shields.io/badge/Languages-800%2B-green.svg)](#supported-languages)
 [![Verses: 11.9M](https://img.shields.io/badge/Verses-11.9M-brightgreen.svg)](#database-specifications)
 [![Platform: macOS | Windows | Linux | WSL](https://img.shields.io/badge/Platform-macOS%20%7C%20Windows%20%7C%20Linux%20%7C%20WSL-lightgrey.svg)](#-cross-platform--architecture-support)
-[![Architecture: ARM64 | x86_64](https://img.shields.io/badge/Arch-ARM64%20%7C%20x86__64-orange.svg)](#-cross-platform--architecture-support)
+[![CI Pipeline](https://github.com/grizlizora/holy-bible-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/grizlizora/holy-bible-mcp/actions/workflows/ci.yml)
+[![Tests: Vitest](https://img.shields.io/badge/Tests-Vitest%20Passed-brightgreen.svg)](#-automated-testing--ci)
 
 A high-performance, **100% offline**, zero-latency **Model Context Protocol (MCP) Server** and **CLI Database Manager** that connects any LLM (Claude 3.7, GPT-4o, Gemini 2.0, DeepSeek-R1, Llama 3, Qwen) to **11,907,047 Biblical verses** across **1,081 translations** in **800+ languages**.
 
 Equipped with the complete **MCP Protocol Triad** (`Tools`, `Resources`, `Prompts`), dual transport (`Stdio` + `SSE`), **100% SQLite-driven architecture**, Hebrew/Greek Robinson morphology, 344k+ TSK cross-reference graph, Trench's synonyms, and 15-translation parallel corpus diff engine.
+
+---
+
+## 🏗️ System Architecture & Data Flow
+
+```mermaid
+flowchart TD
+    subgraph Clients["💻 MCP Clients & AI Hosts"]
+        Claude["Claude Desktop / Claude Code"]
+        Cursor["Cursor IDE"]
+        Trae["Trae IDE"]
+        CLI["Holy Bible CLI Manager"]
+    end
+
+    subgraph Transport["⚡ Transport Layer"]
+        Stdio["StdioTransportAdapter (JSON-RPC)"]
+        SSE["SseSessionManager (HTTP/SSE)"]
+        Health["HttpHealthServer (Port 3001)"]
+    end
+
+    subgraph ProtocolTriad["📜 MCP Protocol Triad"]
+        Tools["28 Tools (Zod Validated)"]
+        Resources["Resources & Templates (Singleflight)"]
+        Prompts["Prompts Repository (Exegesis / CoT)"]
+    end
+
+    subgraph CoreEngines["🧠 Core Intelligent Engines"]
+        Search["Hybrid Search (FTS5 + BM25 + Ukrainian Morphology)"]
+        Morph["Morphology Engine (Greek Robinson + Hebrew WLC)"]
+        Graph["Theological Graphology (344k+ TSK Crossrefs)"]
+        Budget["Dynamic Token Budget (40/20/20/20 & CoT Protocol)"]
+    end
+
+    subgraph DataLayer["🗄️ Storage & Cache Layer (Zero-Latency SQLite)"]
+        MainDB[("Main SQLite DB (11.9M Verses, WAL Mode)")]
+        DirectivesDB[("Directives DB (Rules & Knowledge Store)")]
+        LRUCache[("In-Memory LRU & Singleflight Cache")]
+    end
+
+    Claude --> Stdio
+    Cursor --> Stdio
+    Trae --> Stdio
+    CLI --> MainDB
+
+    Stdio --> ProtocolTriad
+    SSE --> ProtocolTriad
+
+    ProtocolTriad --> CoreEngines
+    CoreEngines --> DataLayer
+```
 
 ---
 
@@ -214,15 +265,38 @@ Access biblical content via standard RFC 6570 URIs:
 
 ---
 
-## 💻 Local Build & Verification
+## 🧪 Automated Testing & CI
+
+The project uses **Vitest** for fast unit testing of morphology engines, token budgeters, Zod schemas, and SQLite directives:
 
 ```bash
+# Run complete test suite once
+npm test
+
+# Run tests in watch mode during development
+npm run test:watch
+```
+
+CI workflow automatically tests all Pull Requests and commits across **Ubuntu, macOS, and Windows** on **Node.js 18, 20, and 22**.
+
+---
+
+## 💻 Local Monorepo Setup & Build
+
+```bash
+# 1. Clone the repository
 git clone https://github.com/grizlizora/holy-bible-mcp.git
 cd holy-bible-mcp
+
+# 2. Install dependencies & build TypeScript
 npm install
 npm run build
+
+# 3. Run unit tests
 npm test
-npm run test:stress
+
+# 4. (Optional) Download offline database
+npm run db:download
 ```
 
 ---

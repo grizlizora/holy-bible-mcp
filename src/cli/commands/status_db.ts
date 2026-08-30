@@ -6,8 +6,18 @@ import { formatBytes } from "../progress_bar.js";
 import { REMOTE_MIRRORS, raceFastestMirrors } from "../../database/resilient_downloader.js";
 
 export async function handleDbStatus(args: string[]): Promise<number> {
-  const globalPath = getGlobalDbPath();
-  const resolvedPath = resolveDbPath();
+  let customDir: string | undefined;
+  for (let i = 0; i < args.length; i++) {
+    if ((args[i] === "--dir" || args[i] === "-d") && args[i + 1]) {
+      customDir = args[i + 1];
+      i++;
+    } else if (args[i].startsWith("--dir=")) {
+      customDir = args[i].split("=")[1];
+    }
+  }
+
+  const globalPath = customDir ? (customDir.endsWith(".sqlite") ? customDir : `${customDir.replace(/\/$/, "")}/bible_database.sqlite`) : getGlobalDbPath();
+  const resolvedPath = customDir ? globalPath : resolveDbPath();
   const partPath = `${globalPath}.part`;
 
   console.log(`\n========================================================`);
@@ -47,5 +57,5 @@ export async function handleDbStatus(args: string[]): Promise<number> {
     console.log(`  [${idx + 1}] ${m}`);
   });
   console.log(`========================================================\n`);
-  return 0;
+  return check.valid ? 0 : 1;
 }

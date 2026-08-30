@@ -307,6 +307,11 @@ export class GenericSqlitePool {
       }
     }
 
+    const start = Date.now();
+    while (this.pool.some(c => c.inUse) && Date.now() - start < 1000) {
+      await new Promise(r => setTimeout(r, 20));
+    }
+
     for (const conn of this.pool) {
       try {
         conn.statementCache.clear();

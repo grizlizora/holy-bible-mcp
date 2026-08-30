@@ -4,13 +4,18 @@ import {
   DB_PATH,
   isDbReady,
   checkAndHotMountDb,
+  onDatabaseMounted,
+  offDatabaseMounted,
+  clearQueryCache,
   getFromCache,
   saveToCache
 } from "./better_sqlite_pool.js";
 
 export const db = sqlitePool.getRawDb();
 export const auxDb = auxDbInstance;
-export { DB_PATH, isDbReady, checkAndHotMountDb, getFromCache, saveToCache };
+export { sqlitePool, DB_PATH, isDbReady, checkAndHotMountDb, onDatabaseMounted, offDatabaseMounted, clearQueryCache, getFromCache, saveToCache };
+
+
 
 export async function queryDb(sql: string, params: any[] = [], maxRetries = 3): Promise<any[]> {
   const isAuxQuery = sql.includes("commentaries") || sql.includes("semantic_concepts");

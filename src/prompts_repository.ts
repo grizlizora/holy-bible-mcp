@@ -24,14 +24,15 @@ export class PromptRepositoryEngine {
   }
 
   public static buildHydratedStudyPrompt(options: PromptBuildOptions): string {
-    const { topic, language = 'ukr', detailLevel = 'medium', modelName } = options;
+    const { topic, language = 'ukr', detailLevel = 'medium', modelName, modelTier } = options;
     const isUkr = language === 'ukr' || language === 'uk';
     const sizeB = modelName ? (extractModelParamSizeB(modelName) || 14) : 14;
     const store = DirectiveStore.getInstance();
-    const tier = store.resolveTierByParamSize(sizeB);
+    const tier = (modelTier ? store.getTierDirective(modelTier as any) : undefined) || store.resolveTierByParamSize(sizeB);
 
     const modeObj = store.getMode(detailLevel as any) || store.getMode('medium');
     let baseTemplate = modeObj?.templateBody || modeObj?.structureMandate || '';
+
 
     if (tier?.systemDirective) {
       baseTemplate += `\n${tier.systemDirective}`;
@@ -223,12 +224,15 @@ Execute an exhaustive original-language philological study:
         const topic = String(args?.topic || "що таке любов");
         const lang = String(args?.language || "ukr");
         const detailLevel = String(args?.detail_level || "medium");
+        const modelTier = args?.model_tier ? String(args.model_tier) as any : undefined;
 
         const hydratedText = PromptRepositoryEngine.buildHydratedStudyPrompt({
           topic,
           language: lang,
-          detailLevel
+          detailLevel,
+          modelTier
         });
+
 
         return {
           description: `Holy Bible Study Prompt for topic: ${topic}`,

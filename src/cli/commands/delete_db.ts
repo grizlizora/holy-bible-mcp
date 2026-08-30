@@ -17,8 +17,18 @@ function askQuestion(query: string): Promise<string> {
 
 export async function handleDeleteDb(args: string[]): Promise<number> {
   const force = args.includes("--yes") || args.includes("-y") || args.includes("--force") || args.includes("-f");
-  const dbPath = getGlobalDbPath();
-  const dbDir = getGlobalDbDir();
+  let customDir: string | undefined;
+  for (let i = 0; i < args.length; i++) {
+    if ((args[i] === "--dir" || args[i] === "-d") && args[i + 1]) {
+      customDir = args[i + 1];
+      i++;
+    } else if (args[i].startsWith("--dir=")) {
+      customDir = args[i].split("=")[1];
+    }
+  }
+
+  const dbPath = customDir ? (customDir.endsWith(".sqlite") ? customDir : `${customDir.replace(/\/$/, "")}/bible_database.sqlite`) : getGlobalDbPath();
+  const dbDir = customDir ? path.dirname(dbPath) : getGlobalDbDir();
 
   const filesToDelete = [
     dbPath,

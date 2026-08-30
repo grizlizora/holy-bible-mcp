@@ -52,26 +52,43 @@ export class HybridSearchEngine {
     semanticWeight?: number;
     topK?: number;
   }): Promise<{ query: string; totalFound: number; results: HybridSearchResultItem[] }> {
-    const { query, language = "ukr", mode = "balanced", topK = 10 } = params;
-    if (!query || !query.trim()) {
+    const { query: rawQuery, language = "ukr", mode = "balanced", topK = 10 } = params;
+    if (!rawQuery || !rawQuery.trim()) {
       return { query: "", totalFound: 0, results: [] };
     }
+
+    // Input bounds: truncate query to 500 characters to prevent pathologically large FTS expressions
+    const query = rawQuery.trim().slice(0, 500);
 
     const rrfParams = RrfCalculator.detectSearchIntent(query, mode);
     const ftsQuery = UkrainianMorphologyEngine.generateFtsQuery(query);
 
     let lexicalRows: any[] = [];
     try {
-      lexicalRows = await queryDb(
-        `SELECT v.id, v.book, v.chapter, v.verse, v.text, v.translation,
-                bm25(verses_fts) as bm25_score
-         FROM verses_fts f
-         JOIN verses v ON f.rowid = v.rowid
-         WHERE verses_fts MATCH ?
-         ORDER BY bm25_score ASC
-         LIMIT 40`,
-        [ftsQuery]
-      );
+      if (language) {
+        lexicalRows = await queryDb(
+          `SELECT v.id, v.book, v.chapter, v.verse, v.text, v.translation,
+                  bm25(verses_fts) as bm25_score
+           FROM verses_fts f
+           JOIN verses v ON f.rowid = v.rowid
+           WHERE verses_fts MATCH ? AND v.language = ?
+           ORDER BY bm25_score ASC
+           LIMIT 40`,
+          [ftsQuery, language]
+        );
+      }
+      if (lexicalRows.length === 0) {
+        lexicalRows = await queryDb(
+          `SELECT v.id, v.book, v.chapter, v.verse, v.text, v.translation,
+                  bm25(verses_fts) as bm25_score
+           FROM verses_fts f
+           JOIN verses v ON f.rowid = v.rowid
+           WHERE verses_fts MATCH ?
+           ORDER BY bm25_score ASC
+           LIMIT 40`,
+          [ftsQuery]
+        );
+      }
     } catch (_) {
       // In-Memory MiniSearch fallback (<1.5ms) without blocking full-table LIKE scans
       if (this.miniSearchEngine.hasIndex()) {

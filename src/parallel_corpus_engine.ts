@@ -62,22 +62,34 @@ export class ParallelCorpusEngine {
         const cleanId = transId.trim().toUpperCase();
         const meta = store.getTranslation(cleanId) || { id: cleanId, name: cleanId, philosophy: "FORMAL" };
 
-        // Query database for this translation
-        let rows = await queryDb(
-          `SELECT text FROM verses 
-           WHERE LOWER(translation) = LOWER(?) AND UPPER(book) = ? AND chapter = ? AND verse = ? LIMIT 1`,
-          [cleanId, osisBook, chapter, verse]
-        );
+        const isRange = typeof endVerse === "number" && endVerse > verse;
+        let rows = isRange
+          ? await queryDb(
+              `SELECT text FROM verses 
+               WHERE LOWER(translation) = LOWER(?) AND UPPER(book) = ? AND chapter = ? AND verse >= ? AND verse <= ? 
+               ORDER BY verse ASC`,
+              [cleanId, osisBook, chapter, verse, endVerse]
+            )
+          : await queryDb(
+              `SELECT text FROM verses 
+               WHERE LOWER(translation) = LOWER(?) AND UPPER(book) = ? AND chapter = ? AND verse = ? LIMIT 1`,
+              [cleanId, osisBook, chapter, verse]
+            );
 
-        let text = rows[0]?.text || '';
+        let text = rows.map(r => r.text).filter(Boolean).join(" ");
 
         // Fallback if specific translation is not in local DB: check alternative translations
         if (!text) {
-          const fallbackRows = await queryDb(
-            `SELECT text FROM verses WHERE UPPER(book) = ? AND chapter = ? AND verse = ? LIMIT 1`,
-            [osisBook, chapter, verse]
-          );
-          text = fallbackRows[0]?.text || `[Scripture text for ${cleanId} ${osisBook} ${chapter}:${verse}]`;
+          const fallbackRows = isRange
+            ? await queryDb(
+                `SELECT text FROM verses WHERE UPPER(book) = ? AND chapter = ? AND verse >= ? AND verse <= ? ORDER BY verse ASC`,
+                [osisBook, chapter, verse, endVerse]
+              )
+            : await queryDb(
+                `SELECT text FROM verses WHERE UPPER(book) = ? AND chapter = ? AND verse = ? LIMIT 1`,
+                [osisBook, chapter, verse]
+              );
+          text = fallbackRows.map(r => r.text).filter(Boolean).join(" ") || `[Scripture text for ${cleanId} ${osisBook} ${chapter}:${vRef}]`;
         }
 
         return {
@@ -89,12 +101,32 @@ export class ParallelCorpusEngine {
       })
     );
 
+    // Calculate dynamic set intersection of significant words across translations
+    let dynamicSharedTerms: string[] = [];
+    if (results.length > 1) {
+      const stopWords = new Set(["і", "та", "що", "в", "на", "до", "з", "за", "по", "як", "а", "не", "це", "то", "бо", "and", "the", "in", "of", "to", "a", "is", "that", "for", "with"]);
+      const tokenSets = results.map(r => {
+        const words = (r.text || "").toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, '').split(/\s+/).filter(w => w.length > 2 && !stopWords.has(w));
+        return new Set(words);
+      });
+
+      if (tokenSets.length > 0 && tokenSets[0]) {
+        const firstSet = tokenSets[0];
+        dynamicSharedTerms = Array.from(firstSet).filter(word => tokenSets.every(s => s.has(word))).slice(0, 10);
+      }
+    }
+
+    if (dynamicSharedTerms.length === 0) {
+      dynamicSharedTerms = ["Бог", "Любов", "Благодать", "Віра", "Істина"];
+    }
+
     return {
       reference: displayTitle,
       translations: results,
-      sharedTerms: ["Бог", "Христос", "Любов", "Благодать", "Віра"]
+      sharedTerms: dynamicSharedTerms
     };
   }
+
 
   /**
    * ⚖️ Performs token-level diff comparison between two translations using word-level Myers LCS

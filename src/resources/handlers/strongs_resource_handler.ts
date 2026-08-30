@@ -1,8 +1,4 @@
-/**
- * 🏛️ StrongsResourceHandler (strongs_resource_handler.ts)
- */
-
-import { queryDb } from "../../database.js";
+import { StrongsEtymologyService } from "../../morphology/strongs_etymology_service.js";
 import { ParsedBibleUri } from "../resource_uri_parser.js";
 
 export class StrongsResourceHandler {
@@ -10,37 +6,17 @@ export class StrongsResourceHandler {
     const { strongsId = "G26" } = parsed;
     const normalizedId = strongsId.toUpperCase();
     
-    const rows = await queryDb(
-      `SELECT strongs_id, lemma, transliteration, pronunciation, definition 
-       FROM strongs_dictionary 
-       WHERE UPPER(strongs_id) = ? OR UPPER(id) = ? LIMIT 1`,
-      [normalizedId, normalizedId]
-    );
-
-    if (!rows || rows.length === 0) {
-      return {
-        contents: [
-          {
-            uri,
-            mimeType: "application/json",
-            text: JSON.stringify({
-              strongs_id: normalizedId,
-              status: "not_found",
-              message: `Strong's entry '${strongsId}' is available in full local database.`
-            }, null, 2)
-          }
-        ]
-      };
-    }
+    const etymology = await StrongsEtymologyService.getEtymology(normalizedId);
 
     return {
       contents: [
         {
           uri,
           mimeType: "application/json",
-          text: JSON.stringify(rows[0], null, 2)
+          text: JSON.stringify(etymology, null, 2)
         }
       ]
     };
   }
 }
+

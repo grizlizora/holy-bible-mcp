@@ -6,9 +6,10 @@ export class UkrainianMorphologyEngine {
         "їсти": ["їм", "їси", "їсть", "їмо", "їсте", "їдять", "їв", "їла"],
         "могти": ["можу", "можеш", "може", "можемо", "можуть", "міг", "могла", "могли"]
     };
-    static NOUN_ENDINGS = /(?:ами|ями|ою|ею|єю|ові|еві|єві|ів|ев|єв|ей|ам|ям|ом|ем|єм|ах|ях|и|і|ї|е|є|у|ю|а|я|о)$/iu;
-    static VERB_ENDINGS = /(?:вшись|чись|тесь|тися|ться|тиму|тиме|тимеш|тимуть|лися|лась|лись|лося|ли|ла|ло|ти|ть|в|й|мо|те)$/iu;
-    static ADJ_ENDINGS = /(?:ими|іми|ого|ього|ому|ньому|им|ім|их|іх|ої|ьої|ій|а|я|е|є|і|и)$/iu;
+    static MULTI_ADJ_ENDINGS = /(?:ньому|ського|цького|ськими|цькими|шими|ими|іми|ого|ього|ому|им|ім|их|іх|ої|ьої|ій)$/iu;
+    static MULTI_NOUN_ENDINGS = /(?:ами|ями|ові|еві|єві|ою|ею|єю|ів|ев|єв|ей|ам|ям|ом|ем|єм|ах|ях)$/iu;
+    static MULTI_VERB_ENDINGS = /(?:вшись|чись|тесь|тися|ться|тиму|тиме|тимеш|тимуть|лися|лась|лись|лося|ли|ла|ло|ти|ть)$/iu;
+    static SINGLE_ENDINGS = /(?:[аяеєиіїуюо])$/iu;
     static normalizeOrthography(text) {
         return text
             .toLowerCase()
@@ -18,21 +19,26 @@ export class UkrainianMorphologyEngine {
     }
     static extractStem(word) {
         let w = this.normalizeOrthography(word);
-        if (w.length <= 3)
-            return w;
+        // 1. Check irregular verbs first (even for short forms like 'є', 'був', 'їм')
         for (const [lemma, forms] of Object.entries(this.IRREGULAR_VERB_MAP)) {
             if (forms.includes(w) || w === lemma)
                 return lemma;
         }
+        if (w.length <= 3)
+            return w;
         w = w.replace(/(?:ся|сь)$/iu, "");
-        if (this.ADJ_ENDINGS.test(w)) {
-            w = w.replace(this.ADJ_ENDINGS, "");
+        // 2. Multi-character inflectional suffixes (longest match first)
+        if (this.MULTI_ADJ_ENDINGS.test(w)) {
+            w = w.replace(this.MULTI_ADJ_ENDINGS, "");
         }
-        else if (this.VERB_ENDINGS.test(w)) {
-            w = w.replace(this.VERB_ENDINGS, "");
+        else if (this.MULTI_NOUN_ENDINGS.test(w)) {
+            w = w.replace(this.MULTI_NOUN_ENDINGS, "");
         }
-        else if (this.NOUN_ENDINGS.test(w)) {
-            w = w.replace(this.NOUN_ENDINGS, "");
+        else if (this.MULTI_VERB_ENDINGS.test(w)) {
+            w = w.replace(this.MULTI_VERB_ENDINGS, "");
+        }
+        else if (this.SINGLE_ENDINGS.test(w)) {
+            w = w.replace(this.SINGLE_ENDINGS, "");
         }
         return w.length >= 2 ? w : word.toLowerCase();
     }

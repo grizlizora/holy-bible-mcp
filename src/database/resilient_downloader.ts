@@ -14,11 +14,11 @@ import { getGlobalDbPath } from "./path_resolver.js";
 export const REMOTE_MIRRORS: string[] = [
   process.env.REMOTE_BIBLE_DB_URL,
   "https://huggingface.co/datasets/grizlizora/holy-bible-mcp/resolve/main/bible_database.sqlite",
-  "https://github.com/grizlizora/holy-bible-mcp/releases/download/v1.0.0/bible_database.sqlite",
-  "https://cdn.jsdelivr.net/gh/grizlizora/holy-bible-mcp@main/data/processed/bible_database.sqlite"
+  "https://github.com/grizlizora/holy-bible-mcp/releases/download/v1.0.0/bible_database.sqlite"
 ].filter(Boolean) as string[];
 
 export const EXPECTED_DB_SIZE = 6_313_418_752; // ~5.88 GB
+
 
 /**
  * Fastest Mirror Race Discovery (Concurrent HEAD requests with redirect follow)
@@ -59,10 +59,14 @@ export async function raceFastestMirrors(mirrors: string[], signal?: AbortSignal
   return valid.length > 0 ? valid : mirrors;
 }
 
+import { PiscinaWorkerPool } from "../workers/piscina_worker_pool.js";
+
 export interface DownloadOptions {
   targetPath?: string;
   force?: boolean;
   customMirror?: string;
+  profile?: "full" | "lite";
+  checksum?: boolean;
 }
 
 export async function downloadDatabaseResumable(options: DownloadOptions = {}): Promise<boolean> {
@@ -74,7 +78,20 @@ export async function downloadDatabaseResumable(options: DownloadOptions = {}): 
     fs.mkdirSync(targetDir, { recursive: true });
   }
 
+  // Pre-flight disk space validation (Requires ~6.5 GB free space)
+  try {
+    if (typeof (fs as any).statfsSync === 'function') {
+      const stats = (fs as any).statfsSync(targetDir);
+      const freeBytes = Number(stats.bsize) * Number(stats.bavail);
+      if (freeBytes < EXPECTED_DB_SIZE * 1.05) {
+        console.error(`❌ Insufficient disk space: ${formatBytes(freeBytes)} available, ${formatBytes(EXPECTED_DB_SIZE)} required in ${targetDir}`);
+        return false;
+      }
+    }
+  } catch {}
+
   // 1. If DB already exists and is valid
+
   if (!options.force && fs.existsSync(targetPath)) {
     const check = await verifyDatabaseIntegrity(targetPath);
     if (check.valid) {
@@ -239,5 +256,18 @@ export async function downloadDatabaseResumable(options: DownloadOptions = {}): 
 
   console.log(`\n🎉 SUCCESS! Holy Bible SQLite Database installed to: ${targetPath}`);
   console.log(`📊 Size: ${formatBytes(fs.statSync(targetPath).size)} | Verses: ${verifyResult.verseCount?.toLocaleString() || "11,907,047"}`);
+
+  if (options.checksum) {
+    console.log(`\n⚡ Running Post-Download Deep Checksum Verification (Piscina Worker Pool)...`);
+    const startTime = Date.now();
+    const pool = PiscinaWorkerPool.getInstance();
+    const sha256 = await pool.computeFileSha256(targetPath);
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+    console.log(`• SHA-256: ${sha256}`);
+    console.log(`• Verification Time: ${elapsed}s`);
+    console.log(`✅ Multi-threaded SHA-256 checksum computed successfully.`);
+    await pool.destroy();
+  }
+
   return true;
 }

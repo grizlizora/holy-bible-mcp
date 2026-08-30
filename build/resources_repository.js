@@ -1,17 +1,30 @@
-import { ListResourcesRequestSchema, ListResourceTemplatesRequestSchema, ReadResourceRequestSchema, McpError, ErrorCode } from "@modelcontextprotocol/sdk/types.js";
+import { ListResourcesRequestSchema, ListResourceTemplatesRequestSchema, ReadResourceRequestSchema, SubscribeRequestSchema, UnsubscribeRequestSchema, McpError, ErrorCode } from "@modelcontextprotocol/sdk/types.js";
 import { ResourceUriParser } from "./resources/resource_uri_parser.js";
 import { ChapterResourceHandler } from "./resources/handlers/chapter_resource_handler.js";
 import { StrongsResourceHandler } from "./resources/handlers/strongs_resource_handler.js";
 import { CrossrefResourceHandler } from "./resources/handlers/crossref_resource_handler.js";
 import { InterlinearResourceHandler } from "./resources/handlers/interlinear_resource_handler.js";
 /**
- * 🔒 In-flight Promise Registry & LRU Resource Cache to prevent dogpiling and race conditions
+ * 🔒 In-flight Promise Registry, Subscriptions & LRU Resource Cache to prevent dogpiling and race conditions
  */
 class ResourcePoolManager {
     static inFlightRequests = new Map();
     static resourceCache = new Map();
+    static subscribers = new Set(); // Set of subscribed URIs
     static MAX_CACHE_ENTRIES = 1000;
     static TTL_MS = 600_000; // 10 minutes
+    static subscribe(uri) {
+        this.subscribers.add(uri);
+    }
+    static unsubscribe(uri) {
+        this.subscribers.delete(uri);
+    }
+    static isSubscribed(uri) {
+        return this.subscribers.has(uri);
+    }
+    static getSubscribedUris() {
+        return Array.from(this.subscribers);
+    }
     static async executeWithLock(uri, fetchFn) {
         // 1. Check in-memory cache
         const cached = this.resourceCache.get(uri);
@@ -70,7 +83,7 @@ export function registerResourceHandlers(server) {
                     mimeType: "text/markdown"
                 },
                 {
-                    uriTemplate: "bible://strongs/{number}",
+                    uriTemplate: "bible://strongs/{strongsId}",
                     name: "Strong's Exhaustive Concordance Entry",
                     description: "Greek & Hebrew lexical lemma, transliteration, pronunciation and definition (e.g. bible://strongs/G26 for Agape, bible://strongs/H1254 for Bara)",
                     mimeType: "application/json"
@@ -167,6 +180,21 @@ export function registerResourceHandlers(server) {
                 throw new McpError(ErrorCode.InvalidRequest, err.message || `Error reading resource: ${uri}`);
             }
         });
+    });
+    // 4. Resource Subscriptions Handlers
+    server.setRequestHandler(SubscribeRequestSchema, async (request) => {
+        const uri = request.params.uri;
+        const parsed = ResourceUriParser.parse(uri);
+        if (!parsed) {
+            throw new McpError(ErrorCode.InvalidRequest, `Invalid or unsupported resource URI: ${uri}`);
+        }
+        ResourcePoolManager.subscribe(uri);
+        return {};
+    });
+    server.setRequestHandler(UnsubscribeRequestSchema, async (request) => {
+        const uri = request.params.uri;
+        ResourcePoolManager.unsubscribe(uri);
+        return {};
     });
 }
 export { ResourcePoolManager };

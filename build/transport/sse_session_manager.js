@@ -39,6 +39,33 @@ export class SseSessionManager {
             }
         }, intervalMs);
     }
+    async broadcastNotification(method, params) {
+        for (const [id, session] of Array.from(this.sessions.entries())) {
+            try {
+                await session.server.notification({ method, params });
+            }
+            catch (err) {
+                console.warn(`[TRANSPORT SSE] Failed to send notification to session ${id}:`, err?.message || err);
+            }
+        }
+    }
+    async sendNotificationToSession(sessionId, method, params) {
+        const session = this.sessions.get(sessionId);
+        if (!session)
+            return false;
+        try {
+            await session.server.notification({ method, params });
+            return true;
+        }
+        catch (err) {
+            console.warn(`[TRANSPORT SSE] Failed to send notification to session ${sessionId}:`, err?.message || err);
+            return false;
+        }
+    }
+    async broadcastNotificationToTopic(topic, method, params) {
+        const payload = { topic, ...(params || {}) };
+        await this.broadcastNotification(method, payload);
+    }
     async closeAll() {
         if (this.heartbeatInterval) {
             clearInterval(this.heartbeatInterval);

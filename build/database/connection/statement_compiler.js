@@ -7,15 +7,18 @@ export class StatementCompiler {
     getOrCompile(db, sql, prefix = 'main') {
         const key = `${prefix}:${sql}`;
         let stmt = this.stmtCache.get(key);
-        if (!stmt) {
-            if (this.stmtCache.size >= this.maxCacheSize) {
-                const oldestKey = this.stmtCache.keys().next().value;
-                if (oldestKey)
-                    this.stmtCache.delete(oldestKey);
-            }
-            stmt = db.prepare(sql);
+        if (stmt) {
+            this.stmtCache.delete(key);
             this.stmtCache.set(key, stmt);
+            return stmt;
         }
+        if (this.stmtCache.size >= this.maxCacheSize) {
+            const oldestKey = this.stmtCache.keys().next().value;
+            if (oldestKey)
+                this.stmtCache.delete(oldestKey);
+        }
+        stmt = db.prepare(sql);
+        this.stmtCache.set(key, stmt);
         return stmt;
     }
     clear() {

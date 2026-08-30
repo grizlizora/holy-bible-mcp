@@ -53,6 +53,33 @@ export class SseSessionManager {
     }, intervalMs);
   }
 
+  public async broadcastNotification(method: string, params?: any): Promise<void> {
+    for (const [id, session] of Array.from(this.sessions.entries())) {
+      try {
+        await session.server.notification({ method, params });
+      } catch (err: any) {
+        console.warn(`[TRANSPORT SSE] Failed to send notification to session ${id}:`, err?.message || err);
+      }
+    }
+  }
+
+  public async sendNotificationToSession(sessionId: string, method: string, params?: any): Promise<boolean> {
+    const session = this.sessions.get(sessionId);
+    if (!session) return false;
+    try {
+      await session.server.notification({ method, params });
+      return true;
+    } catch (err: any) {
+      console.warn(`[TRANSPORT SSE] Failed to send notification to session ${sessionId}:`, err?.message || err);
+      return false;
+    }
+  }
+
+  public async broadcastNotificationToTopic(topic: string, method: string, params?: any): Promise<void> {
+    const payload = { topic, ...(params || {}) };
+    await this.broadcastNotification(method, payload);
+  }
+
   public async closeAll(): Promise<void> {
     if (this.heartbeatInterval) {
       clearInterval(this.heartbeatInterval);
@@ -65,3 +92,4 @@ export class SseSessionManager {
     this.sessions.clear();
   }
 }
+

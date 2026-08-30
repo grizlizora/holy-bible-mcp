@@ -5,22 +5,38 @@ import { fetchOnlineKeywordSearch } from "../../services/online_bible_fallback.j
 import { HybridSearchEngine } from "../../hybrid_search_engine.js";
 import { DirectiveStore } from "../../directives/directive_store.js";
 export async function handleSearchKeyword(args) {
-    const rawKeyword = String(args?.keyword || "").trim();
-    const lang = String(args?.language || "ukr");
+    const rawKeyword = String(args?.keyword || args?.query || "").trim();
+    const lang = String(args?.language || args?.lang || "ukr");
     const limit = typeof args?.limit === "number" ? args.limit : 10;
+    const translation = args?.translation ? String(args.translation).trim() : undefined;
     const detectedLang = resolveLanguageCode(lang, rawKeyword);
-    const cleanKey = rawKeyword.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
-    const matchQuery = `${cleanKey}*`;
+    const tokens = rawKeyword
+        .toLowerCase()
+        .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+        .split(/\s+/)
+        .filter(Boolean);
+    const matchQuery = tokens.length > 0
+        ? tokens.map(t => `${t}*`).join(" AND ")
+        : "*";
     let rows = [];
     if (isDbReady()) {
         try {
-            rows = await queryDb(`SELECT v.book, v.chapter, v.verse, v.text, v.language 
-         FROM verses_fts f 
-         JOIN verses v ON f.rowid = v.rowid 
-         WHERE verses_fts MATCH ? AND v.language = ? 
-         LIMIT ?`, [matchQuery, detectedLang, limit]);
+            if (translation) {
+                rows = await queryDb(`SELECT v.book, v.chapter, v.verse, v.text, v.language, v.translation 
+           FROM verses_fts f 
+           JOIN verses v ON f.rowid = v.rowid 
+           WHERE verses_fts MATCH ? AND UPPER(v.translation) = UPPER(?) 
+           LIMIT ?`, [matchQuery, translation, limit]);
+            }
             if (!rows || rows.length === 0) {
-                rows = await queryDb(`SELECT v.book, v.chapter, v.verse, v.text, v.language 
+                rows = await queryDb(`SELECT v.book, v.chapter, v.verse, v.text, v.language, v.translation 
+           FROM verses_fts f 
+           JOIN verses v ON f.rowid = v.rowid 
+           WHERE verses_fts MATCH ? AND v.language = ? 
+           LIMIT ?`, [matchQuery, detectedLang, limit]);
+            }
+            if (!rows || rows.length === 0) {
+                rows = await queryDb(`SELECT v.book, v.chapter, v.verse, v.text, v.language, v.translation 
            FROM verses_fts f 
            JOIN verses v ON f.rowid = v.rowid 
            WHERE verses_fts MATCH ? 

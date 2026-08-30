@@ -69,6 +69,10 @@ export function saveToCache(key: string, data: any): void {
   queryCache.set(key, { data, expiresAt: Date.now() + DEFAULT_CACHE_TTL_MS });
 }
 
+export function clearQueryCache(): void {
+  queryCache.clear();
+}
+
 export function isDbReady(): boolean {
   if (sqlitePool.hasVerses()) return true;
   return sqlitePool.checkAndHotMount();
@@ -77,3 +81,12 @@ export function isDbReady(): boolean {
 export function checkAndHotMountDb(): boolean {
   return sqlitePool.checkAndHotMount();
 }
+
+export function onDatabaseMounted(cb: (dbPath: string) => void): () => void {
+  return SqliteConnectionPool.onMounted(cb);
+}
+
+export function offDatabaseMounted(cb: (dbPath: string) => void): void {
+  SqliteConnectionPool.offMounted(cb);
+}
+

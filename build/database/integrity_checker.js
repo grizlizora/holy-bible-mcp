@@ -50,7 +50,29 @@ export async function computeFileSha256(filePath) {
         stream.on("error", (err) => reject(err));
     });
 }
-export async function verifySqliteDatabaseIntegrity(filePath) {
+export async function verifyDatabaseSha256(filePath, expectedHash) {
+    try {
+        if (!fs.existsSync(filePath)) {
+            return { valid: false, actualSha256: "", error: "File does not exist on disk." };
+        }
+        const actualSha256 = await computeFileSha256(filePath);
+        if (expectedHash && expectedHash.trim()) {
+            const match = actualSha256.toLowerCase() === expectedHash.trim().toLowerCase();
+            if (!match) {
+                return {
+                    valid: false,
+                    actualSha256,
+                    error: `SHA-256 mismatch! Expected ${expectedHash}, but computed ${actualSha256}.`
+                };
+            }
+        }
+        return { valid: true, actualSha256 };
+    }
+    catch (err) {
+        return { valid: false, actualSha256: "", error: `SHA-256 computation failed: ${err.message}` };
+    }
+}
+export async function verifySqliteDatabaseIntegrity(filePath, options) {
     // 1. Check Magic Header & Page Size
     const headerCheck = checkSqliteHeader(filePath);
     if (!headerCheck.valid) {
@@ -75,7 +97,16 @@ export async function verifySqliteDatabaseIntegrity(filePath) {
     catch (err) {
         return { valid: false, error: `Truncated or unreadable trailing page: ${err.message}` };
     }
-    // 3. Engine-level verification via better-sqlite3 PRAGMA quick_check
+    // 3. Optional SHA-256 Verification
+    let sha256;
+    if (options?.expectedSha256 || options?.calculateSha256) {
+        const shaResult = await verifyDatabaseSha256(filePath, options.expectedSha256);
+        if (!shaResult.valid) {
+            return { valid: false, error: shaResult.error, sha256: shaResult.actualSha256 };
+        }
+        sha256 = shaResult.actualSha256;
+    }
+    // 4. Engine-level verification via better-sqlite3 PRAGMA quick_check
     try {
         const db = new Database(filePath, { readonly: true, fileMustExist: true });
         try {
@@ -101,7 +132,8 @@ export async function verifySqliteDatabaseIntegrity(filePath) {
                 pageSize: headerCheck.pageSize,
                 tableCount,
                 verseCount,
-                quickCheck: "ok"
+                quickCheck: "ok",
+                sha256
             };
         }
         finally {

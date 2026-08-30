@@ -113,6 +113,19 @@ export class SqliteConnectionPool {
     });
   }
 
+  private static mountListeners: Set<(dbPath: string) => void> = new Set();
+
+  public static onMounted(cb: (dbPath: string) => void): () => void {
+    SqliteConnectionPool.mountListeners.add(cb);
+    return () => {
+      SqliteConnectionPool.mountListeners.delete(cb);
+    };
+  }
+
+  public static offMounted(cb: (dbPath: string) => void): void {
+    SqliteConnectionPool.mountListeners.delete(cb);
+  }
+
   public checkAndHotMount(): boolean {
     if (this.hasVersesTable) return true;
     if (this.walManager.shouldAttemptHotMount()) {
@@ -132,6 +145,11 @@ export class SqliteConnectionPool {
               try { oldDb.close(); } catch (_) {}
             }, 1000).unref?.();
           }
+
+          for (const listener of SqliteConnectionPool.mountListeners) {
+            try { listener(dbPath); } catch (_) {}
+          }
+
           return true;
         }
       } catch (err: any) {

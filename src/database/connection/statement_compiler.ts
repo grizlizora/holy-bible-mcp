@@ -11,16 +11,21 @@ export class StatementCompiler {
   public getOrCompile(db: Database.Database, sql: string, prefix = 'main'): Database.Statement {
     const key = `${prefix}:${sql}`;
     let stmt = this.stmtCache.get(key);
-    if (!stmt) {
-      if (this.stmtCache.size >= this.maxCacheSize) {
-        const oldestKey = this.stmtCache.keys().next().value;
-        if (oldestKey) this.stmtCache.delete(oldestKey);
-      }
-      stmt = db.prepare(sql);
+    if (stmt) {
+      this.stmtCache.delete(key);
       this.stmtCache.set(key, stmt);
+      return stmt;
     }
+
+    if (this.stmtCache.size >= this.maxCacheSize) {
+      const oldestKey = this.stmtCache.keys().next().value;
+      if (oldestKey) this.stmtCache.delete(oldestKey);
+    }
+    stmt = db.prepare(sql);
+    this.stmtCache.set(key, stmt);
     return stmt;
   }
+
 
   public clear(): void {
     this.stmtCache.clear();

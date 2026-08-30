@@ -8,7 +8,7 @@ import { PromptContextComposer } from "./ask_holy_bible/prompt_context_composer.
 export async function handleAskHolyBible(args) {
     const question = String(args?.question || args?.userMessage || "що таке любов");
     const lang = String(args?.language || args?.lang || "auto");
-    const settings = args?.settings || {};
+    const settings = (args?.settings) || {};
     const envModesControl = process.env.MODES_CONTROL || process.env.MCP_MODES_CONTROL;
     const envWarmthControl = process.env.WARMTH_CONTROL || process.env.MCP_WARMTH_CONTROL;
     const modesEnvActive = envModesControl ? !["off", "false", "0", "no"].includes(envModesControl.toLowerCase().trim()) : true;
@@ -20,7 +20,7 @@ export async function handleAskHolyBible(args) {
         ? (typeof args?.warmth === "number" ? args.warmth : (typeof settings.warmth === "number" ? settings.warmth : globalConfig.warmth))
         : null;
     const requestedMode = modesControlEnabled
-        ? String(args?.mode || settings.detailLevel || globalConfig.mode)
+        ? String(args?.mode || settings.detailLevel || settings.modeKey || settings.mode || globalConfig.mode)
         : 'unrestricted';
     const rawParamSize = TelemetryCalculator.parseParamSize(args?.parameter_size_b) ??
         TelemetryCalculator.parseParamSize(args?.modelMetadata?.parameterSize) ??
@@ -88,6 +88,7 @@ export async function handleAskHolyBible(args) {
         maxThinkChars: isCotAllowed ? (tier.maxThinkChars || 0) : 0,
         sensitivityProfile: sensInfo,
         accuracyScore: accuracyScoreStr,
+        showMetrics: globalConfig.showMetrics,
         warmthControlActive: warmthControlEnabled,
         modesControlActive: modesControlEnabled,
         verses: verses.map(v => ({ book: v.book, chapter: v.chapter, verse: v.verse, text: v.text, language: v.language }))

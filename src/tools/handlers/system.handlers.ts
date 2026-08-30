@@ -1,9 +1,21 @@
-import { BIBLE_DB_MAGNET_URI } from "../../database.js";
+import fs from "fs";
+import { BIBLE_DB_MAGNET_URI, resolveDbPath, REMOTE_MIRRORS } from "../../database.js";
+
 import { getSensitivityDirective, resolveEffectiveMode } from "../../archetypes.js";
 import { computeAdaptiveModelBudget } from "../../capabilities.js";
 import { extractVectorContext } from "../../vector_context.js";
 import { sanitizeMarkdownText } from "../../formatting.js";
 import { DirectiveStore } from "../../directives/directive_store.js";
+import { z } from "zod";
+import {
+  SetRelevanceSensitivitySchema,
+  SetResponseModeSchema,
+  SetShowMetricsSchema,
+  GetMcpCapabilitiesSchema,
+  GetModelRecommendationsSchema,
+  ExtractVectorContextSchema,
+  SanitizeScriptureMarkdownSchema
+} from "../schemas/tool_schemas.js";
 import {
   getGlobalConfig,
   setGlobalWarmth,
@@ -11,7 +23,7 @@ import {
   setGlobalShowMetrics
 } from "../../services/language_resolver.js";
 
-export async function handleSetRelevanceSensitivity(args: any) {
+export async function handleSetRelevanceSensitivity(args: z.infer<typeof SetRelevanceSensitivitySchema>) {
   const score = Math.max(0, Math.min(100, Number(args?.score || 80)));
   setGlobalWarmth(score);
   const sensInfo = getSensitivityDirective(score);
@@ -20,7 +32,7 @@ export async function handleSetRelevanceSensitivity(args: any) {
   };
 }
 
-export async function handleSetResponseMode(args: any) {
+export async function handleSetResponseMode(args: z.infer<typeof SetResponseModeSchema>) {
   const mode = String(args?.mode || "auto").toLowerCase();
   setGlobalMode(mode);
   return {
@@ -28,7 +40,7 @@ export async function handleSetResponseMode(args: any) {
   };
 }
 
-export async function handleSetShowMetrics(args: any) {
+export async function handleSetShowMetrics(args: z.infer<typeof SetShowMetricsSchema>) {
   let show = true;
   if (typeof args?.enabled === "boolean") {
     show = args.enabled;
@@ -43,15 +55,23 @@ export async function handleSetShowMetrics(args: any) {
 }
 
 export async function handleGetP2pSwarmStatus() {
+  const dbPath = resolveDbPath();
+  const exists = fs.existsSync(dbPath);
+  const sizeBytes = exists ? fs.statSync(dbPath).size : 0;
+
   return {
     content: [{
       type: "text",
       text: JSON.stringify({
         server: "holy-bible-mcp",
         protocol: "WebTorrent / BitTorrent P2P Mesh Engine",
-        status: "active",
+        status: exists ? "mounted" : "ready_for_sync",
+        storagePath: dbPath,
+        localSizeBytes: sizeBytes,
+        isFullyMounted: exists && sizeBytes > 1_000_000_000,
         magnetUri: BIBLE_DB_MAGNET_URI,
-        databaseSize: "5.88 GB (11,907,047 verses, 800+ languages)",
+        mirrors: REMOTE_MIRRORS,
+        databaseTargetSize: "5.88 GB (11,907,047 verses, 800+ languages)",
         trackers: [
           "udp://tracker.opentrackr.org:1337/announce",
           "udp://tracker.openbittorrent.com:6969/announce",
@@ -63,7 +83,8 @@ export async function handleGetP2pSwarmStatus() {
   };
 }
 
-export async function handleGetMcpCapabilities(args: any) {
+
+export async function handleGetMcpCapabilities(args: z.infer<typeof GetMcpCapabilitiesSchema>) {
   const config = getGlobalConfig();
   const clientHost = String(args?.client_host || args?.client_name || "external-mcp-host");
   const sensInfo = getSensitivityDirective(config.warmth);
@@ -147,7 +168,7 @@ export async function handleGetMcpCapabilities(args: any) {
   };
 }
 
-export async function handleGetModelRecommendations(args: any) {
+export async function handleGetModelRecommendations(args: z.infer<typeof GetModelRecommendationsSchema>) {
   const modelName = String(args?.model_name || "qwen3:14b");
   const paramSizeB = typeof args?.parameter_size_b === "number" ? args.parameter_size_b : undefined;
   const userMessage = String(args?.user_message || "що таке любов");
@@ -165,7 +186,7 @@ export async function handleGetModelRecommendations(args: any) {
   };
 }
 
-export async function handleExtractVectorContext(args: any) {
+export async function handleExtractVectorContext(args: z.infer<typeof ExtractVectorContextSchema>) {
   const query = String(args?.query || "");
   const fullText = String(args?.full_text || "");
   const maxTokens = typeof args?.max_tokens === "number" ? args.max_tokens : 8000;
@@ -177,10 +198,11 @@ export async function handleExtractVectorContext(args: any) {
   };
 }
 
-export async function handleSanitizeScriptureMarkdown(args: any) {
+export async function handleSanitizeScriptureMarkdown(args: z.infer<typeof SanitizeScriptureMarkdownSchema>) {
   const text = String(args?.markdown_text || "");
   const sanitized = sanitizeMarkdownText(text);
   return {
     content: [{ type: "text", text: sanitized }]
   };
 }
+

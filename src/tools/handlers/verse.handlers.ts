@@ -4,10 +4,19 @@ import { OSIS_ALIAS_MAP } from "../../data/osis_dictionary.js";
 import { resolveLanguageCode } from "../../services/language_resolver.js";
 import { fetchOnlineVerseText, fetchOnlineChapterVerses } from "../../services/online_bible_fallback.js";
 import { ParallelCorpusEngine } from "../../parallel_corpus_engine.js";
+import { z } from "zod";
+import {
+  GetVerseSchema,
+  GetChapterContextSchema,
+  GetParallelVersesSchema,
+  CompareTranslationsDiffSchema,
+  GetTranslationMetadataSchema
+} from "../schemas/tool_schemas.js";
 
 const SINGLE_CHAPTER_BOOKS = new Set(["OBA", "PHM", "2JN", "3JN", "JUD", "MAN", "PS151", "LAO"]);
 
-export async function handleGetVerse(args: any) {
+export async function handleGetVerse(args: z.infer<typeof GetVerseSchema>) {
+
   let book = String(args?.book || "").toUpperCase();
   let chapter = Number(args?.chapter || 0);
   let startVerse = Number(args?.verse || 0);
@@ -101,7 +110,7 @@ export async function handleGetVerse(args: any) {
   };
 }
 
-export async function handleGetChapterContext(args: any) {
+export async function handleGetChapterContext(args: z.infer<typeof GetChapterContextSchema>) {
   const book = String(args?.book || "").toUpperCase();
   const chapter = Number(args?.chapter || 1);
   const lang = String(args?.language || "ukr");
@@ -142,7 +151,7 @@ export async function handleGetChapterContext(args: any) {
   };
 }
 
-export async function handleGetParallelVerses(args: any) {
+export async function handleGetParallelVerses(args: z.infer<typeof GetParallelVersesSchema>) {
   const book = String(args?.book || "JHN");
   const chapter = parseInt(String(args?.chapter || 3), 10);
   const verse = parseInt(String(args?.verse || 16), 10);
@@ -155,7 +164,7 @@ export async function handleGetParallelVerses(args: any) {
   };
 }
 
-export async function handleCompareTranslationsDiff(args: any) {
+export async function handleCompareTranslationsDiff(args: z.infer<typeof CompareTranslationsDiffSchema>) {
   const book = String(args?.book || "JHN");
   const chapter = parseInt(String(args?.chapter || 1), 10);
   const verse = parseInt(String(args?.verse || 1), 10);
@@ -168,10 +177,11 @@ export async function handleCompareTranslationsDiff(args: any) {
   };
 }
 
-export async function handleGetTranslationMetadata(args: any) {
+export async function handleGetTranslationMetadata(args: z.infer<typeof GetTranslationMetadataSchema>) {
   const transId = String(args?.translation_id || "all");
   const result = ParallelCorpusEngine.getInstance().getTranslationMetadata(transId);
   return {
     content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
   };
 }
+
