@@ -9,3 +9,4 @@ npm-debug.log*
 *.sqlite-shm
 *.sqlite-journal
 coverage/
+.github/
