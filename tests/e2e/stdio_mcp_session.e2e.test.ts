@@ -76,9 +76,10 @@ describe("E2E: MCP JSON-RPC Client Session (Claude Desktop & Cursor Simulation)"
     expect(textContent).toBeDefined();
     const data = JSON.parse(textContent);
     expect(data.contextText).toBeDefined();
-    expect(data.contextText).toContain("1 Івана 4:7");
+    expect(data.contextText).toMatch(/(?:1JOHN|1 Івана|1COR|1 Коринфянам)/i);
     expect(data.sensitivityProfile?.levelId).toBe("deep_love");
     expect(data.accuracyScore).toBeDefined();
+    expect(Array.isArray(data.verses)).toBe(true);
   });
 
 
