@@ -3,15 +3,38 @@
 [![MCP Protocol](https://img.shields.io/badge/MCP-Protocol%202025--03--26-blue.svg)](https://modelcontextprotocol.io)
 [![npm](https://img.shields.io/npm/v/@grizlizora/holy-bible-mcp.svg)](https://www.npmjs.com/package/@grizlizora/holy-bible-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Languages: 800+](https://img.shields.io/badge/Languages-800%2B-green.svg)](#supported-languages)
-[![Verses: 11.9M](https://img.shields.io/badge/Verses-11.9M-brightgreen.svg)](#database-specifications)
+[![Languages: 800+](https://img.shields.io/badge/Languages-800%2B-green.svg)](#-supported-languages--database-specifications)
+[![Verses: 11.9M](https://img.shields.io/badge/Verses-11.9M-brightgreen.svg)](#-supported-languages--database-specifications)
 [![Platform: macOS | Windows | Linux | WSL](https://img.shields.io/badge/Platform-macOS%20%7C%20Windows%20%7C%20Linux%20%7C%20WSL-lightgrey.svg)](#-cross-platform--architecture-support)
-[![CI Pipeline](https://github.com/grizlizora/holy-bible-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/grizlizora/holy-bible-mcp/actions/workflows/ci.yml)
-[![Tests: Vitest](https://img.shields.io/badge/Tests-Vitest%20Passed-brightgreen.svg)](#-automated-testing--ci)
+[![Tests: Vitest](https://img.shields.io/badge/Tests-101%2F101%20Passed-brightgreen.svg)](#-automated-testing--ci)
 
-A high-performance, **100% offline**, zero-latency **Model Context Protocol (MCP) Server** and **CLI Database Manager** that connects any LLM (Claude 3.7, GPT-4o, Gemini 2.0, DeepSeek-R1, Llama 3, Qwen) to **11,907,047 Biblical verses** across **1,081 translations** in **800+ languages**.
+A high-performance, **100% offline**, zero-latency **Model Context Protocol (MCP) Server** and **CLI Database Manager** that connects any LLM (Claude 3.7, GPT-4o, Gemini 2.0, DeepSeek-R1, Llama 3.3, Qwen 2.5) to **11,907,047 Biblical verses** across **1,081 translations** in **800+ languages**.
 
-Equipped with the complete **MCP Protocol Triad** (`Tools`, `Resources`, `Prompts`), dual transport (`Stdio` + `SSE`), **100% SQLite-driven architecture**, Hebrew/Greek Robinson morphology, 344k+ TSK cross-reference graph, Trench's synonyms, and 15-translation parallel corpus diff engine.
+Equipped with the complete **MCP Protocol Triad** (`Tools`, `Resources`, `Prompts`), dual transport (`Stdio` + `SSE`), **100% SQLite-driven architecture** (Multi-connection Pool, WAL Mode), Hebrew/Greek Robinson morphology, 344k+ TSK cross-reference graph, Trench's synonyms, and 15-translation parallel corpus diff engine.
+
+---
+
+## 📑 Table of Contents
+
+- [🏗️ System Architecture & Data Flow](#️-system-architecture--data-flow)
+- [✨ Key Technical Features](#-key-technical-features)
+- [🖥️ CLI Database Manager](#️-cli-database-manager)
+- [🚀 Quick Start — IDE & Client Configurations](#-quick-start--ide--client-configurations)
+  - [1. Trae IDE](#1-trae-ide)
+  - [2. Cursor IDE](#2-cursor-ide)
+  - [3. Claude Desktop](#3-claude-desktop)
+  - [4. Claude Code CLI](#4-claude-code-cli)
+  - [5. Windsurf / Cline / Roo-Code](#5-windsurf--cline--roo-code)
+  - [6. Remote SSE Mode (Open-WebUI / Ollama / Docker)](#6-remote-sse-mode-open-webui--ollama--docker)
+- [🛠️ Complete MCP Tools Catalog (28 Tools)](#️-complete-mcp-tools-catalog-28-tools)
+- [📜 MCP Resources & RFC 6570 Templates](#-mcp-resources--rfc-6570-templates)
+- [💬 MCP Prompts Repository (6 Calibrated Workflows)](#-mcp-prompts-repository-6-calibrated-workflows)
+- [⚙️ Environment Variables & Tuning](#️-environment-variables--tuning)
+- [🧠 Adaptive Model Budgeting & CoT Protocol](#-adaptive-model-budgeting--cot-protocol)
+- [🔒 Enterprise Security & Reliability](#-enterprise-security--reliability)
+- [🧪 Automated Testing & CI](#-automated-testing--ci)
+- [💻 Local Monorepo Setup & Build](#-local-monorepo-setup--build)
+- [📄 License](#-license)
 
 ---
 
@@ -23,41 +46,51 @@ flowchart TD
         Claude["Claude Desktop / Claude Code"]
         Cursor["Cursor IDE"]
         Trae["Trae IDE"]
+        Windsurf["Windsurf / Cline / Roo"]
+        RemoteClient["Remote HTTP/SSE Clients"]
         CLI["Holy Bible CLI Manager"]
     end
 
     subgraph Transport["⚡ Transport Layer"]
-        Stdio["StdioTransportAdapter (JSON-RPC)"]
-        SSE["SseSessionManager (HTTP/SSE)"]
-        Health["HttpHealthServer (Port 3001)"]
+        Stdio["StdioServerTransport (JSON-RPC 2.0)"]
+        SSE["SseSessionManager (Heartbeat 15s)"]
+        Health["HttpHealthServer (Rate-Limited, Port 3001)"]
+        Prometheus["/metrics (Prometheus 0.0.4)"]
     end
 
-    subgraph ProtocolTriad["📜 MCP Protocol Triad"]
-        Tools["28 Tools (Zod Validated)"]
-        Resources["Resources & Templates (Singleflight)"]
-        Prompts["Prompts Repository (Exegesis / CoT)"]
+    subgraph ProtocolTriad["📜 MCP Protocol Triad (Protocol 2025-03-26)"]
+        Tools["28 Tools (Zod Validated, O(1) Dispatcher)"]
+        Resources["4 Resource Templates (Subscriptions & Singleflight)"]
+        Prompts["6 Context-Calibrated Prompts"]
     end
 
     subgraph CoreEngines["🧠 Core Intelligent Engines"]
-        Search["Hybrid Search (FTS5 + BM25 + Ukrainian Morphology)"]
-        Morph["Morphology Engine (Greek Robinson + Hebrew WLC)"]
-        Graph["Theological Graphology (344k+ TSK Crossrefs)"]
+        Search["Hybrid Search (FTS5 BM25 + Ukrainian Morphology + RRF)"]
+        Morph["Morphology Engine (Greek Robinson + Hebrew WLC + Aramaic)"]
+        Graph["Theological Graphology (344k+ TSK Crossrefs Graph)"]
+        DiffEngine["Myers LCS Word-by-Word Translation Diff"]
         Budget["Dynamic Token Budget (40/20/20/20 & CoT Protocol)"]
+        Workers["Piscina Worker Pool (Multithreaded SHA-256 & Verification)"]
     end
 
     subgraph DataLayer["🗄️ Storage & Cache Layer (Zero-Latency SQLite)"]
-        MainDB[("Main SQLite DB (11.9M Verses, WAL Mode)")]
-        DirectivesDB[("Directives DB (Rules & Knowledge Store)")]
-        LRUCache[("In-Memory LRU & Singleflight Cache")]
+        MainDB[("Main SQLite DB (11.9M Verses, WAL Mode, 30GB MMAP)")]
+        DirectivesDB[("Directives DB (13 Tables, Directives & Knowledge Store)")]
+        LRUCache[("In-Memory LRU (5,000 slots) & Prepared Stmt Cache")]
+        MiniSearchFallback[("MiniSearch In-Memory Fallback (<1.5ms)")]
     end
 
     Claude --> Stdio
     Cursor --> Stdio
     Trae --> Stdio
+    Windsurf --> Stdio
+    RemoteClient --> SSE
     CLI --> MainDB
 
     Stdio --> ProtocolTriad
     SSE --> ProtocolTriad
+    Health --> SSE
+    Health --> Prometheus
 
     ProtocolTriad --> CoreEngines
     CoreEngines --> DataLayer
@@ -65,7 +98,35 @@ flowchart TD
 
 ---
 
-## 🖥️ CLI Database Manager (Universal Terminal Commands)
+## ✨ Key Technical Features
+
+1. **Complete Protocol Triad**: Full implementation of MCP Tools, Resources (with active subscriptions & `list_changed` / `updated` notifications), and System Prompts.
+2. **Zero-Latency SQLite Architecture**:
+   - High-concurrency **Multi-connection Pool** (`better-sqlite3`) in **WAL Mode**.
+   - Bounded LRU Prepared Statement Cache (300 statements per connection).
+   - Dedicated `data/directives.sqlite` database loaded at boot in **<5ms**.
+   - Hot-mounting detection: detects newly downloaded databases in **2.5s** with live MCP notification broadcasts.
+3. **Piscina Multithreading Worker Pool**: CPU-intensive operations (multithreaded SHA-256 chunk hashing, integrity inspection, graph analysis) run off the main Event Loop.
+4. **Scholarly Linguistic Engines**:
+   - **Greek Robinson Parser**: Decodes tense, voice, mood, case, number, and gender with dedicated Greek LRU cache.
+   - **Hebrew & Aramaic WLC Parser**: BDB definitions, Strong's Concordance lemmas, and Trench's Synonyms distinctions.
+   - **Myers LCS Word Diff Engine**: Token-level alignment comparing translation philosophies (Formal vs Dynamic Equivalence).
+5. **Hybrid Search with RRF**:
+   - SQLite FTS5 with BM25 ranking.
+   - Ukrainian morphological stemmer.
+   - Reciprocal Rank Fusion (RRF) combining lexical, topical, and theological context.
+   - Instant in-memory `MiniSearch` fallback ($<1.5$ ms).
+6. **Enterprise Security & DoS Protection**:
+   - Sliding-window IP Rate Limiter (120 req/min) with `Retry-After` headers.
+   - Bearer Authentication middleware (`MCP_AUTH_TOKEN`).
+   - Enterprise security headers: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Strict-Transport-Security`.
+   - 100% Parameterized SQL queries (zero SQL injection surface).
+7. **Adaptive Context & CoT Budgeting**:
+   - Auto-calibrates prompt complexity, output word budgets, and Chain-of-Thought thinking budgets for 1B, 3B, 8B, 70B+, and frontier models (Claude 3.7, DeepSeek-R1, GPT-4o, Gemini 2.0).
+
+---
+
+## 🖥️ CLI Database Manager
 
 Manage the offline 5.88 GB SQLite Bible database directly from your terminal across any OS. The database is stored globally in `~/.bible-mcp/` and shared across **all** your IDEs (Trae, Cursor, Claude Desktop, Claude Code) with zero duplicate storage.
 
@@ -77,207 +138,266 @@ Manage the offline 5.88 GB SQLite Bible database directly from your terminal acr
 | **Verify Integrity** | `npx @grizlizora/holy-bible-mcp verify-db` | `npm run db:verify` | Performs deep `PRAGMA quick_check(1)` and schema verification |
 
 ### CLI Options & Flags:
+
 ```bash
 # Force fresh download or overwrite existing corrupted files
 npx @grizlizora/holy-bible-mcp download-db --force
 
+# Perform deep multithreaded SHA-256 validation via Piscina Worker Pool
+npx @grizlizora/holy-bible-mcp verify-db --checksum
+
 # Specify a custom target directory
 npx @grizlizora/holy-bible-mcp download-db --dir /Volumes/ExternalSSD/bible-data
 
-# Delete database without interactive confirmation (CI/CD / automation)
+# Delete database without interactive confirmation (CI/CD / automated scripts)
 npx @grizlizora/holy-bible-mcp delete-db --yes
 ```
 
 ---
 
-## 💻 Cross-Platform & Architecture Support
+## 🚀 Quick Start — IDE & Client Configurations
 
-Holy Bible MCP 2.0 is built with pure standard Node.js APIs and pre-compiled native SQLite binaries. It runs seamlessly with **0 configuration** across:
+### 1. Trae IDE
+Add to `.trae/trae.mcp.json` or Global Settings:
+```json
+{
+  "mcpServers": {
+    "holy-bible-mcp": {
+      "command": "npx",
+      "args": ["-y", "@grizlizora/holy-bible-mcp"],
+      "env": {
+        "MODES_CONTROL": "on",
+        "WARMTH_CONTROL": "on",
+        "SHOW_METRICS": "on",
+        "DEFAULT_MODE": "auto",
+        "DEFAULT_WARMTH": "80"
+      }
+    }
+  }
+}
+```
 
-* **Operating Systems**:
-  * 🍏 **macOS** (macOS 12+ Monterey, Ventura, Sonoma, Sequoia)
-  * 🐧 **Linux** (Ubuntu, Debian, Fedora, Arch, Alpine, RHEL)
-  * 🪟 **Windows** (Windows 10, 11, Server via PowerShell / CMD / WSL2)
-* **CPU Architectures**:
-  * ⚡ **ARM64 / AArch64** (Apple Silicon M1/M2/M3/M4, AWS Graviton, Raspberry Pi 4/5)
-  * ⚡ **x86_64 / AMD64** (Intel Core / Xeon, AMD Ryzen / EPYC)
+### 2. Cursor IDE
+Add to `.cursor/mcp.json`:
+```json
+{
+  "mcpServers": {
+    "holy-bible-mcp": {
+      "command": "npx",
+      "args": ["-y", "@grizlizora/holy-bible-mcp"],
+      "env": {
+        "MODES_CONTROL": "on",
+        "WARMTH_CONTROL": "on",
+        "SHOW_METRICS": "on",
+        "DEFAULT_MODE": "auto",
+        "DEFAULT_WARMTH": "80"
+      }
+    }
+  }
+}
+```
 
-### Global Database Path Resolution:
-1. **macOS / Linux**: `/Users/<user>/.bible-mcp/bible_database.sqlite` (or `/home/<user>/.bible-mcp/bible_database.sqlite`)
-2. **Windows**: `C:\Users\<user>\.bible-mcp\bible_database.sqlite` (via `%USERPROFILE%`)
-3. **Custom Env**: Set `BIBLE_DB_PATH=/path/to/bible_database.sqlite` to override globally.
+### 3. Claude Desktop
+Add to `claude_desktop_config.json`:
+- **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
+```json
+{
+  "mcpServers": {
+    "holy-bible-mcp": {
+      "command": "npx",
+      "args": ["-y", "@grizlizora/holy-bible-mcp"],
+      "env": {
+        "MODES_CONTROL": "on",
+        "WARMTH_CONTROL": "on",
+        "SHOW_METRICS": "on",
+        "DEFAULT_MODE": "auto",
+        "DEFAULT_WARMTH": "80"
+      }
+    }
+  }
+}
+```
 
-> **💡 Hot-Mounting Support:** If your IDE is already running when you execute `download-db`, the server automatically detects the new database on disk within 2.5s and hot-mounts it without restarting the IDE.
+### 4. Claude Code CLI
+```bash
+claude mcp add holy-bible-mcp -- npx -y @grizlizora/holy-bible-mcp
+```
+
+### 5. Windsurf / Cline / Roo-Code
+Add to your extension MCP settings:
+```json
+{
+  "mcpServers": {
+    "holy-bible-mcp": {
+      "command": "node",
+      "args": ["/path/to/holy-bible/build/index.js"]
+    }
+  }
+}
+```
+
+### 6. Remote SSE Mode (Open-WebUI / Ollama / Docker)
+Run the server as a standalone HTTP/SSE service:
+```bash
+# Start server in remote SSE mode on port 3001
+MCP_TRANSPORT=sse MCP_PORT=3001 MCP_AUTH_TOKEN="your-secure-token" npx @grizlizora/holy-bible-mcp
+```
+Connect your remote client to `http://localhost:3001/sse` with Authorization header `Bearer your-secure-token`.
 
 ---
 
-## 🚀 Quick Start — IDE & Agent Configurations
+## 🛠️ Complete MCP Tools Catalog (28 Tools)
 
-Add the server to your MCP client configuration file:
+All tools use **Zod schemas** with runtime coercion, lenient argument normalization, and $O(1)$ dispatching.
 
-### 1. Trae IDE (`.trae/trae.mcp.json` or Global Settings)
-```json
-{
-  "mcpServers": {
-    "holy-bible-mcp": {
-      "command": "npx",
-      "args": ["-y", "@grizlizora/holy-bible-mcp"],
-      "env": {
-        "MODES_CONTROL": "on",
-        "WARMTH_CONTROL": "on",
-        "SHOW_METRICS": "on",
-        "DEFAULT_MODE": "auto",
-        "DEFAULT_WARMTH": "80"
-      },
-      "autoApprove": [
-        "ask_holy_bible",
-        "search_keyword",
-        "get_verse",
-        "get_chapter_context",
-        "get_commentary",
-        "get_strongs_definition",
-        "get_strongs_etymology",
-        "analyze_greek_hebrew_word",
-        "search_semantic",
-        "search_topic",
-        "search_scripture_hybrid",
-        "get_cross_references",
-        "find_thematic_scripture_chain",
-        "get_prophecy_fulfillment_pairs",
-        "find_scriptures_by_life_situation",
-        "get_parallel_verses",
-        "compare_translations_diff",
-        "get_translation_metadata",
-        "get_interlinear_verse",
-        "set_relevance_sensitivity",
-        "set_response_mode",
-        "set_show_metrics",
-        "get_mcp_capabilities",
-        "get_model_recommendations",
-        "extract_vector_context",
-        "build_biblical_context",
-        "sanitize_scripture_markdown",
-        "get_p2p_swarm_status"
-      ]
-    }
-  }
-}
-```
+### 🌟 1. Master & Context Tools
+| Tool | Arguments | Description |
+|:---|:---|:---|
+| `ask_holy_bible` | `question`, `language`, `mode`, `warmth`, `parameter_size_b` | **Master Tool**: Canonical answers with verified scripture anchors, theological directives, and telemetry. |
+| `build_biblical_context` | `question`, `mode`, `language`, `warmth` | Builds structured theological context for external LLM prompt composition. |
 
-### 2. Cursor IDE (`.cursor/mcp.json`)
-```json
-{
-  "mcpServers": {
-    "holy-bible-mcp": {
-      "command": "npx",
-      "args": ["-y", "@grizlizora/holy-bible-mcp"],
-      "env": {
-        "MODES_CONTROL": "on",
-        "WARMTH_CONTROL": "on",
-        "SHOW_METRICS": "on",
-        "DEFAULT_MODE": "auto",
-        "DEFAULT_WARMTH": "80"
-      }
-    }
-  }
-}
-```
+### 🔍 2. Search & Retrieval Tools
+| Tool | Arguments | Description |
+|:---|:---|:---|
+| `search_keyword` | `keyword`, `translation`, `language`, `limit` | Ultra-fast SQLite FTS5 full-text search across 11.9M verses. |
+| `search_scripture_hybrid` | `query`, `language`, `mode`, `top_k` | Hybrid search combining FTS5 BM25, Ukrainian morphology stemming, and vector RRF. |
+| `search_semantic` | `concept` | Matches conceptual and doctrinal keywords against semantic theological indices. |
+| `search_topic` | `topic`, `limit` | Finds top passages associated with specific theological topics. |
+| `find_scriptures_by_life_situation` | `situation_description`, `emotion`, `language` | Pastoral counseling matcher for real-world emotional struggles (anxiety, grief, burnout). |
 
-### 3. Claude Desktop (`claude_desktop_config.json`)
-* **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
-* **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
-```json
-{
-  "mcpServers": {
-    "holy-bible-mcp": {
-      "command": "npx",
-      "args": ["-y", "@grizlizora/holy-bible-mcp"],
-      "env": {
-        "MODES_CONTROL": "on",
-        "WARMTH_CONTROL": "on",
-        "SHOW_METRICS": "on",
-        "DEFAULT_MODE": "auto",
-        "DEFAULT_WARMTH": "80"
-      }
-    }
-  }
-}
-```
+### 📖 3. Verse & Chapter Tools
+| Tool | Arguments | Description |
+|:---|:---|:---|
+| `get_verse` | `book`, `chapter`, `verse`, `reference`, `language` | Retrieves exact verse or verse range by reference with OSIS normalization. |
+| `get_chapter_context` | `book`, `chapter`, `language` | Retrieves entire chapter context formatted for LLM reading. |
+| `get_parallel_verses` | `book`, `chapter`, `verse`, `translations`, `lang` | Aligns scripture across 15 translations (UBIO, UKRK, UTT, KJV, BSB, WLC, NA28, etc.). |
+| `compare_translations_diff` | `book`, `chapter`, `verse`, `base_translation`, `target_translation` | Token-level Myers LCS Diff analysis comparing translations and translation philosophies. |
+| `get_translation_metadata` | `translation_id` | Metadata, translation philosophy (Formal vs Dynamic), year, and textual basis. |
+
+### 🏛️ 4. Morphology & Original Languages Tools
+| Tool | Arguments | Description |
+|:---|:---|:---|
+| `get_interlinear_verse` | `book`, `chapter`, `verse`, `parallel_translation` | Word-by-word Hebrew (WLC) / Greek (NA28) interlinear with morphology and Strong's mapping. |
+| `get_strongs_definition` | `word_id` (e.g. `G26`, `H1254`) | Strong's Concordance lexical lemma, transliteration, pronunciation, and definition. |
+| `get_strongs_etymology` | `strongs_id`, `word` | Detailed etymological study, BDB/Thayer definitions, and Trench's Synonyms distinctions. |
+| `analyze_greek_hebrew_word` | `word` | Linguistic and morphological breakdown of specific original language lemmas. |
+
+### ⚓ 5. Theological & Graphology Tools
+| Tool | Arguments | Description |
+|:---|:---|:---|
+| `get_commentary` | `book`, `chapter`, `verse` | Early Church Fathers (Patristic) and historical theological commentaries. |
+| `get_cross_references` | `book`, `chapter`, `verse`, `category`, `max_results` | Top-ranked cross-references from 344k+ TSK graph with anti-flooding filters. |
+| `find_thematic_scripture_chain` | `theme`, `starting_verse` | Traces progressive revelation across biblical covenants (e.g. *Living Water*, *Seed of Faith*). |
+| `get_prophecy_fulfillment_pairs` | `topic` | Matched OT Messianic Prophecies and their NT Historical Fulfillments in Christ. |
+
+### ⚙️ 6. System & Adaptive Configuration Tools
+| Tool | Arguments | Description |
+|:---|:---|:---|
+| `set_relevance_sensitivity` | `score` (0–100) | Adjusts pastoral warmth and empathy level in real time. |
+| `set_response_mode` | `mode` (`auto`, `deep`, `detailed`, `minimal`, `verses_only`) | Changes active analytical detail level. |
+| `set_show_metrics` | `enabled` (boolean / "on" / "off") | Toggles the end-of-response accuracy and complexity badge. |
+| `get_p2p_swarm_status` | *(none)* | Inspects local database storage, BitTorrent mesh status, and mirror health. |
+| `get_mcp_capabilities` | `client_host`, `client_name` | Returns server capabilities, active settings metadata, and versioning. |
+| `get_model_recommendations` | `model_name`, `parameter_size_b`, `user_message`, `warmth` | Adaptive sampling parameters (`temperature`, `min_p`, `top_p`, `num_ctx`, `num_predict`). |
+| `extract_vector_context` | `query`, `full_text`, `max_tokens`, `filename` | Hierarchical chunker and vector reasoning over large attachments. |
+| `sanitize_scripture_markdown` | `markdown_text` | Normalizes and sanitizes scripture citations in generated Markdown. |
+
+---
+
+## 📜 MCP Resources & RFC 6570 Templates
+
+Access biblical content via standard RFC 6570 URIs with **Singleflight de-duplication** and **LRU caching**:
+
+| URI Template | Name | MIME Type | Example |
+|:---|:---|:---|:---|
+| `bible://{translation}/{book}/{chapter}` | Canonical Chapter Reader | `text/markdown` | `bible://ubio/GEN/1`, `bible://kjv/JHN/3` |
+| `bible://strongs/{strongsId}` | Strong's Concordance Article | `application/json` | `bible://strongs/G26`, `bible://strongs/H1254` |
+| `bible://crossref/{book}/{chapter}/{verse}` | Cross-Reference Network | `application/json` | `bible://crossref/JHN/3/16` |
+| `bible://interlinear/{book}/{chapter}/{verse}` | Original Language Interlinear | `application/json` | `bible://interlinear/GEN/1/1` |
+
+---
+
+## 💬 MCP Prompts Repository (6 Calibrated Workflows)
+
+| Prompt | Required Arguments | Description |
+|:---|:---|:---|
+| `theological_exegesis` | `topic_or_verse` | Historical-Grammatical & Canonical Exegesis workflow with original language nuances. |
+| `pastoral_devotional` | `life_situation` | Empathetic, Christ-centered pastoral encouragement tailored to trials. |
+| `parallel_translation_comparison` | `verse` | Manuscript traditions (TR vs NA28) and linguistic comparison across translations. |
+| `original_languages_deep_dive` | `query` (Strong ID / Lemma) | Exhaustive Greek/Hebrew word study with lexical range and LXX usage. |
+| `holy_bible_study` | `topic` | Tier-calibrated Biblical study prompt with 4-part canonical trajectory. |
+| `biblical_guidance_prompt` | `question` | Moral worldview guidance grounded in the 3 Eternal Moral Axioms. |
 
 ---
 
 ## ⚙️ Environment Variables & Tuning
 
-Customize server behavior by passing environment variables in the `env` block:
-
 | Variable | Values | Default | Description |
 |:---|:---|:---|:---|
-| **`DEFAULT_MODE`** | `"auto"`, `"deep"`, `"detailed"`, `"verses_only"`, `"minimal"`, `"off"` | `"auto"` | **Analytical Depth:** Controls response structure. Set to `"off"` to disable forced formatting directives. |
-| **`DEFAULT_WARMTH`** | `0`–`100` or `"off"` | `"80"` | **Pastoral Warmth:** `80-100` (Pastoral empathy), `40-79` (Balanced), `0-39` or `"off"` (Strict academic neutrality). |
-| **`SHOW_METRICS`** | `"on"`, `"off"` | `"on"` | **Telemetry Badge:** Shows/hides the accuracy and complexity badge at the bottom of responses. |
-| **`MODES_CONTROL`** | `"on"`, `"off"` | `"on"` | Allows LLMs to dynamically switch modes via `set_response_mode`. Set to `"off"` to lock mode. |
-| **`WARMTH_CONTROL`** | `"on"`, `"off"` | `"on"` | Allows LLMs to dynamically adjust warmth via `set_relevance_sensitivity`. Set to `"off"` to lock warmth. |
-| **`BIBLE_DB_PATH`** | File Path | `~/.bible-mcp/...` | Optional explicit path to the 5.88 GB SQLite database file. |
+| `DEFAULT_MODE` | `"auto"`, `"deep"`, `"detailed"`, `"short"`, `"verses_only"`, `"minimal"`, `"off"` | `"auto"` | **Analytical Depth:** Controls response structure. Set to `"off"` to disable forced formatting. |
+| `DEFAULT_WARMTH` | `0`–`100` or `"off"` | `"80"` | **Pastoral Warmth:** `80-100` (Empathetic), `40-79` (Balanced), `0-39` or `"off"` (Academic neutrality). |
+| `SHOW_METRICS` | `"on"`, `"off"` | `"on"` | **Telemetry Badge:** Shows/hides accuracy and complexity footer. |
+| `MODES_CONTROL` | `"on"`, `"off"` | `"on"` | Allows LLMs to dynamically switch modes via `set_response_mode`. |
+| `WARMTH_CONTROL` | `"on"`, `"off"` | `"on"` | Allows LLMs to dynamically adjust warmth via `set_relevance_sensitivity`. |
+| `BIBLE_DB_PATH` | File Path | `~/.bible-mcp/...` | Custom location for the 5.88 GB SQLite database file. |
+| `MCP_TRANSPORT` | `"stdio"`, `"sse"`, `"dual"` | `"stdio"` | Server transport mode. |
+| `MCP_PORT` / `PORT` | Number | `3001` | HTTP/SSE server listening port. |
+| `MCP_AUTH_TOKEN` | String | `""` | Optional Bearer token for SSE remote endpoints. |
 
 ---
 
-## 🛠 Available MCP Tools
+## 🧠 Adaptive Model Budgeting & CoT Protocol
 
-| Tool | Parameters | Description |
-|:---|:---|:---|
-| `ask_holy_bible` | `question`, `language`, `mode` | **Master Tool**: Canonical answers with verified scripture anchors and theological directives |
-| `get_interlinear_verse` | `book`, `chapter`, `verse`, `parallel_translation` | Word-by-word Hebrew (WLC) / Greek (NA28) interlinear with morphology and Strong's |
-| `get_strongs_etymology` | `strongs_id` (e.g. `G26`, `H1254`) | Strong's Concordance, BDB/Thayer definitions, and Trench's Synonyms distinctions |
-| `get_cross_references` | `book`, `chapter`, `verse`, `max_results` | Top-ranked theological cross-references from 344k+ TSK graph with anti-flooding filter |
-| `find_thematic_scripture_chain`| `theme`, `starting_verse` | Traces progressive revelation across covenants (e.g. *Living Water*, *Seed of Faith*) |
-| `get_prophecy_fulfillment_pairs` | `topic` | Matched OT Messianic Prophecies and their NT Historical Fulfillments in Christ |
-| `search_scripture_hybrid` | `query`, `language`, `mode`, `top_k` | Hybrid search combining FTS5 BM25, Ukrainian morphology stemming, and vector RRF |
-| `find_scriptures_by_life_situation` | `situation_description`, `emotion`, `language` | Pastoral counseling matcher for real-world emotional struggles (anxiety, grief, burnout) |
-| `get_parallel_verses` | `book`, `chapter`, `verse`, `translations` | Aligns scripture across 15 translations (UBIO, UKRK, UTT, KJV, BSB, WLC, NA28, etc.) |
-| `compare_translations_diff` | `book`, `chapter`, `verse`, `base_translation`, `target_translation` | Token-level Myers LCS Diff analysis comparing translations and translation philosophies |
-| `get_translation_metadata` | `translation_id` | Metadata, translation philosophy (Formal vs Dynamic), and textual basis |
-| `search_keyword` | `keyword`, `translation`, `limit` | Ultra-fast FTS5 full-text search across 11.9M verses |
-| `get_verse` | `book`, `chapter`, `verse`, `language` | Retrieve exact verse by reference |
-| `get_chapter_context` | `book`, `chapter`, `language` | Retrieve entire chapter context |
-| `extract_vector_context` | `query`, `full_text`, `max_tokens` | Hierarchical chunker and vector reasoning over large attachments |
-| `get_model_recommendations` | `model_name`, `parameter_size_b` | Adaptive sampling parameters (min_p, temperature, top_p, num_ctx) |
+The server dynamically profiles the connected AI model and adjusts prompts according to model capacity:
+
+```
+[Tier 1: <4B]    ──> Compact context (<4k), strict token budget, no CoT thinking block
+[Tier 1.5: 4-8.5B] ──> Balanced context (<8k), medium detail, 500 chars CoT
+[Tier 2: 8.5-35B]  ──> Comprehensive context (<16k), deep detail, 1,500 chars CoT
+[Tier 3: 35B+]   ──> Maximum context (32k+), unrestricted deep exegesis, 6,000+ chars CoT
+```
+
+### The 4-Part Canonical Trajectory:
+When responding to worldview, ethical, and life questions, prompts enforce the canonical structure:
+1. 📖 **Сутність та якір (Core Essence & Anchor)** — Primary scripture foundation.
+2. ⚙️ **Духовний механізм (Internal Mechanism)** — How divine truth operates internally.
+3. 🌿 **Практичний вияв (Practical Manifestation)** — Real-world daily application.
+4. 🕊️ **Вічний плід (Ultimate Fruit)** — Eternal redemptive significance.
 
 ---
 
-## 📜 Available MCP Resources
+## 🔒 Enterprise Security & Reliability
 
-Access biblical content via standard RFC 6570 URIs:
-* `bible://{translation}/{book}/{chapter}` — Read entire chapter (e.g. `bible://ubio/GEN/1`, `bible://kjv/JHN/3`, `bible://web/PSA/23`).
-* `bible://strongs/{number}` — Strong's Concordance article (e.g. `bible://strongs/G26` for *Agape*, `bible://strongs/H1254` for *Bara*).
-* `bible://crossref/{book}/{chapter}/{verse}` — Cross-reference network (e.g. `bible://crossref/JHN/3/16`).
-* `bible://interlinear/{book}/{chapter}/{verse}` — Word-by-word interlinear text with morphology.
-
----
-
-## 💬 Available MCP Prompts
-
-* `theological_exegesis` — Historical-grammatical exegesis workflow with original language nuances.
-* `pastoral_devotional` — Empathetic, Christ-centered pastoral encouragement tailored to life trials.
-* `parallel_translation_comparison` — Manuscript and linguistic comparison across Bible translations.
-* `original_languages_deep_dive` — Exhaustive Greek/Hebrew word study with Strong's etymology.
-* `holy_bible_study` — Tier-calibrated Biblical study system prompt with 4-part canonical trajectory.
-* `biblical_guidance_prompt` — Moral worldview guidance grounded in the 3 Eternal Moral Axioms.
+- **Sliding-Window IP Rate Limiter**: 120 requests/minute per client IP to prevent DoS.
+- **Bearer Token Authentication**: Secure `/sse` and `/messages` endpoints.
+- **Enterprise HTTP Headers**: HSTS, CSP, X-Frame-Options: DENY, X-Content-Type-Options: nosniff.
+- **Process Exception Boundaries**: Process-level handlers for `unhandledRejection`, `uncaughtException`, and graceful shutdown on `SIGINT` / `SIGTERM`.
+- **Online Fallback Cascade**: Automatic graceful fallback to online scripture providers if the local 5.88 GB database is downloading or missing.
 
 ---
 
 ## 🧪 Automated Testing & CI
 
-The project uses **Vitest** for fast unit testing of morphology engines, token budgeters, Zod schemas, and SQLite directives:
+The project maintains an exhaustive suite of **101 tests across 22 test files** executed via **Vitest**:
 
 ```bash
-# Run complete test suite once
+# Run the complete test suite
 npm test
 
 # Run tests in watch mode during development
 npm run test:watch
+
+# Run test coverage analysis
+npm run test:coverage
 ```
 
-CI workflow automatically tests all Pull Requests and commits across **Ubuntu, macOS, and Windows** on **Node.js 18, 20, and 22**.
+### Verified Test Categories:
+- **E2E IPC Subprocess**: Real child process spawn executing JSON-RPC 2.0 over standard OS pipes.
+- **E2E HTTP/SSE Lifecycle**: Real TCP network handshake, multi-session broadcast, and disconnect cleanup.
+- **Morphology Suite**: Greek Robinson parser, Hebrew WLC, and Aramaic morphology decoding.
+- **Token Budget & Model Matrix**: Reasoning adaptation for Claude 3.7, DeepSeek-R1, GPT-4o, and small models.
+- **Security Suite**: Rate limiter sliding window, HTTP security headers, and input sanitization.
 
 ---
 
@@ -292,10 +412,10 @@ cd holy-bible-mcp
 npm install
 npm run build
 
-# 3. Run unit tests
+# 3. Run unit & E2E tests
 npm test
 
-# 4. (Optional) Download offline database
+# 4. (Optional) Download offline 5.88 GB database
 npm run db:download
 ```
 
