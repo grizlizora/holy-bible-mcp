@@ -18,6 +18,8 @@ Equipped with the complete **MCP Protocol Triad** (`Tools`, `Resources`, `Prompt
 
 - [🏗️ System Architecture & Data Flow](#️-system-architecture--data-flow)
 - [✨ Key Technical Features](#-key-technical-features)
+- [🌐 Supported Languages & Database Specifications](#-supported-languages--database-specifications)
+- [💻 Cross-Platform & Architecture Support](#-cross-platform--architecture-support)
 - [🖥️ CLI Database Manager](#️-cli-database-manager)
 - [🚀 Quick Start — IDE & Client Configurations](#-quick-start--ide--client-configurations)
   - [1. Trae IDE](#1-trae-ide)
@@ -126,6 +128,49 @@ flowchart TD
 
 ---
 
+## 🌐 Supported Languages & Database Specifications
+
+The offline SQLite database contains canonical biblical corpora across 800+ languages with full OSIS book mapping:
+
+| Language Group | Code | Core Translations | Textual Basis & Philosophy |
+|:---|:---|:---|:---|
+| **Ukrainian** | `ukr` | **UBIO** (Огієнко 1962), **UKRK** (Куліш 1903), **UTT** (Турконяк 2011), **UKRH** (Хоменко 1963), **CUV** (Сучасний) | Formal Equivalence / Textus Receptus & Critical Text |
+| **English** | `eng` | **KJV** (King James Version), **BSB** (Berean Standard), **ESV**, **NIV**, **ASV**, **WEB** | Formal Equivalence (KJV, BSB, ESV) / Dynamic (NIV) |
+| **Original Greek** | `grc` / `ell` | **NA28** (Nestle-Aland 28th), **TR** (Textus Receptus 1550), **LXX** (Septuagint) | Byzantine Majority Text & Alexandrian Critical Text |
+| **Original Hebrew** | `heb` | **WLC** (Westminster Leningrad Codex), **BHS** (Biblia Hebraica Stuttgartensia) | Masoretic Text (MT) with Strong's Concordance |
+| **Latin** | `lat` | **VUL** (Biblia Sacra Vulgata Clementina) | Jerome Vulgate Tradition |
+| **Global Languages** | `deu`, `fra`, `spa`, `zho`, `jpn`, `kor`, `ara`, +790 more | **LUT** (Luther 1912), **LSG** (Louis Segond), **RVR** (Reina-Valera 1909), **CUV** (Chinese Union) | Major National Canonical Standard Translations |
+
+### 📊 Database Volume Specifications:
+- **Total Canonical Verses:** 11,907,047 verses
+- **Total Translations:** 1,081 translations
+- **Cross-Reference Edges:** 344,000+ Treasury of Scripture Knowledge (TSK) links
+- **Strong's Dictionary Entries:** 8,674 Hebrew and Greek lexical roots with definitions
+- **Storage Footprint:** ~5.88 GB (Single compact SQLite file with FTS5 and WAL mode)
+
+---
+
+## 💻 Cross-Platform & Architecture Support
+
+Holy Bible MCP 2.0 is built with pure standard Node.js APIs and pre-compiled native SQLite binaries. It runs seamlessly with **0 configuration** across:
+
+* **Operating Systems**:
+  * 🍏 **macOS** (macOS 12+ Monterey, Ventura, Sonoma, Sequoia)
+  * 🐧 **Linux** (Ubuntu, Debian, Fedora, Arch, Alpine, RHEL)
+  * 🪟 **Windows** (Windows 10, 11, Server via PowerShell / CMD / WSL2)
+* **CPU Architectures**:
+  * ⚡ **ARM64 / AArch64** (Apple Silicon M1/M2/M3/M4, AWS Graviton, Raspberry Pi 4/5)
+  * ⚡ **x86_64 / AMD64** (Intel Core / Xeon, AMD Ryzen / EPYC)
+
+### Global Database Path Resolution:
+1. **macOS / Linux**: `/Users/<user>/.bible-mcp/bible_database.sqlite` (or `/home/<user>/.bible-mcp/bible_database.sqlite`)
+2. **Windows**: `C:\Users\<user>\.bible-mcp\bible_database.sqlite` (via `%USERPROFILE%`)
+3. **Custom Env**: Set `BIBLE_DB_PATH=/path/to/bible_database.sqlite` to override globally.
+
+> **💡 Hot-Mounting Support:** If your IDE is already running when you execute `download-db`, the server automatically detects the new database on disk within 2.5s and hot-mounts it without restarting the IDE.
+
+---
+
 ## 🖥️ CLI Database Manager
 
 Manage the offline 5.88 GB SQLite Bible database directly from your terminal across any OS. The database is stored globally in `~/.bible-mcp/` and shared across **all** your IDEs (Trae, Cursor, Claude Desktop, Claude Code) with zero duplicate storage.
@@ -171,7 +216,37 @@ Add to `.trae/trae.mcp.json` or Global Settings:
         "SHOW_METRICS": "on",
         "DEFAULT_MODE": "auto",
         "DEFAULT_WARMTH": "80"
-      }
+      },
+      "autoApprove": [
+        "ask_holy_bible",
+        "build_biblical_context",
+        "search_keyword",
+        "search_scripture_hybrid",
+        "search_semantic",
+        "search_topic",
+        "find_scriptures_by_life_situation",
+        "get_verse",
+        "get_chapter_context",
+        "get_parallel_verses",
+        "compare_translations_diff",
+        "get_translation_metadata",
+        "get_interlinear_verse",
+        "get_strongs_definition",
+        "get_strongs_etymology",
+        "analyze_greek_hebrew_word",
+        "get_commentary",
+        "get_cross_references",
+        "find_thematic_scripture_chain",
+        "get_prophecy_fulfillment_pairs",
+        "set_relevance_sensitivity",
+        "set_response_mode",
+        "set_show_metrics",
+        "get_p2p_swarm_status",
+        "get_mcp_capabilities",
+        "get_model_recommendations",
+        "extract_vector_context",
+        "sanitize_scripture_markdown"
+      ]
     }
   }
 }
