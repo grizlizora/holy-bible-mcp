@@ -148,12 +148,27 @@ export class HttpHealthServer {
         return;
       }
 
+      // Smithery / Well-Known Server Card Endpoint
+      if (urlObj.pathname === "/.well-known/mcp/server-card.json" || urlObj.pathname === "/server-card.json") {
+        try {
+          const fs = await import("fs");
+          const path = await import("path");
+          const manifestPath = path.resolve(process.cwd(), "mcp-manifest.json");
+          if (fs.existsSync(manifestPath)) {
+            const raw = fs.readFileSync(manifestPath, "utf-8");
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(raw);
+            return;
+          }
+        } catch (_) {}
+      }
+
       // Health / Status (Public unauthenticated diagnostic endpoint)
       if (urlObj.pathname === "/health" || urlObj.pathname === "/status") {
         const authConfigured = Boolean(process.env.MCP_AUTH_TOKEN || process.env.AUTH_TOKEN);
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({
-          name: "holy-bible-mcp",
+          name: "holy-bible",
           version: "2.0.0",
           status: "healthy",
           protocolVersion: "2025-03-26",
@@ -170,8 +185,14 @@ export class HttpHealthServer {
       }
 
 
+
       // 🔒 2. Bearer Authentication Check for SSE and Messages
-      if (urlObj.pathname === "/sse" || urlObj.pathname.startsWith("/messages")) {
+      const isMcpPath = urlObj.pathname === "/sse" || 
+                        urlObj.pathname === "/" || 
+                        urlObj.pathname === "/mcp" || 
+                        urlObj.pathname.startsWith("/messages");
+
+      if (isMcpPath) {
         if (!this.validateAuthToken(req, urlObj)) {
           res.writeHead(401, { "Content-Type": "application/json", "WWW-Authenticate": "Bearer" });
           res.end(JSON.stringify({
@@ -182,8 +203,12 @@ export class HttpHealthServer {
         }
       }
 
-      // SSE Stream
-      if (urlObj.pathname === "/sse" && req.method === "GET") {
+      // SSE Stream (GET /sse or GET / with event-stream or GET /mcp)
+      const wantsSse = urlObj.pathname === "/sse" || 
+                       urlObj.pathname === "/mcp" || 
+                       (urlObj.pathname === "/" && (req.headers.accept?.includes("text/event-stream") || req.headers["x-smithery-client"] || !req.headers.accept?.includes("text/html")));
+
+      if (wantsSse && req.method === "GET") {
         res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
         res.setHeader("Cache-Control", "no-cache, no-transform");
         res.setHeader("Connection", "keep-alive");
@@ -220,14 +245,19 @@ export class HttpHealthServer {
         return;
       }
 
-      // POST Messages
-      if (urlObj.pathname.startsWith("/messages") && req.method === "POST") {
+      // POST Messages (Accepts /messages, /sse, /mcp, and /)
+      const isMessagePost = (urlObj.pathname.startsWith("/messages") || 
+                             urlObj.pathname === "/" || 
+                             urlObj.pathname === "/sse" || 
+                             urlObj.pathname === "/mcp") && req.method === "POST";
+
+      if (isMessagePost) {
         const sessionId = urlObj.searchParams.get("sessionId") || 
                           (req.headers["x-session-id"] as string) || 
                           (req.headers["mcp-session-id"] as string);
         
         let targetEntry = sessionId ? sessionManager.get(sessionId) : undefined;
-        if (!targetEntry && !sessionId && sessionManager.size === 1) {
+        if (!targetEntry && !sessionId && sessionManager.size >= 1) {
           targetEntry = sessionManager.getFirst();
         }
 
@@ -249,12 +279,17 @@ export class HttpHealthServer {
         return;
       }
 
-      // Default info
+      // Default info / Diagnostic Server Card
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({
+        name: "holy-bible",
         server: "Holy Bible MCP Server v2.0",
         protocolVersion: "2025-03-26",
-        capabilities: ["tools", "resources", "prompts", "logging"],
+        capabilities: {
+          tools: { listChanged: true },
+          resources: { subscribe: true, listChanged: true },
+          prompts: { listChanged: true }
+        },
         endpoints: {
           sseStream: "/sse",
           messagePost: "/messages",
