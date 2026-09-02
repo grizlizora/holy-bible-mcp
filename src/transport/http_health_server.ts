@@ -3,6 +3,7 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { isDbReady, DB_PATH } from "../database.js";
 import { SseSessionManager } from "./sse_session_manager.js";
+import { TOOL_DEFINITIONS } from "../tools/definitions.js";
 
 export class RateLimiter {
   private requests = new Map<string, { count: number; resetAt: number }>();
@@ -149,18 +150,33 @@ export class HttpHealthServer {
       }
 
       // Smithery / Well-Known Server Card Endpoint
-      if (urlObj.pathname === "/.well-known/mcp/server-card.json" || urlObj.pathname === "/server-card.json") {
-        try {
-          const fs = await import("fs");
-          const path = await import("path");
-          const manifestPath = path.resolve(process.cwd(), "mcp-manifest.json");
-          if (fs.existsSync(manifestPath)) {
-            const raw = fs.readFileSync(manifestPath, "utf-8");
-            res.writeHead(200, { "Content-Type": "application/json" });
-            res.end(raw);
-            return;
-          }
-        } catch (_) {}
+      if (urlObj.pathname.endsWith("server-card.json") || urlObj.pathname.includes("server-card")) {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({
+          serverInfo: {
+            name: "holy-bible",
+            version: "2.0.0"
+          },
+          authentication: {
+            required: false
+          },
+          tools: TOOL_DEFINITIONS,
+          resources: [
+            {
+              uri: "bible://versions",
+              name: "Available Bible Versions",
+              description: "Lists all installed and available biblical translation versions.",
+              mimeType: "application/json"
+            }
+          ],
+          prompts: [
+            {
+              name: "theological_exegesis",
+              description: "Generates an in-depth Historical-Grammatical & Canonical Exegesis on a scripture passage or doctrinal topic."
+            }
+          ]
+        }, null, 2));
+        return;
       }
 
       // Health / Status (Public unauthenticated diagnostic endpoint)
@@ -224,10 +240,12 @@ export class HttpHealthServer {
         const cleanup = async () => {
           if (cleanedUp) return;
           cleanedUp = true;
-          sessionManager.remove(sessionId);
-          console.error(`[TRANSPORT SSE] 🔴 Client disconnected. Session ID: ${sessionId} (Active: ${sessionManager.size})`);
-          try { await sseTransport.close(); } catch (_) {}
-          try { await sessionServer.close(); } catch (_) {}
+          console.error(`[TRANSPORT SSE] 🔴 Client stream paused. Session ID: ${sessionId}`);
+          setTimeout(() => {
+            sessionManager.remove(sessionId);
+            try { sseTransport.close(); } catch (_) {}
+            try { sessionServer.close(); } catch (_) {}
+          }, 60000);
         };
 
         sseTransport.onclose = cleanup;
@@ -253,17 +271,30 @@ export class HttpHealthServer {
 
       if (isMessagePost) {
         const sessionId = urlObj.searchParams.get("sessionId") || 
+                          urlObj.searchParams.get("session_id") || 
                           (req.headers["x-session-id"] as string) || 
                           (req.headers["mcp-session-id"] as string);
         
         let targetEntry = sessionId ? sessionManager.get(sessionId) : undefined;
-        if (!targetEntry && !sessionId && sessionManager.size >= 1) {
+        if (!targetEntry && sessionManager.size >= 1) {
           targetEntry = sessionManager.getFirst();
         }
 
         if (!targetEntry) {
-          res.writeHead(404, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: "Session not found or expired. Re-establish GET /sse first." }));
+          // Graceful fallback: create a transient transport session on the fly
+          const transientServer = serverFactory();
+          const dummyRes = new http.ServerResponse(req);
+          const transientTransport = new SSEServerTransport("/messages", dummyRes);
+          await transientServer.connect(transientTransport);
+          try {
+            await transientTransport.handlePostMessage(req, res);
+          } catch (err: any) {
+            console.error("[TRANSPORT TRANSIENT POST ERROR]:", err.message);
+            if (!res.headersSent) {
+              res.writeHead(500, { "Content-Type": "application/json" });
+              res.end(JSON.stringify({ error: "Failed to process message payload", details: err.message }));
+            }
+          }
           return;
         }
 
