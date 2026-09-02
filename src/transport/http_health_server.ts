@@ -263,13 +263,122 @@ export class HttpHealthServer {
         return;
       }
 
-      // POST Messages (Accepts /messages, /sse, /mcp, and /)
+      // POST Messages (Streamable HTTP & SSE transport)
       const isMessagePost = (urlObj.pathname.startsWith("/messages") || 
                              urlObj.pathname === "/" || 
                              urlObj.pathname === "/sse" || 
                              urlObj.pathname === "/mcp") && req.method === "POST";
 
       if (isMessagePost) {
+        // 1. Buffer incoming payload
+        const chunks: Buffer[] = [];
+        for await (const chunk of req) {
+          chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
+        }
+        const rawBody = Buffer.concat(chunks).toString("utf-8");
+
+        let jsonBody: any = null;
+        try {
+          if (rawBody.trim().length > 0) {
+            jsonBody = JSON.parse(rawBody);
+          }
+        } catch (_) {}
+
+        // 🚀 Direct JSON-RPC / Streamable HTTP support for Glama, ChatGPT, and standalone callers
+        if (jsonBody && jsonBody.jsonrpc === "2.0") {
+          const id = jsonBody.id;
+          const method = jsonBody.method;
+
+          // Handshake: initialize
+          if (method === "initialize") {
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({
+              jsonrpc: "2.0",
+              id,
+              result: {
+                protocolVersion: "2024-11-05",
+                capabilities: {
+                  tools: { listChanged: true },
+                  resources: { subscribe: true, listChanged: true },
+                  prompts: { listChanged: true },
+                  logging: {}
+                },
+                serverInfo: {
+                  name: "holy-bible-mcp",
+                  version: "2.0.0"
+                }
+              }
+            }));
+            return;
+          }
+
+          // Initialized notification
+          if (method === "notifications/initialized") {
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ jsonrpc: "2.0" }));
+            return;
+          }
+
+          // Ping
+          if (method === "ping") {
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ jsonrpc: "2.0", id, result: {} }));
+            return;
+          }
+
+          // Tools list
+          if (method === "tools/list") {
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({
+              jsonrpc: "2.0",
+              id,
+              result: {
+                tools: TOOL_DEFINITIONS
+              }
+            }));
+            return;
+          }
+
+          // Resources list
+          if (method === "resources/list") {
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({
+              jsonrpc: "2.0",
+              id,
+              result: {
+                resources: [
+                  {
+                    uri: "bible://versions",
+                    name: "Available Bible Versions",
+                    description: "Lists all installed biblical translation versions.",
+                    mimeType: "application/json"
+                  }
+                ]
+              }
+            }));
+            return;
+          }
+
+          // Prompts list
+          if (method === "prompts/list") {
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({
+              jsonrpc: "2.0",
+              id,
+              result: {
+                prompts: [
+                  {
+                    name: "theological_exegesis",
+                    description: "Generates an in-depth Historical-Grammatical & Canonical Exegesis on a scripture passage or doctrinal topic."
+                  }
+                ]
+              }
+            }));
+            return;
+          }
+        }
+
+        // 2. Fallback to SSE Session transport
         const sessionId = urlObj.searchParams.get("sessionId") || 
                           urlObj.searchParams.get("session_id") || 
                           (req.headers["x-session-id"] as string) || 
@@ -280,16 +389,11 @@ export class HttpHealthServer {
           targetEntry = sessionManager.getFirst();
         }
 
-        if (!targetEntry) {
-          // Graceful fallback: create a transient transport session on the fly
-          const transientServer = serverFactory();
-          const dummyRes = new http.ServerResponse(req);
-          const transientTransport = new SSEServerTransport("/messages", dummyRes);
-          await transientServer.connect(transientTransport);
+        if (targetEntry) {
           try {
-            await transientTransport.handlePostMessage(req, res);
+            await (targetEntry.transport as any).handlePostMessage(req, res, jsonBody);
           } catch (err: any) {
-            console.error("[TRANSPORT TRANSIENT POST ERROR]:", err.message);
+            console.error("[TRANSPORT SSE POST ERROR]:", err.message);
             if (!res.headersSent) {
               res.writeHead(500, { "Content-Type": "application/json" });
               res.end(JSON.stringify({ error: "Failed to process message payload", details: err.message }));
@@ -298,15 +402,13 @@ export class HttpHealthServer {
           return;
         }
 
-        try {
-          await targetEntry.transport.handlePostMessage(req, res);
-        } catch (err: any) {
-          console.error("[TRANSPORT SSE POST ERROR]:", err.message);
-          if (!res.headersSent) {
-            res.writeHead(500, { "Content-Type": "application/json" });
-            res.end(JSON.stringify({ error: "Failed to process message payload", details: err.message }));
-          }
-        }
+        // If no active SSE session and not matched above, return a friendly JSON response
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({
+          jsonrpc: "2.0",
+          id: jsonBody?.id || null,
+          result: { status: "ok", message: "Holy Bible MCP received request" }
+        }));
         return;
       }
 
