@@ -66,13 +66,13 @@ export class ParallelCorpusEngine {
         let rows = isRange
           ? await queryDb(
               `SELECT text FROM verses 
-               WHERE LOWER(translation) = LOWER(?) AND UPPER(book) = ? AND chapter = ? AND verse >= ? AND verse <= ? 
+               WHERE translation = ? AND book = ? AND chapter = ? AND verse >= ? AND verse <= ? 
                ORDER BY verse ASC`,
               [cleanId, osisBook, chapter, verse, endVerse]
             )
           : await queryDb(
               `SELECT text FROM verses 
-               WHERE LOWER(translation) = LOWER(?) AND UPPER(book) = ? AND chapter = ? AND verse = ? LIMIT 1`,
+               WHERE translation = ? AND book = ? AND chapter = ? AND verse = ? LIMIT 1`,
               [cleanId, osisBook, chapter, verse]
             );
 
@@ -82,11 +82,11 @@ export class ParallelCorpusEngine {
         if (!text) {
           const fallbackRows = isRange
             ? await queryDb(
-                `SELECT text FROM verses WHERE UPPER(book) = ? AND chapter = ? AND verse >= ? AND verse <= ? ORDER BY verse ASC`,
+                `SELECT text FROM verses WHERE book = ? AND chapter = ? AND verse >= ? AND verse <= ? ORDER BY verse ASC`,
                 [osisBook, chapter, verse, endVerse]
               )
             : await queryDb(
-                `SELECT text FROM verses WHERE UPPER(book) = ? AND chapter = ? AND verse = ? LIMIT 1`,
+                `SELECT text FROM verses WHERE book = ? AND chapter = ? AND verse = ? LIMIT 1`,
                 [osisBook, chapter, verse]
               );
           text = fallbackRows.map(r => r.text).filter(Boolean).join(" ") || `[Scripture text for ${cleanId} ${osisBook} ${chapter}:${vRef}]`;
@@ -94,19 +94,22 @@ export class ParallelCorpusEngine {
 
         return {
           translationId: cleanId,
-          translationName: meta.name,
-          philosophy: meta.philosophy,
+          translationName: meta.name || cleanId,
+          philosophy: meta.philosophy || "FORMAL",
           text
         };
       })
     );
 
-    // Calculate dynamic set intersection of significant words across translations
+    // Compute shared words dynamically across the retrieved translations
     let dynamicSharedTerms: string[] = [];
-    if (results.length > 1) {
-      const stopWords = new Set(["і", "та", "що", "в", "на", "до", "з", "за", "по", "як", "а", "не", "це", "то", "бо", "and", "the", "in", "of", "to", "a", "is", "that", "for", "with"]);
+    if (results.length > 0) {
       const tokenSets = results.map(r => {
-        const words = (r.text || "").toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, '').split(/\s+/).filter(w => w.length > 2 && !stopWords.has(w));
+        const words = (r.text || "")
+          .toLowerCase()
+          .replace(/[^\p{L}\p{N}\s]/gu, "")
+          .split(/\s+/)
+          .filter(w => w.length >= 3);
         return new Set(words);
       });
 
@@ -114,10 +117,6 @@ export class ParallelCorpusEngine {
         const firstSet = tokenSets[0];
         dynamicSharedTerms = Array.from(firstSet).filter(word => tokenSets.every(s => s.has(word))).slice(0, 10);
       }
-    }
-
-    if (dynamicSharedTerms.length === 0) {
-      dynamicSharedTerms = ["Бог", "Любов", "Благодать", "Віра", "Істина"];
     }
 
     return {

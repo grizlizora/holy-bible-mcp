@@ -25,4 +25,20 @@ export class WalCheckpointManager {
     this.lastCheckTime = now;
     return this.checkRealDbPath().valid;
   }
+
+  /**
+   * 🧹 Executes PRAGMA wal_checkpoint on an active SQLite connection
+   * @param dbInstance better-sqlite3 database instance
+   * @param mode 'PASSIVE' | 'TRUNCATE' | 'RESTART'
+   */
+  public executeWalCheckpoint(dbInstance: any, mode: 'PASSIVE' | 'TRUNCATE' | 'RESTART' = 'PASSIVE'): { busy: number; log: number; checkpointed: number } | null {
+    if (!dbInstance || typeof dbInstance.pragma !== 'function') return null;
+    try {
+      const res = dbInstance.pragma(`wal_checkpoint(${mode})`, { simple: false });
+      return res && res[0] ? res[0] : null;
+    } catch (err: any) {
+      console.warn(`[WAL-CHECKPOINT] Warning during checkpoint (${mode}):`, err?.message || err);
+      return null;
+    }
+  }
 }

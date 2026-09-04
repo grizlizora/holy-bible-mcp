@@ -16,7 +16,6 @@ import { TheologyRepository } from "./repositories/theology_repository.js";
 import { hydrateDirectivesFromDb } from "./directives_db_loader.js";
 import { TheologicalKnowledgeGraph } from "../graph/theological_graphology_engine.js";
 
-export * from "./theological_knowledge_store.js";
 export * from "./tier_resolver.js";
 export * from "./warmth_resolver.js";
 export * from "./repositories/tier_repository.js";
@@ -193,3 +192,5 @@ export class DirectiveStore {
     return this.modulesMap.get(moduleId);
   }
 }
+
+export { TheologicalKnowledgeStore } from "./theological_knowledge_store.js";

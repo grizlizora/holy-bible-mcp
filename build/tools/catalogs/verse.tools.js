@@ -2,12 +2,14 @@ export const VERSE_TOOLS = [
     {
         name: "get_verse",
         description: "Retrieve exact verse by book abbreviation, chapter, and verse number, or full reference string (e.g. 'JN 3:16').",
+        annotations: { readOnlyHint: true, idempotentHint: true },
         inputSchema: {
             type: "object",
             properties: {
                 book: { type: "string", description: "Book name or OSIS abbreviation (e.g. 'JN', 'GEN')" },
                 chapter: { type: "number", description: "Chapter number" },
                 verse: { type: "number", description: "Verse number" },
+                reference: { type: "string", description: "Optional full verse reference string (e.g. 'JN 3:16', 'Бут 1:1')" },
                 language: { type: "string", description: "Translation language ('ukr', 'eng', 'ru')" }
             }
         }
@@ -15,6 +17,7 @@ export const VERSE_TOOLS = [
     {
         name: "get_chapter_context",
         description: "Retrieve complete chapter text for immediate context understanding.",
+        annotations: { readOnlyHint: true, idempotentHint: true },
         inputSchema: {
             type: "object",
             properties: {
@@ -28,6 +31,7 @@ export const VERSE_TOOLS = [
     {
         name: "get_parallel_verses",
         description: "Retrieves aligned parallel scripture text across up to 15 translations (Ukrainian, English, Greek, Hebrew, Latin).",
+        annotations: { readOnlyHint: true, idempotentHint: true },
         inputSchema: {
             type: "object",
             properties: {
@@ -43,6 +47,7 @@ export const VERSE_TOOLS = [
     {
         name: "compare_translations_diff",
         description: "Word-level Myers LCS Diff analysis comparing two Bible translations, highlighting lexical nuances and philosophy differences.",
+        annotations: { readOnlyHint: true, idempotentHint: true },
         inputSchema: {
             type: "object",
             properties: {
@@ -58,6 +63,7 @@ export const VERSE_TOOLS = [
     {
         name: "get_translation_metadata",
         description: "Retrieves historical, philosophical, and textual basis metadata for Bible translations (or 'all' for complete catalog).",
+        annotations: { readOnlyHint: true, idempotentHint: true },
         inputSchema: {
             type: "object",
             properties: {

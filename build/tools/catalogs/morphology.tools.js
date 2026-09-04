@@ -2,6 +2,7 @@ export const MORPHOLOGY_TOOLS = [
     {
         name: "get_strongs_definition",
         description: "Look up original Greek/Hebrew root etymology, transliteration, and definition via Strong's Concordance.",
+        annotations: { readOnlyHint: true, idempotentHint: true },
         inputSchema: {
             type: "object",
             properties: {
@@ -13,6 +14,7 @@ export const MORPHOLOGY_TOOLS = [
     {
         name: "get_strongs_etymology",
         description: "Comprehensive Strong's Concordance, BDB/Thayer lexicon, and Trench's Synonyms (e.g. Agape vs Phileo, Logos vs Rhema, Hesed, Shalom).",
+        annotations: { readOnlyHint: true, idempotentHint: true },
         inputSchema: {
             type: "object",
             properties: {
@@ -24,6 +26,7 @@ export const MORPHOLOGY_TOOLS = [
     {
         name: "get_interlinear_verse",
         description: "Retrieves word-by-word original Hebrew (WLC) or Greek (NA28/LXX) interlinear text with Strong's numbers, transliterations, lemmas, and grammatical morphology.",
+        annotations: { readOnlyHint: true, idempotentHint: true },
         inputSchema: {
             type: "object",
             properties: {
@@ -38,6 +41,7 @@ export const MORPHOLOGY_TOOLS = [
     {
         name: "analyze_greek_hebrew_word",
         description: "Morphological and root analysis for raw original language words, lemmas, or transliterations.",
+        annotations: { readOnlyHint: true, idempotentHint: true },
         inputSchema: {
             type: "object",
             properties: {

@@ -1,3 +1,4 @@
+import path from "path";
 import { downloadDatabaseResumable } from "../../database/resilient_downloader.js";
 export async function handleDownloadDb(args) {
     const force = args.includes("--force") || args.includes("-f");
@@ -14,13 +15,13 @@ export async function handleDownloadDb(args) {
             customMirror = args[i].split("=")[1];
         }
         else if ((args[i] === "--dir" || args[i] === "-d") && args[i + 1]) {
-            const rawDir = args[i + 1];
-            targetPath = rawDir.endsWith(".sqlite") ? rawDir : `${rawDir.replace(/\/$/, "")}/bible_database.sqlite`;
+            const rawDir = path.resolve(args[i + 1]);
+            targetPath = rawDir.endsWith(".sqlite") ? rawDir : path.join(rawDir, "bible_database.sqlite");
             i++;
         }
         else if (args[i].startsWith("--dir=")) {
-            const rawDir = args[i].split("=")[1];
-            targetPath = rawDir.endsWith(".sqlite") ? rawDir : `${rawDir.replace(/\/$/, "")}/bible_database.sqlite`;
+            const rawDir = path.resolve(args[i].split("=")[1]);
+            targetPath = rawDir.endsWith(".sqlite") ? rawDir : path.join(rawDir, "bible_database.sqlite");
         }
         else if ((args[i] === "--profile" || args[i] === "-p") && args[i + 1]) {
             profile = args[i + 1].toLowerCase() === "lite" ? "lite" : "full";

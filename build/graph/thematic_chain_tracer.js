@@ -17,13 +17,21 @@ export class ThematicChainTracer {
                 { step: 5, osis: "REV.22.1", displayTitle: "Об'явлення 22:1", epoch: "Вічне Царство", textSnippet: "І показав він мені чисту ріку живої води...", theologicalLink: "Остаточне звершення та вічне життя" }
             ];
         }
-        return rawChain.map((node) => ({
-            step: node.step,
-            osis: node.ref,
-            displayTitle: formatBiblicalDisplayTitle(node.ref, 'ukr'),
-            epoch: node.covenantStage || 'Біблійний етап',
-            textSnippet: `[Вірш ${node.ref}]`,
-            theologicalLink: node.significance || 'Прогресивне богословське розкриття теми'
+        let chain = (rawChain || []).map((node, idx) => ({
+            step: node.step || node.step_number || idx + 1,
+            osis: node.ref || node.osis || "",
+            displayTitle: formatBiblicalDisplayTitle(node.ref || node.osis || "", 'ukr'),
+            epoch: node.covenantStage || node.covenant_epoch || 'Біблійний етап',
+            textSnippet: node.textSnippet || node.text || node.verse_text || `Вірш ${node.ref || node.osis}`,
+            theologicalLink: node.significance || node.theological_link || 'Прогресивне богословське розкриття теми'
         }));
+        if (startingVerse && chain.length > 0) {
+            const normStart = startingVerse.trim().toUpperCase();
+            const startIndex = chain.findIndex(n => n.osis.toUpperCase() === normStart);
+            if (startIndex > 0) {
+                chain = chain.slice(startIndex);
+            }
+        }
+        return chain;
     }
 }

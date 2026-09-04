@@ -49,22 +49,24 @@ export class BibleRepository {
     translation = 'UBIO'
   ): Promise<VerseRecord | null> {
     isDbReady();
+    const normBook = book.trim().toUpperCase();
+    const normTrans = translation.trim().toUpperCase();
     const sql = `
       SELECT id, book, chapter, verse, text, translation, language
       FROM verses
-      WHERE UPPER(book) = UPPER(?) AND chapter = ? AND verse = ? AND UPPER(translation) = UPPER(?)
+      WHERE book = ? AND chapter = ? AND verse = ? AND translation = ?
       LIMIT 1
     `;
-    const row = sqlitePool.get<VerseRecord>(sql, [book, chapter, verse, translation]);
+    const row = sqlitePool.get<VerseRecord>(sql, [normBook, chapter, verse, normTrans]);
     if (!row) {
       // Fallback across any translation
       const fallbackSql = `
         SELECT id, book, chapter, verse, text, translation, language
         FROM verses
-        WHERE UPPER(book) = UPPER(?) AND chapter = ? AND verse = ?
+        WHERE book = ? AND chapter = ? AND verse = ?
         LIMIT 1
       `;
-      return sqlitePool.get<VerseRecord>(fallbackSql, [book, chapter, verse]) || null;
+      return sqlitePool.get<VerseRecord>(fallbackSql, [normBook, chapter, verse]) || null;
     }
     return row;
   }
@@ -80,23 +82,25 @@ export class BibleRepository {
     translation = 'UBIO'
   ): Promise<VerseRecord[]> {
     isDbReady();
+    const normBook = book.trim().toUpperCase();
+    const normTrans = translation.trim().toUpperCase();
     const sql = `
       SELECT id, book, chapter, verse, text, translation, language
       FROM verses
-      WHERE UPPER(book) = UPPER(?) AND chapter = ? AND verse >= ? AND verse <= ? AND UPPER(translation) = UPPER(?)
+      WHERE book = ? AND chapter = ? AND verse >= ? AND verse <= ? AND translation = ?
       ORDER BY verse ASC
       LIMIT 100
     `;
-    const rows = sqlitePool.query<VerseRecord>(sql, [book, chapter, startVerse, endVerse, translation]);
+    const rows = sqlitePool.query<VerseRecord>(sql, [normBook, chapter, startVerse, endVerse, normTrans]);
     if (rows.length === 0) {
       const fallbackSql = `
         SELECT id, book, chapter, verse, text, translation, language
         FROM verses
-        WHERE UPPER(book) = UPPER(?) AND chapter = ? AND verse >= ? AND verse <= ?
+        WHERE book = ? AND chapter = ? AND verse >= ? AND verse <= ?
         ORDER BY verse ASC
         LIMIT 100
       `;
-      return sqlitePool.query<VerseRecord>(fallbackSql, [book, chapter, startVerse, endVerse]);
+      return sqlitePool.query<VerseRecord>(fallbackSql, [normBook, chapter, startVerse, endVerse]);
     }
     return rows;
   }
@@ -110,21 +114,23 @@ export class BibleRepository {
     translation = 'UBIO'
   ): Promise<VerseRecord[]> {
     isDbReady();
+    const normBook = book.trim().toUpperCase();
+    const normTrans = translation.trim().toUpperCase();
     const sql = `
       SELECT id, book, chapter, verse, text, translation, language
       FROM verses
-      WHERE UPPER(book) = UPPER(?) AND chapter = ? AND UPPER(translation) = UPPER(?)
+      WHERE book = ? AND chapter = ? AND translation = ?
       ORDER BY verse ASC
     `;
-    const rows = sqlitePool.query<VerseRecord>(sql, [book, chapter, translation]);
+    const rows = sqlitePool.query<VerseRecord>(sql, [normBook, chapter, normTrans]);
     if (rows.length === 0) {
       const fallbackSql = `
         SELECT id, book, chapter, verse, text, translation, language
         FROM verses
-        WHERE UPPER(book) = UPPER(?) AND chapter = ?
+        WHERE book = ? AND chapter = ?
         ORDER BY verse ASC
       `;
-      return sqlitePool.query<VerseRecord>(fallbackSql, [book, chapter]);
+      return sqlitePool.query<VerseRecord>(fallbackSql, [normBook, chapter]);
     }
     return rows;
   }

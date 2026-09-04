@@ -4,6 +4,7 @@ export const SYSTEM_TOOLS: Tool[] = [
   {
     name: "set_relevance_sensitivity",
     description: "Set pastoral/ethical warmth sensitivity score (0 to 100).",
+    annotations: { readOnlyHint: false, idempotentHint: true },
     inputSchema: {
       type: "object",
       properties: {
@@ -15,6 +16,7 @@ export const SYSTEM_TOOLS: Tool[] = [
   {
     name: "set_response_mode",
     description: "Set active AI response depth mode.",
+    annotations: { readOnlyHint: false, idempotentHint: true },
     inputSchema: {
       type: "object",
       properties: {
@@ -26,6 +28,7 @@ export const SYSTEM_TOOLS: Tool[] = [
   {
     name: "set_show_metrics",
     description: "Enable or disable end-of-response metrics badge footer ('Complexity', 'Mode', 'Accuracy'). Pass enabled: false or status: 'off' to suppress footer.",
+    annotations: { readOnlyHint: false, idempotentHint: true },
     inputSchema: {
       type: "object",
       properties: {
@@ -37,6 +40,7 @@ export const SYSTEM_TOOLS: Tool[] = [
   {
     name: "get_p2p_swarm_status",
     description: "Retrieve real-time P2P WebTorrent Swarm status, active peer seeders, and Magnet URI for decentralized DB sharing.",
+    annotations: { readOnlyHint: true, idempotentHint: true },
     inputSchema: {
       type: "object",
       properties: {}
@@ -45,6 +49,7 @@ export const SYSTEM_TOOLS: Tool[] = [
   {
     name: "get_mcp_capabilities",
     description: "Exposes active capabilities, mode profiles, and status of holy-bible-mcp.",
+    annotations: { readOnlyHint: true, idempotentHint: true },
     inputSchema: {
       type: "object",
       properties: {
@@ -56,6 +61,7 @@ export const SYSTEM_TOOLS: Tool[] = [
   {
     name: "get_model_recommendations",
     description: "Calculates adaptive sampling parameters (min_p, temperature, top_p, num_ctx, repeat_penalty) based on LLM parameter size and query complexity.",
+    annotations: { readOnlyHint: true, idempotentHint: true },
     inputSchema: {
       type: "object",
       properties: {
@@ -70,6 +76,7 @@ export const SYSTEM_TOOLS: Tool[] = [
   {
     name: "sanitize_scripture_markdown",
     description: "Normalizes LLM response text, fixing broken bold asterisk syntax ('** 2. **Header' -> '2. **Header**').",
+    annotations: { readOnlyHint: true, idempotentHint: true },
     inputSchema: {
       type: "object",
       properties: {

@@ -2,6 +2,7 @@ export const ASK_TOOLS = [
     {
         name: "ask_holy_bible",
         description: "MASTER TOOL FOR ALL GENERAL, PHILOSOPHICAL, ETHICAL, AND CONCEPT QUESTIONS (e.g. 'що таке любов', 'чому люди страждають'). ALWAYS CALL THIS TOOL ON TURN 1.",
+        annotations: { readOnlyHint: true, idempotentHint: true },
         inputSchema: {
             type: "object",
             properties: {
@@ -20,6 +21,7 @@ export const ASK_TOOLS = [
     {
         name: "build_biblical_context",
         description: "Generates structured biblical context JSON with relevant verses, complexity score, sensitivity profile, and effective mode.",
+        annotations: { readOnlyHint: true, idempotentHint: true },
         inputSchema: {
             type: "object",
             properties: {
@@ -34,6 +36,7 @@ export const ASK_TOOLS = [
     {
         name: "find_scriptures_by_life_situation",
         description: "Pastoral counseling tool matching real-world human trials (anxiety, grief, burnout, loneliness, conflict) with verified scripture anchors.",
+        annotations: { readOnlyHint: true, idempotentHint: true },
         inputSchema: {
             type: "object",
             properties: {

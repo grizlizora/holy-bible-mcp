@@ -1,4 +1,5 @@
 import fs from "fs";
+import path from "path";
 import { resolveDbPath } from "../../database/path_resolver.js";
 import { verifyDatabaseIntegrity } from "../../database/integrity_checker.js";
 import { formatBytes } from "../progress_bar.js";
@@ -14,8 +15,9 @@ export async function handleVerifyDb(args) {
             customDir = args[i].split("=")[1];
         }
     }
-    const dbPath = customDir
-        ? (customDir.endsWith(".sqlite") ? customDir : `${customDir.replace(/\/$/, "")}/bible_database.sqlite`)
+    const resolvedCustomDir = customDir ? path.resolve(customDir) : undefined;
+    const dbPath = resolvedCustomDir
+        ? (resolvedCustomDir.endsWith(".sqlite") ? resolvedCustomDir : path.join(resolvedCustomDir, "bible_database.sqlite"))
         : resolveDbPath();
     const isDeep = args.includes("--deep") || args.includes("--checksum") || args.includes("-c");
     console.log("================================================================");
@@ -37,12 +39,16 @@ export async function handleVerifyDb(args) {
             console.log(`\n⚡ Running Deep Multi-Threaded Checksum Verification (Piscina Worker Pool)...`);
             const startTime = Date.now();
             const pool = PiscinaWorkerPool.getInstance();
-            const sha256 = await pool.computeFileSha256(dbPath);
-            const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
-            console.log(`• SHA-256: ${sha256}`);
-            console.log(`• Verification Time: ${elapsed}s`);
-            console.log(`✅ Deep Checksum Verification PASSED.`);
-            await pool.destroy();
+            try {
+                const sha256 = await pool.computeFileSha256(dbPath);
+                const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+                console.log(`• SHA-256: ${sha256}`);
+                console.log(`• Verification Time: ${elapsed}s`);
+                console.log(`✅ Deep Checksum Verification PASSED.`);
+            }
+            finally {
+                await pool.destroy();
+            }
         }
         return 0;
     }

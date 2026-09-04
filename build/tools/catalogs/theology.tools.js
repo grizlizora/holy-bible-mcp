@@ -2,6 +2,7 @@ export const THEOLOGY_TOOLS = [
     {
         name: "get_commentary",
         description: "Retrieve patristic and classic historical commentaries (Chrysostom, Henry, Ohiyenko).",
+        annotations: { readOnlyHint: true, idempotentHint: true },
         inputSchema: {
             type: "object",
             properties: {
@@ -15,6 +16,7 @@ export const THEOLOGY_TOOLS = [
     {
         name: "get_cross_references",
         description: "Retrieves top-ranked theological cross-references from the 344,000+ TSK graph with PageRank ranking and anti-flooding diversity.",
+        annotations: { readOnlyHint: true, idempotentHint: true },
         inputSchema: {
             type: "object",
             properties: {
@@ -30,6 +32,7 @@ export const THEOLOGY_TOOLS = [
     {
         name: "find_thematic_scripture_chain",
         description: "Traces progressive revelation of a biblical doctrine or theme across covenants (e.g. 'Living Water', 'Passover Lamb', 'Seed of the Woman').",
+        annotations: { readOnlyHint: true, idempotentHint: true },
         inputSchema: {
             type: "object",
             properties: {
@@ -42,6 +45,7 @@ export const THEOLOGY_TOOLS = [
     {
         name: "get_prophecy_fulfillment_pairs",
         description: "Retrieves matched pairs of Old Testament Messianic Prophecies and their New Testament historical fulfillments in Christ.",
+        annotations: { readOnlyHint: true, idempotentHint: true },
         inputSchema: {
             type: "object",
             properties: {

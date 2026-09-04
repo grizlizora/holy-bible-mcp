@@ -14,8 +14,7 @@ export type AskHolyBibleArgs = z.infer<typeof AskHolyBibleSchema>;
 export async function handleAskHolyBible(args: AskHolyBibleArgs) {
   const question = String(args?.question || args?.userMessage || "що таке любов");
   const lang = String(args?.language || args?.lang || "auto");
-  const settings = ((args as any)?.settings) || {};
-
+  const settings = args?.settings || {};
 
   const envModesControl = process.env.MODES_CONTROL || process.env.MCP_MODES_CONTROL;
   const envWarmthControl = process.env.WARMTH_CONTROL || process.env.MCP_WARMTH_CONTROL;
@@ -23,8 +22,8 @@ export async function handleAskHolyBible(args: AskHolyBibleArgs) {
   const modesEnvActive = envModesControl ? !["off", "false", "0", "no"].includes(envModesControl.toLowerCase().trim()) : true;
   const warmthEnvActive = envWarmthControl ? !["off", "false", "0", "no"].includes(envWarmthControl.toLowerCase().trim()) : true;
 
-  const warmthControlEnabled = warmthEnvActive && settings.warmthControlEnabled !== false && (args as any)?.warmthControlEnabled !== false;
-  const modesControlEnabled = modesEnvActive && settings.modesControlEnabled !== false && (args as any)?.modesControlEnabled !== false;
+  const warmthControlEnabled = warmthEnvActive && settings.warmthControlEnabled !== false && args?.warmthControlEnabled !== false;
+  const modesControlEnabled = modesEnvActive && settings.modesControlEnabled !== false && args?.modesControlEnabled !== false;
 
   const globalConfig = getGlobalConfig();
 
@@ -76,7 +75,7 @@ export async function handleAskHolyBible(args: AskHolyBibleArgs) {
 
   const maxVersesLimit = (!modesControlEnabled || effectiveMode === 'unrestricted')
     ? (paramSizeB <= 8.5 ? 2 : 4)
-    : (store.getMode(effectiveMode as any)?.maxVerses || 6);
+    : (store.getMode(effectiveMode)?.maxVerses || 6);
 
   const selectedVerses = verses.slice(0, maxVersesLimit);
   const sensInfo = (warmthControlEnabled && warmth !== null) ? store.resolveWarmth(warmth, detectedLang) : null;
@@ -98,7 +97,7 @@ export async function handleAskHolyBible(args: AskHolyBibleArgs) {
   });
 
   const accuracyScoreStr = TelemetryCalculator.computeAccuracy(verses.length > 0, tier.tierId, effectiveMode);
-  const isCotAllowed = Boolean(tier.supportsCot && tier.supportsCot !== (0 as any));
+  const isCotAllowed = Boolean(tier.supportsCot);
 
   const resultObj = {
     contextText: fullContextText,
@@ -118,6 +117,6 @@ export async function handleAskHolyBible(args: AskHolyBibleArgs) {
   };
 
   return {
-    content: [{ type: "text", text: JSON.stringify(resultObj, null, 2) }]
+    content: [{ type: "text", text: JSON.stringify(resultObj) }]
   };
 }

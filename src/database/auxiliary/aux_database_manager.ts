@@ -10,12 +10,21 @@ export class AuxDatabaseManager {
   public static getAuxDb(): Database.Database {
     if (!this.instance) {
       this.instance = new Database(':memory:');
-      this.instance.pragma('journal_mode = WAL');
-      this.instance.pragma('synchronous = NORMAL');
+      this.instance.pragma('journal_mode = MEMORY');
+      this.instance.pragma('synchronous = OFF');
       this.instance.pragma('temp_store = MEMORY');
       this.initSchema(this.instance);
     }
     return this.instance;
+  }
+
+  public static reset(): void {
+    if (this.instance) {
+      try {
+        this.instance.close();
+      } catch (_) {}
+      this.instance = null;
+    }
   }
 
   private static initSchema(db: Database.Database): void {
@@ -39,6 +48,9 @@ export class AuxDatabaseManager {
         verse INTEGER,
         theological_principle TEXT
       );
+
+      CREATE INDEX IF NOT EXISTS idx_commentaries_lookup ON commentaries (book, chapter, verse);
+      CREATE INDEX IF NOT EXISTS idx_semantic_concepts_name ON semantic_concepts (concept_name);
 
       INSERT INTO commentaries (book, chapter, verse, author, commentary_text) VALUES 
       ('JHN', 3, 16, 'John Chrysostom', 'God so loved the world that He gave His only begotten Son. This is the supreme demonstration of sacrificial covenantal love (Agape).'),

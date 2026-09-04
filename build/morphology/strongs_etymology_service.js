@@ -21,6 +21,21 @@ export const COMMON_LEMMA_MAP = {
 };
 const STRONGS_ETYMOLOGY_CACHE = new Map();
 const MAX_STRONGS_CACHE = 2000;
+export const CANONICAL_STRONGS_OFFLINE = {
+    "G0026": { lemma: "ἀγάπη", translit: "agape", pron: "ag-ah'-pay", def: "Love, benevolence, good will, esteem." },
+    "G26": { lemma: "ἀγάπη", translit: "agape", pron: "ag-ah'-pay", def: "Love, benevolence, good will, esteem." },
+    "G3056": { lemma: "λόγος", translit: "logos", pron: "log'-os", def: "Word, speech, divine expression, the Word." },
+    "G4487": { lemma: "ῥῆμα", translit: "rhema", pron: "hray'-mah", def: "That which is spoken, an utterance." },
+    "G2222": { lemma: "ζωή", translit: "zoe", pron: "dzo-ay'", def: "Life, both of physical vitality and spiritual divine life." },
+    "G0225": { lemma: "ἀλήθεια", translit: "aletheia", pron: "al-ay'-thi-a", def: "Truth, verity, reality." },
+    "H0430": { lemma: "אֱלֹהִים", translit: "elohim", pron: "el-o-heem'", def: "God, deities, divine majesty." },
+    "H430": { lemma: "אֱלֹהִים", translit: "elohim", pron: "el-o-heem'", def: "God, deities, divine majesty." },
+    "H1254": { lemma: "בָּרָא", translit: "bara", pron: "baw-raw'", def: "To create, shape, form (God's divine creation ex nihilo)." },
+    "H7225": { lemma: "רֵאשִׁית", translit: "reshit", pron: "ray-sheeth'", def: "Beginning, chief, first-fruits." },
+    "H7965": { lemma: "שָׁלוֹם", translit: "shalom", pron: "shaw-lome'", def: "Peace, wholeness, prosperity, safety." },
+    "H2617": { lemma: "חֶסֶד", translit: "hesed", pron: "kheh'-sed", def: "Steadfast love, covenant kindness, mercy." },
+    "H0571": { lemma: "אֱמֶת", translit: "emet", pron: "eh'-meth", def: "Truth, faithfulness, reliability." }
+};
 export class StrongsEtymologyService {
     static async getEtymology(strongsInput) {
         const rawClean = strongsInput.trim().toLowerCase();
@@ -49,14 +64,32 @@ export class StrongsEtymologyService {
          FROM strongs_dictionary 
          WHERE LOWER(lemma) = ? OR LOWER(original_word) = ? OR LOWER(transliteration) = ? LIMIT 1`, [rawClean, rawClean, rawClean]);
         }
+        const hasDbRow = Boolean(rows && rows.length > 0);
         const row = rows[0] || {};
         const effectiveStrongsId = row.strongs_id ? String(row.strongs_id).toUpperCase() : paddedKey;
         const isGreekWord = effectiveStrongsId.startsWith('G') || isGreek;
         const isHebrewWord = effectiveStrongsId.startsWith('H') || isHebrew;
-        const lemma = row.lemma || row.original_word || (isGreekWord ? 'ἀγάπη' : 'בָּרָא');
-        const translit = row.transliteration || (isGreekWord ? 'agape' : 'bara');
-        const pron = row.pronunciation || (isGreekWord ? 'ag-ah-pay' : 'bah-rah');
-        const def = row.definition || (trench ? trench.distinction : 'Sacrificial, unconditional covenantal love.');
+        const knownOffline = CANONICAL_STRONGS_OFFLINE[paddedKey] || CANONICAL_STRONGS_OFFLINE[normalizedId] || CANONICAL_STRONGS_OFFLINE[rawClean.toUpperCase()];
+        const lemma = row.lemma || row.original_word || (knownOffline ? knownOffline.lemma : rawClean);
+        const translit = row.transliteration || (knownOffline ? knownOffline.translit : rawClean);
+        const pron = row.pronunciation || (knownOffline ? knownOffline.pron : '');
+        const def = row.definition || (trench ? trench.distinction : (knownOffline ? knownOffline.def : 'Lexical definition not found in local Strong\'s dictionary.'));
+        let sampleOccurrences = [
+            { ref: isGreek ? 'JHN.3.16' : 'GEN.1.1', text: isGreek ? '«Так бо Бог полюбив [ἠγάπησεν] світ...»' : '«На початку створив [בָּרָא] Бог небо та землю...»' }
+        ];
+        // Attempt to query real verse occurrences for the lemma if available
+        if (hasDbRow && row.lemma) {
+            try {
+                const occRows = await queryDb(`SELECT book, chapter, verse, text FROM verses WHERE text LIKE ? LIMIT 2`, [`%${row.lemma}%`]);
+                if (occRows && occRows.length > 0) {
+                    sampleOccurrences = occRows.map(r => ({
+                        ref: `${r.book}.${r.chapter}.${r.verse}`,
+                        text: r.text
+                    }));
+                }
+            }
+            catch (_) { }
+        }
         const result = {
             strongsId: paddedKey,
             language: isGreek ? 'Koine Greek' : (isHebrew ? 'Biblical Hebrew' : 'Ancient Biblical Language'),
@@ -65,9 +98,7 @@ export class StrongsEtymologyService {
             pronunciation: pron,
             strongsDefinition: def,
             trenchSynonyms: trench,
-            sampleOccurrences: [
-                { ref: isGreek ? 'JHN.3.16' : 'GEN.1.1', text: isGreek ? '«Так бо Бог полюбив [ἠγάπησεν] світ...»' : '«На початку створив [בָּרָא] Бог небо та землю...»' }
-            ]
+            sampleOccurrences
         };
         if (STRONGS_ETYMOLOGY_CACHE.size >= MAX_STRONGS_CACHE) {
             const oldest = STRONGS_ETYMOLOGY_CACHE.keys().next().value;

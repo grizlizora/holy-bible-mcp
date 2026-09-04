@@ -3,7 +3,7 @@ import { OSIS_ALIAS_MAP, getLocalizedBookNameFromDict } from "../data/osis_dicti
 import { parseGreekMorphCode } from "./robinson_parser.js";
 import { parseHebrewMorphCode } from "./hebrew_parser.js";
 import { TransliterationEngine } from "./transliteration_engine.js";
-import { StrongsEtymologyService, COMMON_LEMMA_MAP } from "./strongs_etymology_service.js";
+import { StrongsEtymologyService, COMMON_LEMMA_MAP, CANONICAL_STRONGS_OFFLINE } from "./strongs_etymology_service.js";
 export { COMMON_LEMMA_MAP };
 /**
  * 📖 Retrieves interlinear verse breakdown
@@ -17,29 +17,34 @@ export async function getInterlinearVerse(book, chapter, verse, lang = 'auto', p
     const origLang = isOT ? 'Hebrew (WLC)' : 'Greek (NA28/LXX)';
     const direction = isOT ? 'rtl' : 'ltr';
     const transCode = isOT ? 'WLC' : 'NA28';
+    const cleanParallelTrans = parallelTranslation.trim().toUpperCase();
     const rows = await queryDb(`SELECT text FROM verses 
-     WHERE LOWER(translation) = LOWER(?) AND UPPER(book) = ? AND chapter = ? AND verse = ? LIMIT 1`, [transCode, osisBook, chapter, verse]);
+     WHERE translation = ? AND book = ? AND chapter = ? AND verse = ? LIMIT 1`, [transCode, osisBook, chapter, verse]);
     const parallelRows = await queryDb(`SELECT text FROM verses 
-     WHERE LOWER(translation) = LOWER(?) AND UPPER(book) = ? AND chapter = ? AND verse = ? LIMIT 1`, [parallelTranslation, osisBook, chapter, verse]);
+     WHERE translation = ? AND book = ? AND chapter = ? AND verse = ? LIMIT 1`, [cleanParallelTrans, osisBook, chapter, verse]);
     const rawText = rows[0]?.text || '';
     const parallelText = parallelRows[0]?.text || '';
     const words = [];
     if (rawText) {
         const tokens = rawText.split(/\s+/).filter(Boolean);
+        const parallelTokens = parallelText ? parallelText.split(/\s+/).filter(Boolean) : [];
         tokens.forEach((token, index) => {
             const clean = TransliterationEngine.cleanWord(token);
             const translit = TransliterationEngine.transliterate(clean, isOT);
-            const morphCode = isOT ? 'N-cmpa' : 'N-NSM';
-            const strongsId = COMMON_LEMMA_MAP[clean.toLowerCase()] || (isOT ? 'H0430' : 'G3056');
+            const matchedStrongs = COMMON_LEMMA_MAP[clean.toLowerCase()];
+            const strongsId = matchedStrongs || null;
+            const canonicalEntry = strongsId ? CANONICAL_STRONGS_OFFLINE[strongsId] : undefined;
+            const lemma = canonicalEntry?.lemma || clean;
+            const morphCode = matchedStrongs ? (isOT ? 'N-cmpa' : 'N-NSM') : '';
             words.push({
                 order: index + 1,
                 surface: token,
                 unaccented: clean,
                 transliteration: translit,
-                lemma: clean,
+                lemma,
                 strongsId,
-                gloss: parallelText.split(/\s+/)[index] || clean,
-                morphology: isOT ? parseHebrewMorphCode(morphCode) : parseGreekMorphCode(morphCode)
+                gloss: parallelTokens[index] || clean,
+                morphology: morphCode ? (isOT ? parseHebrewMorphCode(morphCode) : parseGreekMorphCode(morphCode)) : undefined
             });
         });
     }

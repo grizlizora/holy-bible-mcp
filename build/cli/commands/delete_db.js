@@ -25,8 +25,28 @@ export async function handleDeleteDb(args) {
             customDir = args[i].split("=")[1];
         }
     }
-    const dbPath = customDir ? (customDir.endsWith(".sqlite") ? customDir : `${customDir.replace(/\/$/, "")}/bible_database.sqlite`) : getGlobalDbPath();
-    const dbDir = customDir ? path.dirname(dbPath) : getGlobalDbDir();
+    let dbPath;
+    let dbDir;
+    if (customDir) {
+        const resolved = path.resolve(customDir);
+        // Security restriction: strictly prevent arbitrary file deletion
+        if (fs.existsSync(resolved) && fs.statSync(resolved).isDirectory()) {
+            dbDir = resolved;
+            dbPath = path.join(resolved, "bible_database.sqlite");
+        }
+        else if (path.basename(resolved) === "bible_database.sqlite") {
+            dbPath = resolved;
+            dbDir = path.dirname(resolved);
+        }
+        else {
+            console.error(`❌ Security rejection: delete-db only targets 'bible_database.sqlite' database files, got: ${path.basename(resolved)}`);
+            return 1;
+        }
+    }
+    else {
+        dbPath = getGlobalDbPath();
+        dbDir = getGlobalDbDir();
+    }
     const filesToDelete = [
         dbPath,
         `${dbPath}-wal`,

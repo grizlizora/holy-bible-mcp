@@ -4,6 +4,7 @@ export const SEARCH_TOOLS: Tool[] = [
   {
     name: "search_keyword",
     description: "Perform accurate full-text search (FTS5) across Old & New Testaments.",
+    annotations: { readOnlyHint: true, idempotentHint: true },
     inputSchema: {
       type: "object",
       properties: {
@@ -17,6 +18,7 @@ export const SEARCH_TOOLS: Tool[] = [
   {
     name: "search_semantic",
     description: "Search canonical verses mapped to existential/theological themes (anxiety, grief, forgiveness).",
+    annotations: { readOnlyHint: true, idempotentHint: true },
     inputSchema: {
       type: "object",
       properties: {
@@ -28,6 +30,7 @@ export const SEARCH_TOOLS: Tool[] = [
   {
     name: "search_topic",
     description: "Retrieve canonical verses categorized under major biblical topics.",
+    annotations: { readOnlyHint: true, idempotentHint: true },
     inputSchema: {
       type: "object",
       properties: {
@@ -40,6 +43,7 @@ export const SEARCH_TOOLS: Tool[] = [
   {
     name: "search_scripture_hybrid",
     description: "Hybrid search combining SQLite FTS5 BM25 lexical search, Ukrainian morphology lemmatization, and vector conceptual relevance.",
+    annotations: { readOnlyHint: true, idempotentHint: true },
     inputSchema: {
       type: "object",
       properties: {
@@ -54,6 +58,7 @@ export const SEARCH_TOOLS: Tool[] = [
   {
     name: "extract_vector_context",
     description: "⚡ 100M Token Vector Reasoning & Hierarchical Semantic Chunker Engine. Extracts relevant semantic chunks from large documents/attachments.",
+    annotations: { readOnlyHint: true, idempotentHint: true },
     inputSchema: {
       type: "object",
       properties: {

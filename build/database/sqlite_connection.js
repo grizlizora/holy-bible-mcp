@@ -19,7 +19,9 @@ export async function queryDb(sql, params = [], maxRetries = 3) {
     while (attempt <= maxRetries) {
         try {
             const rows = sqlitePool.query(sql, params);
-            saveToCache(cacheKey, rows);
+            if (rows && rows.length > 0) {
+                saveToCache(cacheKey, rows);
+            }
             return rows;
         }
         catch (err) {

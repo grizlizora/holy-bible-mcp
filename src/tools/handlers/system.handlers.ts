@@ -64,7 +64,8 @@ export async function handleGetP2pSwarmStatus() {
       type: "text",
       text: JSON.stringify({
         server: "holy-bible-mcp",
-        protocol: "WebTorrent / BitTorrent P2P Mesh Engine",
+        protocol: "WebTorrent / BitTorrent P2P Range Protocol",
+        syncProtocol: "HTTP Resilient Range Streaming & BitTorrent Magnet Metadata",
         status: exists ? "mounted" : "ready_for_sync",
         storagePath: dbPath,
         localSizeBytes: sizeBytes,
@@ -77,8 +78,8 @@ export async function handleGetP2pSwarmStatus() {
           "udp://tracker.openbittorrent.com:6969/announce",
           "wss://tracker.webtorrent.dev"
         ],
-        p2pSeeding: "Active Decentralized Mesh Swarm"
-      }, null, 2)
+        p2pSeeding: exists ? "Offline Ready / P2P Magnet Available" : "Awaiting Download"
+      })
     }]
   };
 }

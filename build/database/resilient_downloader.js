@@ -84,6 +84,30 @@ export async function downloadDatabaseResumable(options = {}) {
         }
         console.warn(`⚠️ Existing database file is corrupted or incomplete. Starting fresh download...`);
     }
+    if (options.customMirror) {
+        try {
+            const parsed = new URL(options.customMirror);
+            if (parsed.protocol !== "https:") {
+                console.error(`❌ Security Error: custom mirror must use HTTPS protocol, got: ${parsed.protocol}`);
+                return false;
+            }
+            const host = parsed.hostname.toLowerCase();
+            if (host === "localhost" ||
+                host === "127.0.0.1" ||
+                host === "::1" ||
+                host === "169.254.169.254" ||
+                host.startsWith("10.") ||
+                host.startsWith("192.168.") ||
+                /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(host)) {
+                console.error(`❌ Security Error: custom mirror cannot target loopback or private IP ranges (${host})`);
+                return false;
+            }
+        }
+        catch (e) {
+            console.error(`❌ Invalid mirror URL: ${e.message}`);
+            return false;
+        }
+    }
     const activeMirrors = options.customMirror
         ? [options.customMirror]
         : await raceFastestMirrors(REMOTE_MIRRORS);

@@ -24,9 +24,15 @@ export async function handleSearchKeyword(args: z.infer<typeof SearchKeywordSche
     .replace(/[^\p{L}\p{N}\s]/gu, ' ')
     .split(/\s+/)
     .filter(Boolean);
-  const matchQuery = tokens.length > 0
-    ? tokens.map(t => `${t}*`).join(" AND ")
-    : "*";
+
+  if (tokens.length === 0) {
+    return {
+      content: [{ type: "text", text: "[]" }]
+    };
+  }
+
+  // Sanitize each token: quote to prevent FTS5 keyword collisions (AND, OR, NOT, NEAR)
+  const matchQuery = tokens.map(t => `"${t.replace(/"/g, '""')}"*`).join(" AND ");
 
   let rows: any[] = [];
   if (isDbReady()) {
@@ -81,53 +87,43 @@ export async function handleSearchKeyword(args: z.infer<typeof SearchKeywordSche
 
 
 export async function handleSearchSemantic(args: z.infer<typeof SearchSemanticSchema>) {
-  const concept = String(args?.concept || "").toLowerCase();
-  let rows = await queryDb(
-    `SELECT concept_name, book, chapter, verse, theological_principle FROM semantic_concepts WHERE LOWER(concept_name) LIKE ? OR LOWER(keywords) LIKE ? LIMIT 5`,
-    [`%${concept}%`, `%${concept}%`]
-  );
-
-  if (!rows || rows.length === 0) {
-    const storeConcepts = DirectiveStore.getInstance().theologyRepo.getSemanticConcepts(concept, 5);
-    if (storeConcepts && storeConcepts.length > 0) {
-      rows = storeConcepts.map(sc => ({
-        concept_name: sc.concept_name,
-        book: sc.book,
-        chapter: sc.chapter,
-        verse: sc.verse,
-        theological_principle: sc.theological_principle
-      }));
-    }
+  const concept = String(args?.concept || "").toLowerCase().trim();
+  if (!concept) {
+    return { content: [{ type: "text", text: "[]" }] };
   }
 
+  const storeConcepts = DirectiveStore.getInstance().theologyRepo.getSemanticConcepts(concept, 5);
+  const rows = (storeConcepts || []).map(sc => ({
+    concept_name: sc.concept_name,
+    book: sc.book,
+    chapter: sc.chapter,
+    verse: sc.verse,
+    theological_principle: sc.theological_principle
+  }));
+
   return {
-    content: [{ type: "text", text: JSON.stringify(rows, null, 2) }]
+    content: [{ type: "text", text: JSON.stringify(rows) }]
   };
 }
 
 export async function handleSearchTopic(args: z.infer<typeof SearchTopicSchema>) {
-  const topic = String(args?.topic || "").toLowerCase();
-  const limit = typeof args?.limit === "number" ? args.limit : 5;
-  let rows = await queryDb(
-    `SELECT concept_name, book, chapter, verse, theological_principle FROM semantic_concepts WHERE LOWER(concept_name) LIKE ? OR LOWER(keywords) LIKE ? LIMIT ?`,
-    [`%${topic}%`, `%${topic}%`, limit]
-  );
-
-  if (!rows || rows.length === 0) {
-    const storeConcepts = DirectiveStore.getInstance().theologyRepo.getSemanticConcepts(topic, limit);
-    if (storeConcepts && storeConcepts.length > 0) {
-      rows = storeConcepts.map(sc => ({
-        concept_name: sc.concept_name,
-        book: sc.book,
-        chapter: sc.chapter,
-        verse: sc.verse,
-        theological_principle: sc.theological_principle
-      }));
-    }
+  const topic = String(args?.topic || "").toLowerCase().trim();
+  const limit = typeof args?.limit === "number" ? args.limit : 10;
+  if (!topic) {
+    return { content: [{ type: "text", text: "[]" }] };
   }
 
+  const storeConcepts = DirectiveStore.getInstance().theologyRepo.getSemanticConcepts(topic, limit);
+  const rows = (storeConcepts || []).map(sc => ({
+    concept_name: sc.concept_name,
+    book: sc.book,
+    chapter: sc.chapter,
+    verse: sc.verse,
+    theological_principle: sc.theological_principle
+  }));
+
   return {
-    content: [{ type: "text", text: JSON.stringify(rows, null, 2) }]
+    content: [{ type: "text", text: JSON.stringify(rows) }]
   };
 }
 

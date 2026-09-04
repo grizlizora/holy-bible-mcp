@@ -1,7 +1,7 @@
 export function formatBytes(bytes: number): string {
   if (bytes <= 0 || !isFinite(bytes)) return "0 B";
   const units = ["B", "KB", "MB", "GB", "TB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  const i = Math.max(0, Math.min(units.length - 1, Math.floor(Math.log(bytes) / Math.log(1024))));
   return `${(bytes / Math.pow(1024, i)).toFixed(2)} ${units[i]}`;
 }
 
@@ -69,11 +69,11 @@ export class TerminalProgressBar {
 
   private render() {
     const percent = this.totalBytes > 0 
-      ? Math.min(100, (this.downloadedBytes / this.totalBytes) * 100) 
+      ? Math.max(0, Math.min(100, (this.downloadedBytes / this.totalBytes) * 100)) 
       : 0;
 
     const remainingBytes = Math.max(0, this.totalBytes - this.downloadedBytes);
-    const etaSec = this.smoothSpeed > 0 ? remainingBytes / this.smoothSpeed : 0;
+    const etaSec = (this.smoothSpeed > 0 && isFinite(this.smoothSpeed)) ? remainingBytes / this.smoothSpeed : 0;
 
     if (this.isTTY) {
       const cols = process.stdout.columns || 80;

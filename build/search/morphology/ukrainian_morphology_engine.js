@@ -6,6 +6,16 @@ export class UkrainianMorphologyEngine {
         "їсти": ["їм", "їси", "їсть", "їмо", "їсте", "їдять", "їв", "їла"],
         "могти": ["можу", "можеш", "може", "можемо", "можуть", "міг", "могла", "могли"]
     };
+    static INVERTED_IRREGULAR_MAP = (() => {
+        const map = new Map();
+        for (const [lemma, forms] of Object.entries(UkrainianMorphologyEngine.IRREGULAR_VERB_MAP)) {
+            map.set(lemma, lemma);
+            for (const form of forms) {
+                map.set(form, lemma);
+            }
+        }
+        return map;
+    })();
     static MULTI_ADJ_ENDINGS = /(?:ньому|ського|цького|ськими|цькими|шими|ими|іми|ого|ього|ому|им|ім|их|іх|ої|ьої|ій)$/iu;
     static MULTI_NOUN_ENDINGS = /(?:ами|ями|ові|еві|єві|ою|ею|єю|ів|ев|єв|ей|ам|ям|ом|ем|єм|ах|ях)$/iu;
     static MULTI_VERB_ENDINGS = /(?:вшись|чись|тесь|тися|ться|тиму|тиме|тимеш|тимуть|лися|лась|лись|лося|ли|ла|ло|ти|ть)$/iu;
@@ -19,11 +29,10 @@ export class UkrainianMorphologyEngine {
     }
     static extractStem(word) {
         let w = this.normalizeOrthography(word);
-        // 1. Check irregular verbs first (even for short forms like 'є', 'був', 'їм')
-        for (const [lemma, forms] of Object.entries(this.IRREGULAR_VERB_MAP)) {
-            if (forms.includes(w) || w === lemma)
-                return lemma;
-        }
+        // 1. Check irregular verbs first (O(1) static lookup)
+        const irregular = this.INVERTED_IRREGULAR_MAP.get(w);
+        if (irregular)
+            return irregular;
         if (w.length <= 3)
             return w;
         w = w.replace(/(?:ся|сь)$/iu, "");

@@ -27,9 +27,9 @@ export class PiscinaWorkerPool {
             try {
                 this.piscina = new Piscina({
                     filename: workerPath,
-                    minThreads: 2,
+                    minThreads: 0, // Lazy thread allocation: 0 threads when idle to save RAM
                     maxThreads: Math.max(2, Math.min(os.availableParallelism ? os.availableParallelism() : os.cpus().length, 8)),
-                    idleTimeout: 30000
+                    idleTimeout: 15000
                 });
             }
             catch (err) {
@@ -88,5 +88,6 @@ export class PiscinaWorkerPool {
             await this.piscina.destroy();
             this.piscina = null;
         }
+        PiscinaWorkerPool.instance = null;
     }
 }

@@ -10,7 +10,11 @@ export class SqliteConnectionFactory {
     try {
       instance.pragma('busy_timeout = 5000');
       instance.pragma('temp_store = MEMORY');
-      instance.pragma('cache_size = -64000');
+      instance.pragma('cache_size = -64000'); // 64 MB
+      instance.pragma('mmap_size = 2147483648'); // 2 GB Zero-Copy Memory-Mapped I/O
+      instance.pragma('threads = 4');
+      instance.pragma('synchronous = NORMAL');
+      instance.pragma('read_uncommitted = 1');
       if (isReadOnly) {
         instance.pragma('query_only = ON');
       }

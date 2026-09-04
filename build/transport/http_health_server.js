@@ -1,17 +1,27 @@
 import http from "http";
+import crypto from "crypto";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { isDbReady, DB_PATH } from "../database.js";
 import { TOOL_DEFINITIONS } from "../tools/definitions.js";
+import { executeToolDirectly } from "../tools/index.js";
 export class RateLimiter {
     requests = new Map();
     maxRequests;
     windowMs;
+    static MAX_TRACKED_IPS = 10000;
     constructor(maxRequests = 120, windowMs = 60000) {
         this.maxRequests = maxRequests;
         this.windowMs = windowMs;
     }
     check(ip) {
         const now = Date.now();
+        // Prevent memory exhaustion attacks via spoofed IP explosion
+        if (this.requests.size >= RateLimiter.MAX_TRACKED_IPS) {
+            this.cleanup();
+            if (this.requests.size >= RateLimiter.MAX_TRACKED_IPS) {
+                this.requests.clear();
+            }
+        }
         let record = this.requests.get(ip);
         if (!record || now > record.resetAt) {
             record = { count: 1, resetAt: now + this.windowMs };
@@ -27,7 +37,7 @@ export class RateLimiter {
     }
     cleanup() {
         const now = Date.now();
-        for (const [ip, record] of Array.from(this.requests.entries())) {
+        for (const [ip, record] of this.requests.entries()) {
             if (now > record.resetAt) {
                 this.requests.delete(ip);
             }
@@ -46,17 +56,25 @@ export class HttpHealthServer {
         if (!requiredToken || !requiredToken.trim()) {
             return true; // No auth token configured = open mode
         }
+        const trimmedRequired = requiredToken.trim();
+        let providedToken = "";
         const authHeader = req.headers["authorization"] || "";
         if (authHeader.startsWith("Bearer ")) {
-            const token = authHeader.slice(7).trim();
-            if (token === requiredToken.trim())
-                return true;
+            providedToken = authHeader.slice(7).trim();
         }
-        const queryToken = urlObj.searchParams.get("token") || urlObj.searchParams.get("auth");
-        if (queryToken && queryToken.trim() === requiredToken.trim()) {
-            return true;
+        else {
+            const queryToken = urlObj.searchParams.get("token") || urlObj.searchParams.get("auth");
+            if (queryToken) {
+                providedToken = queryToken.trim();
+            }
         }
-        return false;
+        if (!providedToken)
+            return false;
+        const bufProvided = Buffer.from(providedToken);
+        const bufRequired = Buffer.from(trimmedRequired);
+        if (bufProvided.length !== bufRequired.length)
+            return false;
+        return crypto.timingSafeEqual(bufProvided, bufRequired);
     }
     createRequestHandler(sessionManager, serverFactory) {
         return async (req, res) => {
@@ -202,28 +220,39 @@ export class HttpHealthServer {
                 sessionManager.register(sessionId, { transport: sseTransport, server: sessionServer, res });
                 console.error(`[TRANSPORT SSE] 🟢 Client connected. Session ID: ${sessionId} (Active: ${sessionManager.size})`);
                 let cleanedUp = false;
+                let disconnectTimer = null;
                 const cleanup = async () => {
                     if (cleanedUp)
                         return;
                     cleanedUp = true;
-                    console.error(`[TRANSPORT SSE] 🔴 Client stream paused. Session ID: ${sessionId}`);
-                    setTimeout(() => {
-                        sessionManager.remove(sessionId);
-                        try {
-                            sseTransport.close();
-                        }
-                        catch (_) { }
-                        try {
-                            sessionServer.close();
-                        }
-                        catch (_) { }
-                    }, 60000);
+                    if (disconnectTimer) {
+                        clearTimeout(disconnectTimer);
+                        disconnectTimer = null;
+                    }
+                    console.error(`[TRANSPORT SSE] 🔴 Client stream terminated. Session ID: ${sessionId}`);
+                    sessionManager.remove(sessionId);
+                    try {
+                        await sseTransport.close();
+                    }
+                    catch (_) { }
+                    try {
+                        await sessionServer.close();
+                    }
+                    catch (_) { }
+                };
+                const onStreamPause = () => {
+                    console.error(`[TRANSPORT SSE] 🟡 Client stream paused/disconnected. Session ID: ${sessionId} (Grace period: 30s)`);
+                    if (!disconnectTimer && !cleanedUp) {
+                        disconnectTimer = setTimeout(() => {
+                            cleanup();
+                        }, 30000);
+                    }
                 };
                 sseTransport.onclose = cleanup;
-                res.on("close", cleanup);
-                res.on("error", cleanup);
-                req.on("close", cleanup);
-                req.on("error", cleanup);
+                res.on("close", onStreamPause);
+                res.on("error", onStreamPause);
+                req.on("close", onStreamPause);
+                req.on("error", onStreamPause);
                 try {
                     await sessionServer.connect(sseTransport);
                 }
@@ -239,10 +268,20 @@ export class HttpHealthServer {
                 urlObj.pathname === "/sse" ||
                 urlObj.pathname === "/mcp") && req.method === "POST";
             if (isMessagePost) {
-                // 1. Buffer incoming payload
+                // 1. Buffer incoming payload with size limit (4MB DoS protection)
+                const MAX_BODY_SIZE_BYTES = 4 * 1024 * 1024;
+                let receivedBytes = 0;
                 const chunks = [];
                 for await (const chunk of req) {
-                    chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
+                    const buf = typeof chunk === "string" ? Buffer.from(chunk) : chunk;
+                    receivedBytes += buf.length;
+                    if (receivedBytes > MAX_BODY_SIZE_BYTES) {
+                        res.writeHead(413, { "Content-Type": "application/json" });
+                        res.end(JSON.stringify({ error: "Payload Too Large", message: "Request body exceeds maximum allowed size (4MB)" }));
+                        req.destroy();
+                        return;
+                    }
+                    chunks.push(buf);
                 }
                 const rawBody = Buffer.concat(chunks).toString("utf-8");
                 let jsonBody = null;
@@ -338,15 +377,49 @@ export class HttpHealthServer {
                         }));
                         return;
                     }
+                    // Direct Tool Call via JSON-RPC
+                    if (method === "tools/call") {
+                        const toolName = jsonBody.params?.name;
+                        const toolArgs = jsonBody.params?.arguments || {};
+                        try {
+                            const toolResult = await executeToolDirectly(toolName, toolArgs);
+                            res.writeHead(200, { "Content-Type": "application/json" });
+                            res.end(JSON.stringify({
+                                jsonrpc: "2.0",
+                                id,
+                                result: toolResult
+                            }));
+                        }
+                        catch (callErr) {
+                            res.writeHead(200, { "Content-Type": "application/json" });
+                            res.end(JSON.stringify({
+                                jsonrpc: "2.0",
+                                id,
+                                error: {
+                                    code: -32603,
+                                    message: callErr?.message || "Tool execution failed"
+                                }
+                            }));
+                        }
+                        return;
+                    }
                 }
-                // 2. Fallback to SSE Session transport
+                // 2. Target SSE Session transport (Strict routing with single-session proxy fallback)
                 const sessionId = urlObj.searchParams.get("sessionId") ||
                     urlObj.searchParams.get("session_id") ||
                     req.headers["x-session-id"] ||
                     req.headers["mcp-session-id"];
-                let targetEntry = sessionId ? sessionManager.get(sessionId) : undefined;
-                if (!targetEntry && sessionManager.size >= 1) {
-                    targetEntry = sessionManager.getFirst();
+                const targetEntry = sessionId
+                    ? sessionManager.get(sessionId)
+                    : (sessionManager.size === 1 ? sessionManager.getFirst() : undefined);
+                if (sessionId && !targetEntry) {
+                    res.writeHead(404, { "Content-Type": "application/json" });
+                    res.end(JSON.stringify({
+                        jsonrpc: "2.0",
+                        id: jsonBody?.id || null,
+                        error: { code: -32001, message: `Session not found: ${sessionId}` }
+                    }));
+                    return;
                 }
                 if (targetEntry) {
                     try {

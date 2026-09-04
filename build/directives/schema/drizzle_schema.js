@@ -1,6 +1,6 @@
 /**
- * 🏛️ Drizzle ORM Schema Definitions for directives.sqlite
+ * 🏛️ Schema Contract Definitions for Directives Database
  *
- * Provides end-to-end typed schema definitions for SQLite Directive tables.
+ * Provides typed schema interfaces for SQLite Directive tables.
  */
 export {};

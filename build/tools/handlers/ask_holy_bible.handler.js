@@ -8,7 +8,7 @@ import { PromptContextComposer } from "./ask_holy_bible/prompt_context_composer.
 export async function handleAskHolyBible(args) {
     const question = String(args?.question || args?.userMessage || "що таке любов");
     const lang = String(args?.language || args?.lang || "auto");
-    const settings = (args?.settings) || {};
+    const settings = args?.settings || {};
     const envModesControl = process.env.MODES_CONTROL || process.env.MCP_MODES_CONTROL;
     const envWarmthControl = process.env.WARMTH_CONTROL || process.env.MCP_WARMTH_CONTROL;
     const modesEnvActive = envModesControl ? !["off", "false", "0", "no"].includes(envModesControl.toLowerCase().trim()) : true;
@@ -76,7 +76,7 @@ export async function handleAskHolyBible(args) {
         verses: selectedVerses
     });
     const accuracyScoreStr = TelemetryCalculator.computeAccuracy(verses.length > 0, tier.tierId, effectiveMode);
-    const isCotAllowed = Boolean(tier.supportsCot && tier.supportsCot !== 0);
+    const isCotAllowed = Boolean(tier.supportsCot);
     const resultObj = {
         contextText: fullContextText,
         complexityScore: complexityScoreObj.score,
@@ -94,6 +94,6 @@ export async function handleAskHolyBible(args) {
         verses: verses.map(v => ({ book: v.book, chapter: v.chapter, verse: v.verse, text: v.text, language: v.language }))
     };
     return {
-        content: [{ type: "text", text: JSON.stringify(resultObj, null, 2) }]
+        content: [{ type: "text", text: JSON.stringify(resultObj) }]
     };
 }

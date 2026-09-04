@@ -6,7 +6,10 @@ export class VerseContextRetriever {
         const verses = [];
         // 1. Fast FTS5 Parallel Queries for all keywords
         for (const kw of keywords) {
-            const matchQuery = `${kw}*`;
+            const cleanKw = kw.replace(/[^\p{L}\p{N}]/gu, ' ').trim();
+            if (!cleanKw)
+                continue;
+            const matchQuery = `"${cleanKw.replace(/"/g, '""')}"*`;
             try {
                 let rows = await queryDb(`SELECT v.book, v.chapter, v.verse, v.text, v.language 
            FROM verses_fts f 
@@ -68,12 +71,14 @@ export class VerseContextRetriever {
             }
             catch { }
         }
-        // 3. Online Fallback if local SQLite returned 0 verses
-        if (verses.length === 0) {
-            for (const kw of keywords) {
-                const onlineResults = await fetchOnlineKeywordSearch(kw, detectedLang, limit);
-                if (onlineResults && onlineResults.length > 0) {
-                    for (const r of onlineResults) {
+        // 3. Online Fallback if local SQLite returned 0 verses (Parallelized Fast-Fail)
+        if (verses.length === 0 && keywords.length > 0) {
+            const targetKeywords = keywords.slice(0, 3);
+            const onlinePromises = targetKeywords.map(kw => fetchOnlineKeywordSearch(kw, detectedLang, limit));
+            const results = await Promise.allSettled(onlinePromises);
+            for (const res of results) {
+                if (res.status === "fulfilled" && Array.isArray(res.value)) {
+                    for (const r of res.value) {
                         if (!verses.some(v => v.book === r.book && v.chapter === r.chapter && v.verse === r.verse)) {
                             verses.push({
                                 book: r.book,

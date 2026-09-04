@@ -12,6 +12,15 @@ const KNOWN_SYNONYMS_FALLBACK = {
     "H7965": { lemma: "שָׁלוֹם", translit: "shalom" }
 };
 export function hydrateDirectivesFromDb(db, targets) {
+    // Ensure fast query indices exist
+    try {
+        db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_commentaries_lookup ON patristic_commentaries(book, chapter, verse);
+      CREATE INDEX IF NOT EXISTS idx_thematic_theme ON thematic_chains(theme, step_number);
+      CREATE INDEX IF NOT EXISTS idx_concepts_coords ON theological_semantic_concepts(book, chapter, verse);
+    `);
+    }
+    catch (_) { }
     const payload = loadDirectivesFromDb(db);
     // 1. Tiers
     for (const r of payload.tierRows) {

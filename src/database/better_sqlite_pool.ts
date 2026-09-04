@@ -35,6 +35,8 @@ export function createBetterDbInstance(dbPath: string): any {
   return SqliteConnectionFactory.createInstance(dbPath).instance;
 }
 
+import { LRUCache } from 'lru-cache';
+
 export class BetterSqlitePool extends SqliteConnectionPool {
   constructor(initialPath: string) {
     super(initialPath);
@@ -43,30 +45,28 @@ export class BetterSqlitePool extends SqliteConnectionPool {
 
 export const sqlitePool = new BetterSqlitePool(canOpenRealDb ? DB_PATH : ':memory:');
 
-const queryCache = new Map<string, { data: any; expiresAt: number }>();
-const MAX_CACHE_SIZE = 5000;
-const DEFAULT_CACHE_TTL_MS = 600000;
+const queryCache = new LRUCache<string, any>({
+  max: 3000,
+  maxSize: 64 * 1024 * 1024, // 64 MB maximum cache footprint
+  sizeCalculation: (value) => {
+    if (Array.isArray(value)) {
+      return value.length * 256;
+    }
+    return 1024;
+  },
+  ttl: 600000 // 10 minutes
+});
 
 export function getFromCache(key: string): any | undefined {
-  const entry = queryCache.get(key);
-  if (!entry) return undefined;
-  if (Date.now() > entry.expiresAt) {
-    queryCache.delete(key);
-    return undefined;
-  }
-  queryCache.delete(key);
-  queryCache.set(key, entry);
-  return entry.data;
+  return queryCache.get(key);
 }
 
 export function saveToCache(key: string, data: any): void {
-  if (queryCache.has(key)) {
-    queryCache.delete(key);
-  } else if (queryCache.size >= MAX_CACHE_SIZE) {
-    const oldestKey = queryCache.keys().next().value;
-    if (oldestKey) queryCache.delete(oldestKey);
+  // Never cache empty arrays (prevents caching temporary lock/busy failures)
+  if (!data || (Array.isArray(data) && data.length === 0)) {
+    return;
   }
-  queryCache.set(key, { data, expiresAt: Date.now() + DEFAULT_CACHE_TTL_MS });
+  queryCache.set(key, data);
 }
 
 export function clearQueryCache(): void {

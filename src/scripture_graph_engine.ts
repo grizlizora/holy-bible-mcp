@@ -4,6 +4,7 @@ import { formatBiblicalDisplayTitle } from "./osis_engine.js";
 import { TheologicalKnowledgeGraph } from "./graph/theological_graphology_engine.js";
 import { ThematicChainTracer, ThematicChainNode } from "./graph/thematic_chain_tracer.js";
 import { ProphecyFulfillmentMatcher, type ProphecyFulfillmentPair } from "./graph/prophecy_fulfillment_matcher.js";
+import { DirectiveStore } from "./directives/directive_store.js";
 
 export type CrossReferenceCategory = 
   | 'messianic_prophecy'
@@ -67,23 +68,32 @@ export class ScriptureGraphEngine {
 
     // 1. In-Memory Graphology traversal O(1)
     const graphNeighbors = this.graphologyEngine.getNeighbors(sourceOsis, category, maxResults);
+    
+    // Batch query scripture text in parallel for all unique neighbors (eliminates N+1 sequential loop)
+    const neighborTexts = new Map<string, string>();
+    await Promise.all(
+      graphNeighbors.map(async (neighbor) => {
+        const parts = neighbor.targetOsis.split(".");
+        if (parts.length >= 3) {
+          const key = `${parts[0]}.${parts[1]}.${parts[2]}`;
+          try {
+            const rows = await queryDb(
+              `SELECT text FROM verses WHERE book = ? AND chapter = ? AND verse = ? LIMIT 1`,
+              [parts[0], Number(parts[1]), Number(parts[2])]
+            );
+            if (rows[0]?.text) {
+              neighborTexts.set(key, rows[0].text);
+            }
+          } catch (_) {}
+        }
+      })
+    );
+
     for (const neighbor of graphNeighbors) {
       if (seenRefs.has(neighbor.targetOsis)) continue;
       seenRefs.add(neighbor.targetOsis);
 
-      let text = `[Scripture text for ${neighbor.targetOsis}]`;
-      try {
-        const parts = neighbor.targetOsis.split(".");
-        if (parts.length >= 3) {
-          const rows = await queryDb(
-            `SELECT text FROM verses WHERE UPPER(book) = ? AND chapter = ? AND verse = ? LIMIT 1`,
-            [parts[0], Number(parts[1]), Number(parts[2])]
-          );
-          if (rows[0]?.text) {
-            text = rows[0].text;
-          }
-        }
-      } catch (_) {}
+      const text = neighborTexts.get(neighbor.targetOsis) || `[Scripture text for ${neighbor.targetOsis}]`;
 
       candidates.push({
         targetOsis: neighbor.targetOsis,
@@ -105,39 +115,39 @@ export class ScriptureGraphEngine {
       }
     }
 
-    // 3. Fallback to SQL Concept Rows if needed
+    // 3. Fallback to DirectiveStore Semantic Concepts (correct repository lookup)
     if (candidates.length < maxResults) {
-      const rows = await queryDb(
-        `SELECT concept_name, book as target_book, chapter as target_chapter, verse as target_verse, theological_principle 
-         FROM semantic_concepts 
-         WHERE (UPPER(book) = ? AND chapter = ? AND verse = ?) 
-            OR (concept_name IN (SELECT concept_name FROM semantic_concepts WHERE UPPER(book) = ? AND chapter = ? AND verse = ?))
-         LIMIT 20`,
-        [osisBook, chapter, verse, osisBook, chapter, verse]
-      );
+      try {
+        const store = DirectiveStore.getInstance();
+        const concepts = store.theologyRepo.getSemanticConcepts(osisBook, maxResults);
+        for (const r of concepts) {
+          if (candidates.length >= maxResults) break;
+          const targetOsis = `${r.book}.${r.chapter}.${r.verse}`;
+          if (targetOsis === sourceOsis || seenRefs.has(targetOsis)) continue;
+          seenRefs.add(targetOsis);
 
-      for (const r of rows) {
-        if (candidates.length >= maxResults) break;
-        const targetOsis = `${r.target_book}.${r.target_chapter}.${r.target_verse}`;
-        if (targetOsis === sourceOsis || seenRefs.has(targetOsis)) continue;
-        seenRefs.add(targetOsis);
+          let text = `[Scripture text for ${targetOsis}]`;
+          try {
+            const targetVerseRows = await queryDb(
+              `SELECT text FROM verses WHERE book = ? AND chapter = ? AND verse = ? LIMIT 1`,
+              [r.book, r.chapter, r.verse]
+            );
+            if (targetVerseRows[0]?.text) {
+              text = targetVerseRows[0].text;
+            }
+          } catch (_) {}
 
-        const targetVerseRows = await queryDb(
-          `SELECT text FROM verses WHERE UPPER(book) = ? AND chapter = ? AND verse = ? LIMIT 1`,
-          [r.target_book, r.target_chapter, r.target_verse]
-        );
-        const text = targetVerseRows[0]?.text || `[Scripture text for ${targetOsis}]`;
-
-        candidates.push({
-          targetOsis,
-          targetDisplayTitle: formatBiblicalDisplayTitle(`${r.target_book} ${r.target_chapter}:${r.target_verse}`, lang),
-          targetText: text,
-          category: 'doctrinal_corroboration',
-          categoryLabel: lang === 'ukr' ? '⚓ Доктринальна єдність' : '⚓ Doctrinal Unity',
-          compositeScore: 0.85,
-          theologicalSignificance: r.theological_principle || `Тематичний зв'язок з темою ${r.concept_name}`
-        });
-      }
+          candidates.push({
+            targetOsis,
+            targetDisplayTitle: formatBiblicalDisplayTitle(`${r.book} ${r.chapter}:${r.verse}`, lang),
+            targetText: text,
+            category: 'doctrinal_corroboration',
+            categoryLabel: lang === 'ukr' ? '⚓ Доктринальна єдність' : '⚓ Doctrinal Unity',
+            compositeScore: 0.85,
+            theologicalSignificance: r.theological_principle || `Тематичний зв'язок з темою ${r.concept_name}`
+          });
+        }
+      } catch (_) {}
     }
 
     // 4. Default guaranteed theological anchor
