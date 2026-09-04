@@ -102,25 +102,31 @@ flowchart TD
 
 ## ✨ Key Technical Features
 
-1. **Complete Protocol Triad**: Full implementation of MCP Tools, Resources (with active subscriptions & `list_changed` / `updated` notifications), and System Prompts.
+1. **Complete Protocol Triad with Modern Tool Annotations**: Full implementation of MCP Tools (with `{ readOnlyHint: true, idempotentHint: true }` annotations), Resources (with active subscriptions & `list_changed` / `updated` notifications), and System Prompts.
 2. **Zero-Latency SQLite Architecture**:
    - High-concurrency **Multi-connection Pool** (`better-sqlite3`) in **WAL Mode**.
-   - Bounded LRU Prepared Statement Cache (300 statements per connection).
+   - **Zero-Copy Memory-Mapped I/O**: `PRAGMA mmap_size = 2147483648` (2 GB) for instant page reads directly from OS memory.
+   - **Multi-threaded Execution**: `PRAGMA threads = 4` and `PRAGMA synchronous = NORMAL`.
+   - **SARGable B-Tree Seek Indexing**: Sub-millisecond verse lookups (<0.5ms) without table scans.
+   - **Bounded 64 MB LRU Query Cache**: `lru-cache` with byte-aware tracking, 2,000 entries max, and 10-minute TTL (eliminates RAM leaks).
    - Dedicated `data/directives.sqlite` database loaded at boot in **<5ms**.
    - Hot-mounting detection: detects newly downloaded databases in **2.5s** with live MCP notification broadcasts.
-3. **Piscina Multithreading Worker Pool**: CPU-intensive operations (multithreaded SHA-256 chunk hashing, integrity inspection, graph analysis) run off the main Event Loop.
+3. **Piscina Multithreading Worker Pool**: CPU-intensive operations (multithreaded SHA-256 chunk hashing, integrity inspection, graph analysis) run on lazy on-demand worker threads (`minThreads: 0`), saving **~80 MB RAM** at idle.
 4. **Scholarly Linguistic Engines**:
    - **Greek Robinson Parser**: Decodes tense, voice, mood, case, number, and gender with dedicated Greek LRU cache.
-   - **Hebrew & Aramaic WLC Parser**: BDB definitions, Strong's Concordance lemmas, and Trench's Synonyms distinctions.
+   - **Hebrew & Aramaic WLC Parser**: BDB definitions, Strong's Concordance canonical lemmas (`CANONICAL_STRONGS_OFFLINE`), and Trench's Synonyms distinctions.
    - **Myers LCS Word Diff Engine**: Token-level alignment comparing translation philosophies (Formal vs Dynamic Equivalence).
 5. **Hybrid Search with RRF**:
    - SQLite FTS5 with BM25 ranking.
-   - Ukrainian morphological stemmer.
+   - Ukrainian morphological stemmer with inverted `O(1)` irregular maps.
    - Reciprocal Rank Fusion (RRF) combining lexical, topical, and theological context.
    - Instant in-memory `MiniSearch` fallback ($<1.5$ ms).
 6. **Enterprise Security & DoS Protection**:
-   - Sliding-window IP Rate Limiter (120 req/min) with `Retry-After` headers.
-   - Bearer Authentication middleware (`MCP_AUTH_TOKEN`).
+   - **4 MB Request Payload Limit**: Strict body buffering on `/messages` and `/sse` with `413 Payload Too Large`.
+   - **Bounded Sliding-Window Rate Limiter**: 120 req/min capped at 10,000 IPs with automatic purge.
+   - **Constant-Time Authentication**: `crypto.timingSafeEqual` prevents timing side-channel attacks on `MCP_AUTH_TOKEN`.
+   - **Path Traversal & SSRF Guards**: `delete-db` and `verify-db` path normalization restricted to `bible_database.sqlite*`; custom mirrors block loopback and private RFC 1918 subnets.
+   - **30-Second Reconnection Grace Period**: Transient SSE disconnects do not kill the session, eliminating premature 404s.
    - Enterprise security headers: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Strict-Transport-Security`.
    - 100% Parameterized SQL queries (zero SQL injection surface).
 7. **Adaptive Context & CoT Budgeting**:
@@ -312,13 +318,24 @@ Add to your extension MCP settings:
 }
 ```
 
-### 6. Remote SSE Mode (Open-WebUI / Ollama / Docker)
-Run the server as a standalone HTTP/SSE service:
+### 6. Remote SSE & Cloud Deployment (Render / Open-WebUI / Ollama / Docker)
+
+#### 🌐 Live Cloud Service (Render)
+Holy Bible MCP 2.0 is deployed and live in the cloud:
+* **Primary URL**: [https://holy-bible-vgaf.onrender.com](https://holy-bible-vgaf.onrender.com)
+* **Remote SSE Endpoint**: `https://holy-bible-vgaf.onrender.com/sse`
+* **Streamable MCP Endpoint**: `https://holy-bible-vgaf.onrender.com/mcp`
+* **Health / Status**: `https://holy-bible-vgaf.onrender.com/health`
+* **Prometheus Metrics**: `https://holy-bible-vgaf.onrender.com/metrics`
+* **Smithery Server Card**: `https://holy-bible-vgaf.onrender.com/server-card.json`
+
+#### 💻 Self-Hosted Remote SSE Service
+Run the server on your own server or Docker container:
 ```bash
 # Start server in remote SSE mode on port 3001
 MCP_TRANSPORT=sse MCP_PORT=3001 MCP_AUTH_TOKEN="your-secure-token" npx @grizlizora/holy-bible-mcp
 ```
-Connect your remote client to `http://localhost:3001/sse` with Authorization header `Bearer your-secure-token`.
+Connect your remote client to `http://localhost:3001/sse` (or your Render URL) with Authorization header `Bearer your-secure-token`.
 
 ---
 
@@ -444,11 +461,14 @@ When responding to worldview, ethical, and life questions, prompts enforce the c
 
 ## 🔒 Enterprise Security & Reliability
 
-- **Sliding-Window IP Rate Limiter**: 120 requests/minute per client IP to prevent DoS.
-- **Bearer Token Authentication**: Secure `/sse` and `/messages` endpoints.
-- **Enterprise HTTP Headers**: HSTS, CSP, X-Frame-Options: DENY, X-Content-Type-Options: nosniff.
+- **4 MB Request Payload Limit**: Strict body buffering on `/messages` and `/sse` with `413 Payload Too Large` to prevent memory-exhaustion DoS attacks.
+- **Bounded Sliding-Window IP Rate Limiter**: 120 requests/minute per client IP, strictly capped at 10,000 tracked IPs with periodic purge to prevent IP-spoofing memory inflation.
+- **Constant-Time Timing-Safe Token Validation**: `crypto.timingSafeEqual` prevents timing side-channel attacks on secret `MCP_AUTH_TOKEN` keys.
+- **Path Traversal & SSRF Defense**: CLI `delete-db` and `verify-db` commands strictly resolve and restrict target paths to `bible_database.sqlite*`. Custom download mirrors enforce HTTPS and block private/loopback IP spaces (`127.0.0.0/8`, `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `169.254.0.0/16`, `::1`).
+- **30-Second Reconnection Grace Period**: Transient SSE disconnects do not instantly destroy client sessions, eliminating `404 Session Not Found` errors during brief network pauses.
+- **Enterprise HTTP Headers**: HSTS (`max-age=31536000`), X-Frame-Options: DENY, X-Content-Type-Options: nosniff, Referrer-Policy: no-referrer, and X-XSS-Protection.
 - **Process Exception Boundaries**: Process-level handlers for `unhandledRejection`, `uncaughtException`, and graceful shutdown on `SIGINT` / `SIGTERM`.
-- **Online Fallback Cascade**: Automatic graceful fallback to online scripture providers if the local 5.88 GB database is downloading or missing.
+- **Online Fallback Cascade**: Automatic graceful fallback to online scripture providers and `CANONICAL_STRONGS_OFFLINE` lexicon if the local 5.88 GB database is downloading or missing.
 
 ---
 
